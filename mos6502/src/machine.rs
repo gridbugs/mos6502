@@ -3,7 +3,7 @@ use crate::{interrupt_vector, Address};
 #[derive(Debug, Clone)]
 pub struct Cpu {
     pub pc: Address,
-    pub accumulator: u8,
+    pub acc: u8,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -11,10 +11,7 @@ pub struct UnknownOpcode(u8);
 
 impl Cpu {
     pub fn new() -> Self {
-        Self {
-            pc: 0,
-            accumulator: 0,
-        }
+        Self { pc: 0, acc: 0 }
     }
     pub fn start<D: MemoryMappedDevices>(&mut self, devices: &mut D) {
         self.pc = devices.read_u16_le(interrupt_vector::START_PC_LO);
@@ -25,7 +22,7 @@ impl Cpu {
         match opcode {
             jmp::absolute::OPCODE => self.pc = devices.read_u16_le(self.pc + 1),
             lda::immediate::OPCODE => {
-                self.accumulator = devices.read_u8(self.pc + 1);
+                self.acc = devices.read_u8(self.pc + 1);
                 self.pc += lda::immediate::NUM_BYTES as u16
             }
             _ => return Err(UnknownOpcode(opcode)),
