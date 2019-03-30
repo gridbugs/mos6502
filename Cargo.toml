@@ -1,0 +1,10 @@
+[workspace]
+
+members = [
+    "nes-emulator",
+    "assembler",
+    "ines",
+    "mos6502",
+    "nes",
+    "nes-samples",
+]
