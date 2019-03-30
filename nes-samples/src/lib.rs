@@ -9,7 +9,6 @@ pub mod single_block {
     pub use mos6502::*;
     pub use nes::*;
     use std::io::{self, Write};
-    pub use AddressOperand::*;
 
     use ines::*;
 

@@ -20,20 +20,22 @@ pub struct Block {
     labels: HashMap<String, Address>,
 }
 
-pub enum AddressOperand {
-    LabelOffset(&'static str),
-    LiteralOffset(Address),
-}
-
 pub trait ArgOperand {
     type Operand: Operand;
     fn program(self, block: &mut Block);
 }
 
-impl ArgOperand for AddressOperand {
+impl ArgOperand for &'static str {
     type Operand = operand::Address;
     fn program(self, block: &mut Block) {
-        block.address_operand(self);
+        block.label_offset_le(self);
+    }
+}
+
+impl ArgOperand for Address {
+    type Operand = operand::Address;
+    fn program(self, block: &mut Block) {
+        block.literal_offset_le(self);
     }
 }
 
@@ -86,16 +88,6 @@ impl Block {
     pub fn label<S: AsRef<str>>(&mut self, s: S) {
         let string = s.as_ref().to_string();
         self.labels.insert(string, self.cursor_offset);
-    }
-    pub fn address_operand(&mut self, operand: AddressOperand) {
-        match operand {
-            AddressOperand::LabelOffset(label) => {
-                self.label_offset_le(label);
-            }
-            AddressOperand::LiteralOffset(offset) => {
-                self.literal_offset_le(offset);
-            }
-        }
     }
     pub fn inst<I: Instruction, A: ArgOperand<Operand = I::Operand>>(&mut self, inst: I, arg: A) {
         self.literal_byte(inst.opcode());
