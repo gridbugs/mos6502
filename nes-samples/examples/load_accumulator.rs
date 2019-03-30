@@ -1,10 +1,12 @@
-/// Loop forever, keeping the program counter at 0xc000
+/// Load the value 0x42 into the accumulator, then loop forever
 use nes_samples::single_block::*;
 
 pub fn main() {
     with_block(|b: &mut Block| {
         b.label("start");
-        b.inst(jmp::absolute::I, LabelOffset("start"));
+        b.inst(lda::immediate::I, 0x42);
+        b.label("loop");
+        b.inst(jmp::absolute::I, LabelOffset("loop"));
         b.set_offset(INTERRUPT_VECTOR_START_PC_OFFSET);
         b.label_offset_le("start");
     });

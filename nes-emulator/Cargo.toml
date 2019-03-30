@@ -6,3 +6,5 @@ edition = "2018"
 
 [dependencies]
 simon = "0.2"
+mos6502 = { path = "../mos6502" }
+ines = { path = "../ines" }
