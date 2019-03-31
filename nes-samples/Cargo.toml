@@ -15,3 +15,18 @@ name = "infinite_loop"
 
 [[example]]
 name = "load_accumulator_immediate"
+
+[[example]]
+name = "store_accumulator"
+
+[[example]]
+name = "stack_basic"
+
+[[example]]
+name = "stack_status_register"
+
+[[example]]
+name = "jump_indirect"
+
+[[example]]
+name = "load_and_store_all_addressing_modes"

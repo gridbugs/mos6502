@@ -63,6 +63,11 @@ impl ArgOperand for i32 {
     }
 }
 
+impl ArgOperand for () {
+    type Operand = operand::None;
+    fn program(self, _block: &mut Block) {}
+}
+
 #[derive(Debug, Clone)]
 pub enum Error {
     OffsetOutOfBounds,

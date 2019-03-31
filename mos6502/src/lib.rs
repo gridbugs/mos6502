@@ -18,6 +18,6 @@ pub mod address {
 
 pub mod interrupt_vector {
     use super::*;
-    pub const START_PC_LO: Address = 0xfffc;
-    pub const START_PC_HI: Address = 0xfffd;
+    pub const START_PC_LO: Address = 0xFFFC;
+    pub const START_PC_HI: Address = 0xFFFD;
 }

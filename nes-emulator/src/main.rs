@@ -65,6 +65,8 @@ impl Nes {
     }
 }
 
+const N_STEPS: usize = 100;
+
 fn main() {
     let args = Args::arg().with_help_default().parse_env_default_or_exit();
     let buffer = match args.rom_filename {
@@ -87,7 +89,9 @@ fn main() {
         }
     };
     let Ines {
-        prg_rom, chr_rom, ..
+        prg_rom,
+        chr_rom: _,
+        ..
     } = Ines::parse(&buffer);
     let mut nes = Nes {
         cpu: Cpu::new(),
@@ -97,14 +101,13 @@ fn main() {
         },
     };
     nes.start();
-    nes.step();
-    nes.step();
-    nes.step();
-    nes.step();
+    for _ in 0..N_STEPS {
+        nes.step();
+    }
     let stdout = io::stdout();
     let mut handle = stdout.lock();
     let _ = writeln!(handle, "CPU");
-    let _ = writeln!(handle, "{:x?}", nes.cpu);
+    let _ = writeln!(handle, "{:X?}", nes.cpu);
     let _ = writeln!(handle, "\nROM");
     debug::print_bytes_hex(&prg_rom, 0xc000, 16);
     let _ = writeln!(handle, "\nRAM");
