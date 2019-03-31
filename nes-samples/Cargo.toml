@@ -14,4 +14,4 @@ ines = { path = "../ines" }
 name = "infinite_loop"
 
 [[example]]
-name = "load_accumulator"
+name = "load_accumulator_immediate"

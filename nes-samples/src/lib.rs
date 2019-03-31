@@ -6,6 +6,7 @@ extern crate nes;
 pub mod single_block {
     pub use addressing_mode::*;
     pub use assembler::*;
+    pub use assembler_instruction::*;
     pub use mos6502::*;
     pub use nes::*;
     use std::io::{self, Write};

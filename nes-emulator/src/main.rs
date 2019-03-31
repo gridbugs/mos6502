@@ -4,7 +4,7 @@ extern crate ines;
 extern crate mos6502;
 
 use std::fs::File;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 
 mod debug;
 use ines::*;
@@ -27,19 +27,27 @@ impl Args {
     }
 }
 
+const RAM_BYTES: usize = 0x800;
+
 struct NesDevices {
+    ram: [u8; RAM_BYTES],
     rom: Vec<u8>,
 }
 
-impl MemoryMappedDevices for NesDevices {
+impl Memory for NesDevices {
     fn read_u8(&mut self, address: Address) -> u8 {
         match address {
-            0..=0x7fff => unimplemented!(),
-            _ => self.rom[(address as usize - 0x8000) % 0x4000],
+            0..=0x2000 => self.ram[address as usize % RAM_BYTES],
+            0x2000..=0x7fff => unimplemented!(),
+            0x8000..=0xffff => self.rom[(address as usize - 0x8000) % 0x4000],
         }
     }
-    fn write_u8(&mut self, address: Address, _data: u8) {
-        unimplemented!()
+    fn write_u8(&mut self, address: Address, data: u8) {
+        match address {
+            0..=0x2000 => self.ram[address as usize % RAM_BYTES] = data,
+            0x2000..=0x7fff => unimplemented!(),
+            0x8000..=0xffff => unimplemented!(),
+        }
     }
 }
 
@@ -84,6 +92,7 @@ fn main() {
     let mut nes = Nes {
         cpu: Cpu::new(),
         devices: NesDevices {
+            ram: [0; RAM_BYTES],
             rom: prg_rom.clone(),
         },
     };
@@ -92,6 +101,12 @@ fn main() {
     nes.step();
     nes.step();
     nes.step();
-    println!("{:x?}", nes.cpu);
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    let _ = writeln!(handle, "CPU");
+    let _ = writeln!(handle, "{:x?}", nes.cpu);
+    let _ = writeln!(handle, "\nROM");
     debug::print_bytes_hex(&prg_rom, 0xc000, 16);
+    let _ = writeln!(handle, "\nRAM");
+    debug::print_bytes_hex(&nes.devices.ram, 0, 16);
 }

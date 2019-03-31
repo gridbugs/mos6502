@@ -21,7 +21,7 @@ pub struct Block {
 }
 
 pub trait ArgOperand {
-    type Operand: operand::Operand;
+    type Operand: operand::Trait;
     fn program(self, block: &mut Block);
 }
 
@@ -109,8 +109,8 @@ impl Block {
         }
     }
     pub fn inst<
-        I: Instruction,
-        A: ArgOperand<Operand = <I::AddressingMode as addressing_mode::AddressingMode>::Operand>,
+        I: AssemblerInstruction,
+        A: ArgOperand<Operand = <I::AddressingMode as addressing_mode::Trait>::Operand>,
     >(
         &mut self,
         instruction: I,
