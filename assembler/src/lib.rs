@@ -21,7 +21,7 @@ pub struct Block {
 }
 
 pub trait ArgOperand {
-    type Operand: Operand;
+    type Operand: operand::Operand;
     fn program(self, block: &mut Block);
 }
 
@@ -87,10 +87,20 @@ impl Block {
     }
     pub fn label<S: AsRef<str>>(&mut self, s: S) {
         let string = s.as_ref().to_string();
-        self.labels.insert(string, self.cursor_offset);
+        if self.labels.insert(string, self.cursor_offset).is_some() {
+            panic!("Multiple definitions of label {}", s.as_ref());
+        }
     }
-    pub fn inst<I: Instruction, A: ArgOperand<Operand = I::Operand>>(&mut self, inst: I, arg: A) {
-        self.literal_byte(inst.opcode());
+    pub fn inst<
+        I: Instruction,
+        A: ArgOperand<Operand = <I::AddressingMode as addressing_mode::AddressingMode>::Operand>,
+    >(
+        &mut self,
+        instruction: I,
+        arg: A,
+    ) {
+        let _ = instruction;
+        self.literal_byte(I::opcode());
         arg.program(self);
     }
     pub fn assemble(&self, base: Address, size: usize, buffer: &mut Vec<u8>) -> Result<(), Error> {

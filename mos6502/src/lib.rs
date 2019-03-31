@@ -1,25 +1,10 @@
-pub mod instruction;
+mod instruction;
 mod machine;
 
+pub use instruction::*;
 pub use machine::*;
 
 pub type Address = u16;
-pub trait Operand {}
-
-pub mod operand {
-    use super::*;
-    pub enum Address {}
-    impl Operand for Address {}
-    pub enum Byte {}
-    impl Operand for Byte {}
-}
-
-pub trait Instruction {
-    type Operand: Operand;
-    fn num_bytes(&self) -> usize;
-    fn opcode(&self) -> u8;
-    fn num_cycles(&self) -> usize;
-}
 
 pub mod address {
     use super::*;

@@ -1,4 +1,4 @@
-use crate::{interrupt_vector, Address};
+use crate::Address;
 
 #[derive(Debug, Clone)]
 pub struct Cpu {
@@ -14,17 +14,15 @@ impl Cpu {
         Self { pc: 0, acc: 0 }
     }
     pub fn start<D: MemoryMappedDevices>(&mut self, devices: &mut D) {
-        self.pc = devices.read_u16_le(interrupt_vector::START_PC_LO);
+        self.pc = devices.read_u16_le(crate::interrupt_vector::START_PC_LO);
     }
     pub fn step<D: MemoryMappedDevices>(&mut self, devices: &mut D) -> Result<(), UnknownOpcode> {
         let opcode = devices.read_u8(self.pc);
-        use crate::instruction::*;
+        use crate::instruction::{addressing_mode::*, *};
         match opcode {
-            jmp::absolute::OPCODE => self.pc = devices.read_u16_le(self.pc + 1),
-            lda::immediate::OPCODE => {
-                self.acc = devices.read_u8(self.pc + 1);
-                self.pc += lda::immediate::NUM_BYTES as u16
-            }
+            opcode::jmp::ABSOLUTE => <Jmp<Absolute> as Instruction>::interpret(self, devices),
+            opcode::jmp::INDIRECT => <Jmp<Indirect> as Instruction>::interpret(self, devices),
+            opcode::lda::IMMEDIATE => <Lda<Immediate> as Instruction>::interpret(self, devices),
             _ => return Err(UnknownOpcode(opcode)),
         }
         Ok(())
