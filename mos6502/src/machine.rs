@@ -47,6 +47,8 @@ impl Cpu {
         match opcode {
             opcode::jmp::ABSOLUTE => jmp::interpret(Absolute, self, memory),
             opcode::jmp::INDIRECT => jmp::interpret(Indirect, self, memory),
+            opcode::ldx::IMMEDIATE => ldx::interpret(Immediate, self, memory),
+            opcode::ldy::IMMEDIATE => ldy::interpret(Immediate, self, memory),
             opcode::lda::IMMEDIATE => lda::interpret(Immediate, self, memory),
             opcode::lda::ZERO_PAGE => lda::interpret(ZeroPage, self, memory),
             opcode::lda::ZERO_PAGE_X_INDEXED => lda::interpret(ZeroPageXIndexed, self, memory),

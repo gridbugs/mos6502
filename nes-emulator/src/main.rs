@@ -45,8 +45,8 @@ impl Memory for NesDevices {
     fn write_u8(&mut self, address: Address, data: u8) {
         match address {
             0..=0x2000 => self.ram[address as usize % RAM_BYTES] = data,
-            0x2000..=0x7fff => unimplemented!(),
-            0x8000..=0xffff => unimplemented!(),
+            0x2000..=0x7fff => panic!("unimplemented write {:x} to {:x}", data, address),
+            0x8000..=0xffff => panic!("unimplemented write {:x} to {:x}", data, address),
         }
     }
 }

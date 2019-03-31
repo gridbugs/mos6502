@@ -7,6 +7,9 @@ enum Data {
     LiteralByte(u8),
     LabelOffsetLe(String),
     LiteralOffsetLe(Address),
+    LiteralAddressLe(Address),
+    LabelOffsetLo(String),
+    LabelOffsetHi(String),
 }
 
 struct DataAtOffset {
@@ -35,7 +38,7 @@ impl ArgOperand for &'static str {
 impl ArgOperand for Address {
     type Operand = operand::Address;
     fn program(self, block: &mut Block) {
-        block.literal_offset_le(self);
+        block.literal_address_le(self);
     }
 }
 
@@ -66,6 +69,23 @@ impl ArgOperand for i32 {
 impl ArgOperand for () {
     type Operand = operand::None;
     fn program(self, _block: &mut Block) {}
+}
+
+pub struct LabelOffsetLo(pub &'static str);
+pub struct LabelOffsetHi(pub &'static str);
+
+impl ArgOperand for LabelOffsetLo {
+    type Operand = operand::Byte;
+    fn program(self, block: &mut Block) {
+        block.label_offset_lo(self.0);
+    }
+}
+
+impl ArgOperand for LabelOffsetHi {
+    type Operand = operand::Byte;
+    fn program(self, block: &mut Block) {
+        block.label_offset_hi(self.0);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -99,6 +119,13 @@ impl Block {
         });
         self.cursor_offset += 2;
     }
+    pub fn literal_address_le(&mut self, offset: Address) {
+        self.program.push(DataAtOffset {
+            data: Data::LiteralAddressLe(offset),
+            offset: self.cursor_offset,
+        });
+        self.cursor_offset += 2;
+    }
     pub fn label_offset_le<S: AsRef<str>>(&mut self, label: S) {
         let string = label.as_ref().to_string();
         self.program.push(DataAtOffset {
@@ -106,6 +133,22 @@ impl Block {
             offset: self.cursor_offset,
         });
         self.cursor_offset += 2;
+    }
+    pub fn label_offset_lo<S: AsRef<str>>(&mut self, label: S) {
+        let string = label.as_ref().to_string();
+        self.program.push(DataAtOffset {
+            data: Data::LabelOffsetLo(string),
+            offset: self.cursor_offset,
+        });
+        self.cursor_offset += 1;
+    }
+    pub fn label_offset_hi<S: AsRef<str>>(&mut self, label: S) {
+        let string = label.as_ref().to_string();
+        self.program.push(DataAtOffset {
+            data: Data::LabelOffsetHi(string),
+            offset: self.cursor_offset,
+        });
+        self.cursor_offset += 1;
     }
     pub fn label<S: AsRef<str>>(&mut self, s: S) {
         let string = s.as_ref().to_string();
@@ -154,6 +197,32 @@ impl Block {
                     let address = literal_offset + base;
                     buffer[offset as usize] = address::lo(address);
                     buffer[offset as usize + 1] = address::hi(address);
+                }
+                &Data::LiteralAddressLe(address) => {
+                    buffer[offset as usize] = address::lo(address);
+                    buffer[offset as usize + 1] = address::hi(address);
+                }
+                Data::LabelOffsetLo(label) => {
+                    if let Some(&label_offset) = self.labels.get(label) {
+                        if offset as usize + 1 >= size {
+                            return Err(Error::OffsetOutOfBounds);
+                        }
+                        let address = label_offset + base;
+                        buffer[offset as usize] = address::lo(address);
+                    } else {
+                        return Err(Error::UndeclaredLabel(label.clone()));
+                    }
+                }
+                Data::LabelOffsetHi(label) => {
+                    if let Some(&label_offset) = self.labels.get(label) {
+                        if offset as usize + 1 >= size {
+                            return Err(Error::OffsetOutOfBounds);
+                        }
+                        let address = label_offset + base;
+                        buffer[offset as usize] = address::hi(address);
+                    } else {
+                        return Err(Error::UndeclaredLabel(label.clone()));
+                    }
                 }
             }
         }

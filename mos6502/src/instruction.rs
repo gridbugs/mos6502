@@ -208,7 +208,7 @@ pub mod addressing_mode {
     impl IndirectYIndexed {
         fn address<M: Memory>(cpu: &Cpu, memory: &mut M) -> Address {
             let base_address = memory.read_u8(cpu.pc.wrapping_add(1)) as Address;
-            memory.read_u16_le(base_address + cpu.x as Address)
+            memory.read_u16_le(base_address) + cpu.y as Address
         }
     }
     impl ReadData for IndirectYIndexed {
@@ -244,6 +244,12 @@ pub mod opcode {
         pub const ABSOLUTE_Y_INDEXED: u8 = 0xB9;
         pub const X_INDEXED_INDIRECT: u8 = 0xA1;
         pub const INDIRECT_Y_INDEXED: u8 = 0xB1;
+    }
+    pub mod ldx {
+        pub const IMMEDIATE: u8 = 0xA2;
+    }
+    pub mod ldy {
+        pub const IMMEDIATE: u8 = 0xA0;
     }
     pub mod sta {
         pub const ZERO_PAGE: u8 = 0x85;
@@ -381,6 +387,45 @@ pub mod instruction {
             cpu.status.set_negative_from_value(cpu.acc);
         }
     }
+    pub mod ldx {
+        use super::*;
+        use opcode::ldx::*;
+        pub trait AddressingMode: ReadData {}
+        impl AddressingMode for Immediate {}
+        pub struct Inst<A: AddressingMode>(pub A);
+        impl AssemblerInstruction for Inst<Immediate> {
+            type AddressingMode = Immediate;
+            fn opcode() -> u8 {
+                IMMEDIATE
+            }
+        }
+        pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+            cpu.x = A::read_data(cpu, memory);
+            cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+            cpu.status.set_zero_from_value(cpu.x);
+            cpu.status.set_negative_from_value(cpu.x);
+        }
+    }
+    pub mod ldy {
+        use super::*;
+        use opcode::ldy::*;
+        pub trait AddressingMode: ReadData {}
+        impl AddressingMode for Immediate {}
+        pub struct Inst<A: AddressingMode>(pub A);
+        impl AssemblerInstruction for Inst<Immediate> {
+            type AddressingMode = Immediate;
+            fn opcode() -> u8 {
+                IMMEDIATE
+            }
+        }
+        pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+            cpu.y = A::read_data(cpu, memory);
+            cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+            cpu.status.set_zero_from_value(cpu.y);
+            cpu.status.set_negative_from_value(cpu.y);
+        }
+    }
+
     pub mod sta {
         use super::*;
         use opcode::sta::*;
@@ -601,6 +646,8 @@ pub mod assembler_instruction {
     pub use cli::Inst as Cli;
     pub use jmp::Inst as Jmp;
     pub use lda::Inst as Lda;
+    pub use ldx::Inst as Ldx;
+    pub use ldy::Inst as Ldy;
     pub use pha::Inst as Pha;
     pub use php::Inst as Php;
     pub use pla::Inst as Pla;
