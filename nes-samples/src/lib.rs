@@ -36,8 +36,10 @@ pub mod single_block {
     }
 
     pub fn with_block<F: FnOnce(&mut Block)>(f: F) {
-        let mut a = Block::new();
-        f(&mut a);
-        assemble_ines_file_to_stdout(&a);
+        let mut b = Block::new();
+        f(&mut b);
+        b.set_offset(INTERRUPT_VECTOR_START_PC_OFFSET);
+        b.literal_offset_le(0);
+        assemble_ines_file_to_stdout(&b);
     }
 }

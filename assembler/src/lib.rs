@@ -46,6 +46,23 @@ impl ArgOperand for u8 {
     }
 }
 
+impl ArgOperand for i8 {
+    type Operand = operand::Byte;
+    fn program(self, block: &mut Block) {
+        block.literal_byte(self as u8);
+    }
+}
+
+// Inside 6502 "assembly" programs, rust infers int literals to
+// be i32 rather than u8. This treats i32 as u8 to prevent the
+// need for explicit type coersion in assembly programs.
+impl ArgOperand for i32 {
+    type Operand = operand::Byte;
+    fn program(self, block: &mut Block) {
+        block.literal_byte((self as i8) as u8);
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Error {
     OffsetOutOfBounds,

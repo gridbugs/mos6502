@@ -8,7 +8,5 @@ pub fn main() {
     with_block(|b: &mut Block| {
         b.label("start");
         b.inst(Jmp(Absolute), "start");
-        b.set_offset(INTERRUPT_VECTOR_START_PC_OFFSET);
-        b.label_offset_le("start");
     });
 }
