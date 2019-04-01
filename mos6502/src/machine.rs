@@ -12,7 +12,7 @@ pub struct Cpu {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct UnknownOpcode(u8);
+pub struct UnknownOpcode(pub u8);
 
 impl Cpu {
     pub fn new() -> Self {

@@ -61,7 +61,23 @@ impl Nes {
         self.cpu.start(&mut self.devices);
     }
     fn step(&mut self) {
-        self.cpu.step(&mut self.devices).unwrap();
+        match self.cpu.step(&mut self.devices) {
+            Ok(()) => (),
+            Err(UnknownOpcode(opcode)) => {
+                self.print_state();
+                panic!("Unknown opcode: {:x}", opcode);
+            }
+        }
+    }
+    fn print_state(&self) {
+        let stdout = io::stdout();
+        let mut handle = stdout.lock();
+        let _ = writeln!(handle, "CPU");
+        let _ = writeln!(handle, "{:X?}", self.cpu);
+        let _ = writeln!(handle, "\nROM");
+        debug::print_bytes_hex(&self.devices.rom, 0xC000, 16);
+        let _ = writeln!(handle, "\nRAM");
+        debug::print_bytes_hex(&self.devices.ram, 0, 16);
     }
 }
 
@@ -104,12 +120,5 @@ fn main() {
     for _ in 0..N_STEPS {
         nes.step();
     }
-    let stdout = io::stdout();
-    let mut handle = stdout.lock();
-    let _ = writeln!(handle, "CPU");
-    let _ = writeln!(handle, "{:X?}", nes.cpu);
-    let _ = writeln!(handle, "\nROM");
-    debug::print_bytes_hex(&prg_rom, 0xc000, 16);
-    let _ = writeln!(handle, "\nRAM");
-    debug::print_bytes_hex(&nes.devices.ram, 0, 16);
+    nes.print_state();
 }
