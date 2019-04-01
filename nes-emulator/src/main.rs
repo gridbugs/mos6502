@@ -37,16 +37,16 @@ struct NesDevices {
 impl Memory for NesDevices {
     fn read_u8(&mut self, address: Address) -> u8 {
         match address {
-            0..=0x1fff => self.ram[address as usize % RAM_BYTES],
-            0x2000..=0x7fff => unimplemented!(),
-            0x8000..=0xffff => self.rom[(address as usize - 0x8000) % 0x4000],
+            0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
+            0x2000..=0x7FFF => panic!("unimplemented read from {:x}", address),
+            0x8000..=0xFFFF => self.rom[(address as usize - 0x8000) % 0x4000],
         }
     }
     fn write_u8(&mut self, address: Address, data: u8) {
         match address {
-            0..=0x1fff => self.ram[address as usize % RAM_BYTES] = data,
-            0x2000..=0x7fff => panic!("unimplemented write {:x} to {:x}", data, address),
-            0x8000..=0xffff => panic!("unimplemented write {:x} to {:x}", data, address),
+            0..=0x1FFF => self.ram[address as usize % RAM_BYTES] = data,
+            0x2000..=0x7FFF => panic!("unimplemented write {:x} to {:x}", data, address),
+            0x8000..=0xFFFF => panic!("unimplemented write {:x} to {:x}", data, address),
         }
     }
 }
