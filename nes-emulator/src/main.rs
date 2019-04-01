@@ -3,12 +3,11 @@ extern crate simon;
 extern crate ines;
 extern crate mos6502;
 
+use ines::*;
+use mos6502::debug::*;
+use mos6502::*;
 use std::fs::File;
 use std::io::{self, Read, Write};
-
-mod debug;
-use ines::*;
-use mos6502::*;
 
 #[derive(Debug)]
 struct Args {
@@ -51,6 +50,16 @@ impl Memory for NesDevices {
     }
 }
 
+impl debug::MemoryDebug for NesDevices {
+    fn read_u8_debug(&self, address: Address) -> u8 {
+        match address {
+            0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
+            0x2000..=0x7FFF => panic!("unimplemented read from {:x}", address),
+            0x8000..=0xFFFF => self.rom[(address as usize - 0x8000) % 0x4000],
+        }
+    }
+}
+
 struct Nes {
     cpu: Cpu,
     devices: NesDevices,
@@ -61,6 +70,9 @@ impl Nes {
         self.cpu.start(&mut self.devices);
     }
     fn step(&mut self) {
+        let instruction_with_operand =
+            InstructionWithOperand::next(&self.cpu, &self.devices).unwrap();
+        println!("{}", instruction_with_operand);
         match self.cpu.step(&mut self.devices) {
             Ok(()) => (),
             Err(UnknownOpcode(opcode)) => {
@@ -75,9 +87,9 @@ impl Nes {
         let _ = writeln!(handle, "CPU");
         let _ = writeln!(handle, "{:X?}", self.cpu);
         let _ = writeln!(handle, "\nROM");
-        debug::print_bytes_hex(&self.devices.rom, 0xC000, 16);
+        print_bytes_hex(&self.devices.rom, 0xC000, 16);
         let _ = writeln!(handle, "\nRAM");
-        debug::print_bytes_hex(&self.devices.ram, 0, 16);
+        print_bytes_hex(&self.devices.ram, 0, 16);
     }
 }
 
@@ -120,5 +132,17 @@ fn main() {
     for _ in 0..N_STEPS {
         nes.step();
     }
-    nes.print_state();
+    //    nes.print_state();
+}
+
+pub fn print_bytes_hex(data: &[u8], address_offset: u16, line_width: usize) {
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    for (i, chunk) in data.chunks(line_width).enumerate() {
+        let _ = write!(handle, "{:04X}: ", address_offset as usize + i * line_width);
+        for x in chunk {
+            let _ = write!(handle, "{:02X}  ", x);
+        }
+        let _ = writeln!(handle, "");
+    }
 }

@@ -11,8 +11,14 @@ pub struct Cpu {
     pub status: StatusRegister,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct UnknownOpcode(pub u8);
+
+impl fmt::Debug for UnknownOpcode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "UnknownOpcode({:02X})", self.0)
+    }
+}
 
 impl Cpu {
     pub fn new() -> Self {
@@ -45,35 +51,35 @@ impl Cpu {
         let opcode = memory.read_u8(self.pc);
         use crate::instruction::{addressing_mode::*, instruction::*, opcode};
         match opcode {
+            opcode::clc::IMPLIED => clc::interpret(self),
+            opcode::cld::IMPLIED => cld::interpret(self),
+            opcode::cli::IMPLIED => cli::interpret(self),
             opcode::jmp::ABSOLUTE => jmp::interpret(Absolute, self, memory),
             opcode::jmp::INDIRECT => jmp::interpret(Indirect, self, memory),
-            opcode::ldx::IMMEDIATE => ldx::interpret(Immediate, self, memory),
-            opcode::ldy::IMMEDIATE => ldy::interpret(Immediate, self, memory),
-            opcode::lda::IMMEDIATE => lda::interpret(Immediate, self, memory),
-            opcode::lda::ZERO_PAGE => lda::interpret(ZeroPage, self, memory),
-            opcode::lda::ZERO_PAGE_X_INDEXED => lda::interpret(ZeroPageXIndexed, self, memory),
             opcode::lda::ABSOLUTE => lda::interpret(Absolute, self, memory),
             opcode::lda::ABSOLUTE_X_INDEXED => lda::interpret(AbsoluteXIndexed, self, memory),
             opcode::lda::ABSOLUTE_Y_INDEXED => lda::interpret(AbsoluteYIndexed, self, memory),
-            opcode::lda::X_INDEXED_INDIRECT => lda::interpret(XIndexedIndirect, self, memory),
+            opcode::lda::IMMEDIATE => lda::interpret(Immediate, self, memory),
             opcode::lda::INDIRECT_Y_INDEXED => lda::interpret(IndirectYIndexed, self, memory),
-            opcode::sta::ZERO_PAGE => sta::interpret(ZeroPage, self, memory),
-            opcode::sta::ZERO_PAGE_X_INDEXED => sta::interpret(ZeroPageXIndexed, self, memory),
+            opcode::lda::X_INDEXED_INDIRECT => lda::interpret(XIndexedIndirect, self, memory),
+            opcode::lda::ZERO_PAGE => lda::interpret(ZeroPage, self, memory),
+            opcode::lda::ZERO_PAGE_X_INDEXED => lda::interpret(ZeroPageXIndexed, self, memory),
+            opcode::ldx::IMMEDIATE => ldx::interpret(Immediate, self, memory),
+            opcode::ldy::IMMEDIATE => ldy::interpret(Immediate, self, memory),
+            opcode::pha::IMPLIED => pha::interpret(self, memory),
+            opcode::php::IMPLIED => php::interpret(self, memory),
+            opcode::pla::IMPLIED => pla::interpret(self, memory),
+            opcode::plp::IMPLIED => plp::interpret(self, memory),
+            opcode::sec::IMPLIED => sec::interpret(self),
+            opcode::sed::IMPLIED => sed::interpret(self),
+            opcode::sei::IMPLIED => sei::interpret(self),
             opcode::sta::ABSOLUTE => sta::interpret(Absolute, self, memory),
             opcode::sta::ABSOLUTE_X_INDEXED => sta::interpret(AbsoluteXIndexed, self, memory),
             opcode::sta::ABSOLUTE_Y_INDEXED => sta::interpret(AbsoluteYIndexed, self, memory),
-            opcode::sta::X_INDEXED_INDIRECT => sta::interpret(XIndexedIndirect, self, memory),
             opcode::sta::INDIRECT_Y_INDEXED => sta::interpret(IndirectYIndexed, self, memory),
-            opcode::php::IMPLIED => php::interpret(self, memory),
-            opcode::plp::IMPLIED => plp::interpret(self, memory),
-            opcode::sec::IMPLIED => sec::interpret(self),
-            opcode::clc::IMPLIED => clc::interpret(self),
-            opcode::sed::IMPLIED => sed::interpret(self),
-            opcode::cld::IMPLIED => cld::interpret(self),
-            opcode::sei::IMPLIED => sei::interpret(self),
-            opcode::cli::IMPLIED => cli::interpret(self),
-            opcode::pha::IMPLIED => pha::interpret(self, memory),
-            opcode::pla::IMPLIED => pla::interpret(self, memory),
+            opcode::sta::X_INDEXED_INDIRECT => sta::interpret(XIndexedIndirect, self, memory),
+            opcode::sta::ZERO_PAGE => sta::interpret(ZeroPage, self, memory),
+            opcode::sta::ZERO_PAGE_X_INDEXED => sta::interpret(ZeroPageXIndexed, self, memory),
             _ => return Err(UnknownOpcode(opcode)),
         }
         Ok(())
