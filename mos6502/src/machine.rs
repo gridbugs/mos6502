@@ -51,6 +51,27 @@ impl Cpu {
         let opcode = memory.read_u8(self.pc);
         use crate::instruction::{addressing_mode::*, instruction::*, opcode};
         match opcode {
+            opcode::adc::ABSOLUTE => adc::interpret(Absolute, self, memory),
+            opcode::adc::ABSOLUTE_X_INDEXED => adc::interpret(AbsoluteXIndexed, self, memory),
+            opcode::adc::ABSOLUTE_Y_INDEXED => adc::interpret(AbsoluteYIndexed, self, memory),
+            opcode::adc::IMMEDIATE => adc::interpret(Immediate, self, memory),
+            opcode::adc::INDIRECT_Y_INDEXED => adc::interpret(IndirectYIndexed, self, memory),
+            opcode::adc::X_INDEXED_INDIRECT => adc::interpret(XIndexedIndirect, self, memory),
+            opcode::adc::ZERO_PAGE => adc::interpret(ZeroPage, self, memory),
+            opcode::adc::ZERO_PAGE_X_INDEXED => adc::interpret(ZeroPageXIndexed, self, memory),
+            opcode::and::ABSOLUTE => and::interpret(Absolute, self, memory),
+            opcode::and::ABSOLUTE_X_INDEXED => and::interpret(AbsoluteXIndexed, self, memory),
+            opcode::and::ABSOLUTE_Y_INDEXED => and::interpret(AbsoluteYIndexed, self, memory),
+            opcode::and::IMMEDIATE => and::interpret(Immediate, self, memory),
+            opcode::and::INDIRECT_Y_INDEXED => and::interpret(IndirectYIndexed, self, memory),
+            opcode::and::X_INDEXED_INDIRECT => and::interpret(XIndexedIndirect, self, memory),
+            opcode::and::ZERO_PAGE => and::interpret(ZeroPage, self, memory),
+            opcode::and::ZERO_PAGE_X_INDEXED => and::interpret(ZeroPageXIndexed, self, memory),
+            opcode::asl::ABSOLUTE => asl::interpret(Absolute, self, memory),
+            opcode::asl::ABSOLUTE_X_INDEXED => asl::interpret(AbsoluteXIndexed, self, memory),
+            opcode::asl::ACCUMULATOR => asl::interpret_acc(self),
+            opcode::asl::ZERO_PAGE => asl::interpret(ZeroPage, self, memory),
+            opcode::asl::ZERO_PAGE_X_INDEXED => asl::interpret(ZeroPageXIndexed, self, memory),
             opcode::clc::IMPLIED => clc::interpret(self),
             opcode::cld::IMPLIED => cld::interpret(self),
             opcode::cli::IMPLIED => cli::interpret(self),
@@ -64,8 +85,24 @@ impl Cpu {
             opcode::lda::X_INDEXED_INDIRECT => lda::interpret(XIndexedIndirect, self, memory),
             opcode::lda::ZERO_PAGE => lda::interpret(ZeroPage, self, memory),
             opcode::lda::ZERO_PAGE_X_INDEXED => lda::interpret(ZeroPageXIndexed, self, memory),
+            opcode::ldx::ABSOLUTE => ldx::interpret(Absolute, self, memory),
+            opcode::ldx::ABSOLUTE_Y_INDEXED => ldx::interpret(AbsoluteYIndexed, self, memory),
             opcode::ldx::IMMEDIATE => ldx::interpret(Immediate, self, memory),
+            opcode::ldx::ZERO_PAGE => ldx::interpret(ZeroPage, self, memory),
+            opcode::ldx::ZERO_PAGE_Y_INDEXED => ldx::interpret(ZeroPageYIndexed, self, memory),
+            opcode::ldy::ABSOLUTE => ldy::interpret(Absolute, self, memory),
+            opcode::ldy::ABSOLUTE_X_INDEXED => ldy::interpret(AbsoluteXIndexed, self, memory),
             opcode::ldy::IMMEDIATE => ldy::interpret(Immediate, self, memory),
+            opcode::ldy::ZERO_PAGE => ldy::interpret(ZeroPage, self, memory),
+            opcode::ldy::ZERO_PAGE_X_INDEXED => ldy::interpret(ZeroPageXIndexed, self, memory),
+            opcode::ora::ABSOLUTE => ora::interpret(Absolute, self, memory),
+            opcode::ora::ABSOLUTE_X_INDEXED => ora::interpret(AbsoluteXIndexed, self, memory),
+            opcode::ora::ABSOLUTE_Y_INDEXED => ora::interpret(AbsoluteYIndexed, self, memory),
+            opcode::ora::IMMEDIATE => ora::interpret(Immediate, self, memory),
+            opcode::ora::INDIRECT_Y_INDEXED => ora::interpret(IndirectYIndexed, self, memory),
+            opcode::ora::X_INDEXED_INDIRECT => ora::interpret(XIndexedIndirect, self, memory),
+            opcode::ora::ZERO_PAGE => ora::interpret(ZeroPage, self, memory),
+            opcode::ora::ZERO_PAGE_X_INDEXED => ora::interpret(ZeroPageXIndexed, self, memory),
             opcode::pha::IMPLIED => pha::interpret(self, memory),
             opcode::php::IMPLIED => php::interpret(self, memory),
             opcode::pla::IMPLIED => pla::interpret(self, memory),
@@ -80,6 +117,12 @@ impl Cpu {
             opcode::sta::X_INDEXED_INDIRECT => sta::interpret(XIndexedIndirect, self, memory),
             opcode::sta::ZERO_PAGE => sta::interpret(ZeroPage, self, memory),
             opcode::sta::ZERO_PAGE_X_INDEXED => sta::interpret(ZeroPageXIndexed, self, memory),
+            opcode::tax::IMPLIED => tax::interpret(self),
+            opcode::tay::IMPLIED => tay::interpret(self),
+            opcode::tsx::IMPLIED => tsx::interpret(self),
+            opcode::txa::IMPLIED => txa::interpret(self),
+            opcode::txs::IMPLIED => txs::interpret(self),
+            opcode::tya::IMPLIED => tya::interpret(self),
             _ => return Err(UnknownOpcode(opcode)),
         }
         Ok(())
@@ -101,14 +144,16 @@ pub struct StatusRegister {
     pub raw: u8,
 }
 
-const STATUS_CARRY: u8 = 1 << 0;
+const STATUS_CARRY_BIT: u8 = 0;
+const STATUS_CARRY: u8 = 1 << STATUS_CARRY_BIT;
 const STATUS_ZERO_BIT: u8 = 1;
 const STATUS_ZERO: u8 = 1 << STATUS_ZERO_BIT;
 const STATUS_INTERRUPT_DISABLE: u8 = 1 << 2;
 const STATUS_DECIMAL: u8 = 1 << 3;
 const STATUS_BRK: u8 = 1 << 4;
 const STATUS_EXPANSION: u8 = 1 << 5;
-const STATUS_OVERFLOW: u8 = 1 << 6;
+const STATUS_OVERFLOW_BIT: u8 = 6;
+const STATUS_OVERFLOW: u8 = 1 << STATUS_OVERFLOW_BIT;
 const STATUS_NEGATIVE: u8 = 1 << 7;
 
 impl StatusRegister {
@@ -123,11 +168,18 @@ impl StatusRegister {
     pub fn clear_carry(&mut self) {
         self.raw &= !STATUS_CARRY;
     }
+    pub fn set_carry_to(&mut self, value: bool) {
+        self.raw = ((value as u8) << STATUS_CARRY_BIT) | (self.raw & !STATUS_CARRY);
+    }
     pub fn is_carry(&self) -> bool {
         self.raw & STATUS_CARRY != 0
     }
+    pub fn carry_value(&self) -> u8 {
+        (self.raw & STATUS_CARRY) >> STATUS_CARRY_BIT
+    }
     pub fn set_decimal(&mut self) {
         self.raw |= STATUS_DECIMAL;
+        panic!("arithmetic operation emulation does not respect the decimal flag");
     }
     pub fn clear_decimal(&mut self) {
         self.raw &= !STATUS_DECIMAL;
@@ -164,6 +216,9 @@ impl StatusRegister {
     }
     pub fn is_overflow(&self) -> bool {
         self.raw & STATUS_OVERFLOW != 0
+    }
+    pub fn set_overflow_to(&mut self, value: bool) {
+        self.raw = ((value as u8) << STATUS_OVERFLOW_BIT) | (self.raw & !STATUS_OVERFLOW);
     }
     pub fn set_negative(&mut self) {
         self.raw |= STATUS_NEGATIVE;

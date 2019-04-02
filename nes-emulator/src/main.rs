@@ -9,6 +9,9 @@ use mos6502::*;
 use std::fs::File;
 use std::io::{self, Read, Write};
 
+mod ppu;
+use ppu::Ppu;
+
 #[derive(Debug)]
 struct Args {
     rom_filename: Option<String>,
@@ -31,20 +34,43 @@ const RAM_BYTES: usize = 0x800;
 struct NesDevices {
     ram: [u8; RAM_BYTES],
     rom: Vec<u8>,
+    ppu: Ppu,
 }
 
 impl Memory for NesDevices {
     fn read_u8(&mut self, address: Address) -> u8 {
         match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
-            0x2000..=0x7FFF => panic!("unimplemented read from {:x}", address),
+            0x2000..=0x3FFF => match address % 8 {
+                0 => 0,
+                1 => 0,
+                2 => self.ppu.read_status(),
+                3 => 0,
+                4 => self.ppu.read_oam_data(),
+                5 => 0,
+                6 => 0,
+                7 => self.ppu.read_data(),
+                _ => unreachable!(),
+            },
+            0x4000..=0x7FFF => panic!("unimplemented read from {:x}", address),
             0x8000..=0xFFFF => self.rom[(address as usize - 0x8000) % 0x4000],
         }
     }
     fn write_u8(&mut self, address: Address, data: u8) {
         match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES] = data,
-            0x2000..=0x7FFF => panic!("unimplemented write {:x} to {:x}", data, address),
+            0x2000..=0x3FFF => match address % 8 {
+                0 => self.ppu.write_control(data),
+                1 => self.ppu.write_mask(data),
+                2 => (),
+                3 => self.ppu.write_oam_address(data),
+                4 => self.ppu.write_oam_data(data),
+                5 => self.ppu.write_scroll(data),
+                6 => self.ppu.write_address(data),
+                7 => self.ppu.write_data(data),
+                _ => unreachable!(),
+            },
+            0x4000..=0x7FFF => panic!("unimplemented write {:x} to {:x}", data, address),
             0x8000..=0xFFFF => panic!("unimplemented write {:x} to {:x}", data, address),
         }
     }
@@ -53,8 +79,7 @@ impl Memory for NesDevices {
 impl debug::MemoryDebug for NesDevices {
     fn read_u8_debug(&self, address: Address) -> u8 {
         match address {
-            0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
-            0x2000..=0x7FFF => panic!("unimplemented read from {:x}", address),
+            0..=0x7FFF => panic!("unimplemented read from {:x}", address),
             0x8000..=0xFFFF => self.rom[(address as usize - 0x8000) % 0x4000],
         }
     }
@@ -126,6 +151,7 @@ fn main() {
         devices: NesDevices {
             ram: [0; RAM_BYTES],
             rom: prg_rom.clone(),
+            ppu: Ppu::new(),
         },
     };
     nes.start();
