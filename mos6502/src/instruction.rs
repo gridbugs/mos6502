@@ -176,6 +176,16 @@ pub mod addressing_mode {
         }
     }
 
+    pub struct Relative;
+    impl Trait for Relative {
+        type Operand = operand::Byte;
+    }
+    impl Relative {
+        pub fn read_offset<M: Memory>(cpu: &Cpu, memory: &mut M) -> i8 {
+            memory.read_u8(cpu.pc.wrapping_add(1)) as i8
+        }
+    }
+
     pub struct XIndexedIndirect;
     impl Trait for XIndexedIndirect {
         type Operand = operand::Byte;
@@ -288,6 +298,30 @@ pub mod opcode {
         pub const ZERO_PAGE: u8 = 0x06;
         pub const ZERO_PAGE_X_INDEXED: u8 = 0x16;
     }
+    pub mod bcc {
+        pub const RELATIVE: u8 = 0x90;
+    }
+    pub mod bcs {
+        pub const RELATIVE: u8 = 0xB0;
+    }
+    pub mod beq {
+        pub const RELATIVE: u8 = 0xF0;
+    }
+    pub mod bmi {
+        pub const RELATIVE: u8 = 0x30;
+    }
+    pub mod bne {
+        pub const RELATIVE: u8 = 0xD0;
+    }
+    pub mod bpl {
+        pub const RELATIVE: u8 = 0x10;
+    }
+    pub mod bvc {
+        pub const RELATIVE: u8 = 0x50;
+    }
+    pub mod bvs {
+        pub const RELATIVE: u8 = 0x70;
+    }
     pub mod bit {
         pub const ZERO_PAGE: u8 = 0x24;
         pub const ABSOLUTE: u8 = 0x2C;
@@ -313,6 +347,40 @@ pub mod opcode {
         pub const X_INDEXED_INDIRECT: u8 = 0xC1;
         pub const ZERO_PAGE: u8 = 0xC5;
         pub const ZERO_PAGE_X_INDEXED: u8 = 0xD5;
+    }
+    pub mod dec {
+        pub const ABSOLUTE: u8 = 0xCE;
+        pub const ABSOLUTE_X_INDEXED: u8 = 0xDE;
+        pub const ZERO_PAGE: u8 = 0xC6;
+        pub const ZERO_PAGE_X_INDEXED: u8 = 0xD6;
+    }
+    pub mod dex {
+        pub const IMPLIED: u8 = 0xCA;
+    }
+    pub mod dey {
+        pub const IMPLIED: u8 = 0x88;
+    }
+    pub mod eor {
+        pub const ABSOLUTE: u8 = 0x4D;
+        pub const ABSOLUTE_X_INDEXED: u8 = 0x5D;
+        pub const ABSOLUTE_Y_INDEXED: u8 = 0x59;
+        pub const IMMEDIATE: u8 = 0x49;
+        pub const INDIRECT_Y_INDEXED: u8 = 0x51;
+        pub const X_INDEXED_INDIRECT: u8 = 0x41;
+        pub const ZERO_PAGE: u8 = 0x45;
+        pub const ZERO_PAGE_X_INDEXED: u8 = 0x55;
+    }
+    pub mod inc {
+        pub const ABSOLUTE: u8 = 0xEE;
+        pub const ABSOLUTE_X_INDEXED: u8 = 0xFE;
+        pub const ZERO_PAGE: u8 = 0xE6;
+        pub const ZERO_PAGE_X_INDEXED: u8 = 0xF6;
+    }
+    pub mod inx {
+        pub const IMPLIED: u8 = 0xE8;
+    }
+    pub mod iny {
+        pub const IMPLIED: u8 = 0xC8;
     }
     pub mod jmp {
         pub const ABSOLUTE: u8 = 0x4C;
@@ -643,6 +711,150 @@ pub mod instruction {
             cpu.pc = cpu.pc.wrapping_add(Accumulator::instruction_bytes());
         }
     }
+    pub mod bcc {
+        use super::*;
+        use opcode::bcc::*;
+        pub struct Inst;
+        impl AssemblerInstruction for Inst {
+            type AddressingMode = Relative;
+            fn opcode() -> u8 {
+                RELATIVE
+            }
+        }
+        pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+            cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
+            if !cpu.status.is_carry() {
+                let offset = Relative::read_offset(cpu, memory);
+                cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            }
+        }
+    }
+    pub mod bcs {
+        use super::*;
+        use opcode::bcs::*;
+        pub struct Inst;
+        impl AssemblerInstruction for Inst {
+            type AddressingMode = Relative;
+            fn opcode() -> u8 {
+                RELATIVE
+            }
+        }
+        pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+            cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
+            if cpu.status.is_carry() {
+                let offset = Relative::read_offset(cpu, memory);
+                cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            }
+        }
+    }
+    pub mod beq {
+        use super::*;
+        use opcode::beq::*;
+        pub struct Inst;
+        impl AssemblerInstruction for Inst {
+            type AddressingMode = Relative;
+            fn opcode() -> u8 {
+                RELATIVE
+            }
+        }
+        pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+            cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
+            if cpu.status.is_zero() {
+                let offset = Relative::read_offset(cpu, memory);
+                cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            }
+        }
+    }
+    pub mod bmi {
+        use super::*;
+        use opcode::bmi::*;
+        pub struct Inst;
+        impl AssemblerInstruction for Inst {
+            type AddressingMode = Relative;
+            fn opcode() -> u8 {
+                RELATIVE
+            }
+        }
+        pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+            cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
+            if cpu.status.is_negative() {
+                let offset = Relative::read_offset(cpu, memory);
+                cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            }
+        }
+    }
+    pub mod bne {
+        use super::*;
+        use opcode::bne::*;
+        pub struct Inst;
+        impl AssemblerInstruction for Inst {
+            type AddressingMode = Relative;
+            fn opcode() -> u8 {
+                RELATIVE
+            }
+        }
+        pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+            cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
+            if !cpu.status.is_zero() {
+                let offset = Relative::read_offset(cpu, memory);
+                cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            }
+        }
+    }
+    pub mod bpl {
+        use super::*;
+        use opcode::bpl::*;
+        pub struct Inst;
+        impl AssemblerInstruction for Inst {
+            type AddressingMode = Relative;
+            fn opcode() -> u8 {
+                RELATIVE
+            }
+        }
+        pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+            cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
+            if !cpu.status.is_negative() {
+                let offset = Relative::read_offset(cpu, memory);
+                cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            }
+        }
+    }
+    pub mod bvc {
+        use super::*;
+        use opcode::bvc::*;
+        pub struct Inst;
+        impl AssemblerInstruction for Inst {
+            type AddressingMode = Relative;
+            fn opcode() -> u8 {
+                RELATIVE
+            }
+        }
+        pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+            cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
+            if !cpu.status.is_overflow() {
+                let offset = Relative::read_offset(cpu, memory);
+                cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            }
+        }
+    }
+    pub mod bvs {
+        use super::*;
+        use opcode::bvs::*;
+        pub struct Inst;
+        impl AssemblerInstruction for Inst {
+            type AddressingMode = Relative;
+            fn opcode() -> u8 {
+                RELATIVE
+            }
+        }
+        pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+            cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
+            if cpu.status.is_overflow() {
+                let offset = Relative::read_offset(cpu, memory);
+                cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            }
+        }
+    }
     pub mod bit {
         use super::*;
         use opcode::bit::*;
@@ -799,6 +1011,225 @@ pub mod instruction {
             cpu.status.set_negative_from_value(diff);
             cpu.status.set_carry_to(!borrow);
             cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        }
+    }
+    pub mod dec {
+        use super::*;
+        use opcode::dec::*;
+        pub trait AddressingMode: ReadData + WriteData {}
+        impl AddressingMode for Absolute {}
+        impl AddressingMode for AbsoluteXIndexed {}
+        impl AddressingMode for ZeroPage {}
+        impl AddressingMode for ZeroPageXIndexed {}
+        pub struct Inst<A: AddressingMode>(pub A);
+        impl AssemblerInstruction for Inst<Absolute> {
+            type AddressingMode = Absolute;
+            fn opcode() -> u8 {
+                ABSOLUTE
+            }
+        }
+        impl AssemblerInstruction for Inst<AbsoluteXIndexed> {
+            type AddressingMode = AbsoluteXIndexed;
+            fn opcode() -> u8 {
+                ABSOLUTE_X_INDEXED
+            }
+        }
+        impl AssemblerInstruction for Inst<ZeroPage> {
+            type AddressingMode = ZeroPage;
+            fn opcode() -> u8 {
+                ZERO_PAGE
+            }
+        }
+        impl AssemblerInstruction for Inst<ZeroPageXIndexed> {
+            type AddressingMode = ZeroPageXIndexed;
+            fn opcode() -> u8 {
+                ZERO_PAGE_X_INDEXED
+            }
+        }
+        pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+            let data = A::read_data(cpu, memory).wrapping_sub(1);
+            A::write_data(cpu, memory, data);
+            cpu.status.set_negative_from_value(data);
+            cpu.status.set_zero_from_value(data);
+            cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        }
+    }
+    pub mod dex {
+        use super::*;
+        use opcode::dex::*;
+        pub struct Inst;
+        impl AssemblerInstruction for Inst {
+            type AddressingMode = Implied;
+            fn opcode() -> u8 {
+                IMPLIED
+            }
+        }
+        pub fn interpret(cpu: &mut Cpu) {
+            cpu.x = cpu.x.wrapping_sub(1);
+            cpu.status.set_negative_from_value(cpu.x);
+            cpu.status.set_zero_from_value(cpu.x);
+            cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        }
+    }
+    pub mod dey {
+        use super::*;
+        use opcode::dey::*;
+        pub struct Inst;
+        impl AssemblerInstruction for Inst {
+            type AddressingMode = Implied;
+            fn opcode() -> u8 {
+                IMPLIED
+            }
+        }
+        pub fn interpret(cpu: &mut Cpu) {
+            cpu.y = cpu.y.wrapping_sub(1);
+            cpu.status.set_negative_from_value(cpu.y);
+            cpu.status.set_zero_from_value(cpu.y);
+            cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        }
+    }
+    pub mod eor {
+        use super::*;
+        use opcode::eor::*;
+        pub trait AddressingMode: ReadData {}
+        impl AddressingMode for Absolute {}
+        impl AddressingMode for AbsoluteXIndexed {}
+        impl AddressingMode for AbsoluteYIndexed {}
+        impl AddressingMode for Immediate {}
+        impl AddressingMode for IndirectYIndexed {}
+        impl AddressingMode for XIndexedIndirect {}
+        impl AddressingMode for ZeroPage {}
+        impl AddressingMode for ZeroPageXIndexed {}
+        pub struct Inst<A: AddressingMode>(pub A);
+        impl AssemblerInstruction for Inst<Absolute> {
+            type AddressingMode = Absolute;
+            fn opcode() -> u8 {
+                ABSOLUTE
+            }
+        }
+        impl AssemblerInstruction for Inst<AbsoluteXIndexed> {
+            type AddressingMode = AbsoluteXIndexed;
+            fn opcode() -> u8 {
+                ABSOLUTE_X_INDEXED
+            }
+        }
+        impl AssemblerInstruction for Inst<AbsoluteYIndexed> {
+            type AddressingMode = AbsoluteYIndexed;
+            fn opcode() -> u8 {
+                ABSOLUTE_Y_INDEXED
+            }
+        }
+        impl AssemblerInstruction for Inst<Immediate> {
+            type AddressingMode = Immediate;
+            fn opcode() -> u8 {
+                IMMEDIATE
+            }
+        }
+        impl AssemblerInstruction for Inst<IndirectYIndexed> {
+            type AddressingMode = IndirectYIndexed;
+            fn opcode() -> u8 {
+                INDIRECT_Y_INDEXED
+            }
+        }
+        impl AssemblerInstruction for Inst<XIndexedIndirect> {
+            type AddressingMode = XIndexedIndirect;
+            fn opcode() -> u8 {
+                X_INDEXED_INDIRECT
+            }
+        }
+        impl AssemblerInstruction for Inst<ZeroPage> {
+            type AddressingMode = ZeroPage;
+            fn opcode() -> u8 {
+                ZERO_PAGE
+            }
+        }
+        impl AssemblerInstruction for Inst<ZeroPageXIndexed> {
+            type AddressingMode = ZeroPageXIndexed;
+            fn opcode() -> u8 {
+                ZERO_PAGE_X_INDEXED
+            }
+        }
+        pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+            let value = A::read_data(cpu, memory);
+            cpu.acc ^= value;
+            cpu.status.set_zero_from_value(cpu.acc);
+            cpu.status.set_negative_from_value(cpu.acc);
+            cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        }
+    }
+    pub mod inc {
+        use super::*;
+        use opcode::inc::*;
+        pub trait AddressingMode: ReadData + WriteData {}
+        impl AddressingMode for Absolute {}
+        impl AddressingMode for AbsoluteXIndexed {}
+        impl AddressingMode for ZeroPage {}
+        impl AddressingMode for ZeroPageXIndexed {}
+        pub struct Inst<A: AddressingMode>(pub A);
+        impl AssemblerInstruction for Inst<Absolute> {
+            type AddressingMode = Absolute;
+            fn opcode() -> u8 {
+                ABSOLUTE
+            }
+        }
+        impl AssemblerInstruction for Inst<AbsoluteXIndexed> {
+            type AddressingMode = AbsoluteXIndexed;
+            fn opcode() -> u8 {
+                ABSOLUTE_X_INDEXED
+            }
+        }
+        impl AssemblerInstruction for Inst<ZeroPage> {
+            type AddressingMode = ZeroPage;
+            fn opcode() -> u8 {
+                ZERO_PAGE
+            }
+        }
+        impl AssemblerInstruction for Inst<ZeroPageXIndexed> {
+            type AddressingMode = ZeroPageXIndexed;
+            fn opcode() -> u8 {
+                ZERO_PAGE_X_INDEXED
+            }
+        }
+        pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+            let data = A::read_data(cpu, memory).wrapping_add(1);
+            A::write_data(cpu, memory, data);
+            cpu.status.set_negative_from_value(data);
+            cpu.status.set_zero_from_value(data);
+            cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        }
+    }
+    pub mod inx {
+        use super::*;
+        use opcode::inx::*;
+        pub struct Inst;
+        impl AssemblerInstruction for Inst {
+            type AddressingMode = Implied;
+            fn opcode() -> u8 {
+                IMPLIED
+            }
+        }
+        pub fn interpret(cpu: &mut Cpu) {
+            cpu.x = cpu.x.wrapping_add(1);
+            cpu.status.set_negative_from_value(cpu.x);
+            cpu.status.set_zero_from_value(cpu.x);
+            cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        }
+    }
+    pub mod iny {
+        use super::*;
+        use opcode::dey::*;
+        pub struct Inst;
+        impl AssemblerInstruction for Inst {
+            type AddressingMode = Implied;
+            fn opcode() -> u8 {
+                IMPLIED
+            }
+        }
+        pub fn interpret(cpu: &mut Cpu) {
+            cpu.y = cpu.y.wrapping_add(1);
+            cpu.status.set_negative_from_value(cpu.y);
+            cpu.status.set_zero_from_value(cpu.y);
+            cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
         }
     }
     pub mod jmp {
@@ -1523,12 +1954,27 @@ pub mod assembler_instruction {
     pub use adc::Inst as Adc;
     pub use and::Inst as And;
     pub use asl::Inst as Asl;
+    pub use bcc::Inst as Bcc;
+    pub use bcs::Inst as Bcs;
+    pub use beq::Inst as Beq;
     pub use bit::Inst as Bit;
+    pub use bmi::Inst as Bmi;
+    pub use bne::Inst as Bne;
+    pub use bpl::Inst as Bpl;
+    pub use bvc::Inst as Bvc;
+    pub use bvs::Inst as Bvs;
     pub use clc::Inst as Clc;
     pub use cld::Inst as Cld;
     pub use cli::Inst as Cli;
     pub use clv::Inst as Clv;
     pub use cmp::Inst as Cmp;
+    pub use dec::Inst as Dec;
+    pub use dex::Inst as Dex;
+    pub use dey::Inst as Dey;
+    pub use eor::Inst as Eor;
+    pub use inc::Inst as Inc;
+    pub use inx::Inst as Inx;
+    pub use iny::Inst as Iny;
     pub use jmp::Inst as Jmp;
     pub use lda::Inst as Lda;
     pub use ldx::Inst as Ldx;
@@ -1563,12 +2009,27 @@ pub mod debug {
         Adc,
         And,
         Asl,
+        Bcc,
+        Bcs,
+        Beq,
+        Bmi,
+        Bne,
+        Bpl,
+        Bvc,
+        Bvs,
         Bit,
         Clc,
         Cld,
         Cli,
         Clv,
         Cmp,
+        Dec,
+        Dex,
+        Dey,
+        Eor,
+        Inc,
+        Inx,
+        Iny,
         Jmp,
         Lda,
         Ldx,
@@ -1602,6 +2063,7 @@ pub mod debug {
         Immediate,
         Indirect,
         IndirectYIndexed,
+        Relative,
         XIndexedIndirect,
         ZeroPage,
         ZeroPageXIndexed,
@@ -1619,6 +2081,7 @@ pub mod debug {
                 Immediate => 1,
                 Indirect => 2,
                 IndirectYIndexed => 1,
+                Relative => 1,
                 XIndexedIndirect => 1,
                 ZeroPage => 1,
                 ZeroPageXIndexed => 1,
@@ -1665,6 +2128,14 @@ pub mod debug {
                 opcode::asl::ACCUMULATOR => (Asl, Accumulator),
                 opcode::asl::ZERO_PAGE => (Asl, ZeroPage),
                 opcode::asl::ZERO_PAGE_X_INDEXED => (Asl, ZeroPageXIndexed),
+                opcode::bcc::RELATIVE => (Bcc, Relative),
+                opcode::bcs::RELATIVE => (Bcs, Relative),
+                opcode::beq::RELATIVE => (Beq, Relative),
+                opcode::bmi::RELATIVE => (Bmi, Relative),
+                opcode::bne::RELATIVE => (Bne, Relative),
+                opcode::bpl::RELATIVE => (Bpl, Relative),
+                opcode::bvc::RELATIVE => (Bvc, Relative),
+                opcode::bvs::RELATIVE => (Bvs, Relative),
                 opcode::bit::ABSOLUTE => (Bit, Absolute),
                 opcode::bit::ZERO_PAGE => (Bit, ZeroPage),
                 opcode::clc::IMPLIED => (Clc, Implied),
@@ -1679,6 +2150,26 @@ pub mod debug {
                 opcode::cmp::X_INDEXED_INDIRECT => (Cmp, XIndexedIndirect),
                 opcode::cmp::ZERO_PAGE => (Cmp, ZeroPage),
                 opcode::cmp::ZERO_PAGE_X_INDEXED => (Cmp, ZeroPageXIndexed),
+                opcode::dec::ABSOLUTE => (Dec, Absolute),
+                opcode::dec::ABSOLUTE_X_INDEXED => (Dec, AbsoluteXIndexed),
+                opcode::dec::ZERO_PAGE => (Dec, ZeroPage),
+                opcode::dec::ZERO_PAGE_X_INDEXED => (Dec, ZeroPageXIndexed),
+                opcode::dex::IMPLIED => (Dex, Implied),
+                opcode::dey::IMPLIED => (Dey, Implied),
+                opcode::eor::ABSOLUTE => (Eor, Absolute),
+                opcode::eor::ABSOLUTE_X_INDEXED => (Eor, AbsoluteXIndexed),
+                opcode::eor::ABSOLUTE_Y_INDEXED => (Eor, AbsoluteYIndexed),
+                opcode::eor::IMMEDIATE => (Eor, Immediate),
+                opcode::eor::INDIRECT_Y_INDEXED => (Eor, IndirectYIndexed),
+                opcode::eor::X_INDEXED_INDIRECT => (Eor, XIndexedIndirect),
+                opcode::eor::ZERO_PAGE => (Eor, ZeroPage),
+                opcode::eor::ZERO_PAGE_X_INDEXED => (Eor, ZeroPageXIndexed),
+                opcode::inc::ABSOLUTE => (Inc, Absolute),
+                opcode::inc::ABSOLUTE_X_INDEXED => (Inc, AbsoluteXIndexed),
+                opcode::inc::ZERO_PAGE => (Inc, ZeroPage),
+                opcode::inc::ZERO_PAGE_X_INDEXED => (Inc, ZeroPageXIndexed),
+                opcode::inx::IMPLIED => (Inx, Implied),
+                opcode::iny::IMPLIED => (Iny, Implied),
                 opcode::jmp::ABSOLUTE => (Jmp, Absolute),
                 opcode::jmp::INDIRECT => (Jmp, Indirect),
                 opcode::lda::ABSOLUTE => (Lda, Absolute),
