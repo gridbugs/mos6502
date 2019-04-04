@@ -1,5 +1,5 @@
-use crate::machine::{MemoryReadOnly, UnknownOpcode};
-use crate::{Address, Cpu};
+use crate::machine::{Cpu, MemoryReadOnly};
+use crate::{Address, UnknownOpcode};
 use std::fmt;
 
 #[derive(Debug, Clone, Copy)]

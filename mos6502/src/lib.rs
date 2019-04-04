@@ -1,17 +1,26 @@
 pub mod addressing_mode;
 pub mod assembler_instruction;
 pub mod debug;
-mod instruction;
-mod machine;
+pub mod instruction;
+pub mod machine;
 pub mod opcode;
 pub mod operand;
 
 pub use addressing_mode::Trait as AddressingMode;
 pub use assembler_instruction::Trait as AssemblerInstruction;
-pub use instruction::*;
-pub use machine::*;
+
+use std::fmt;
 
 pub type Address = u16;
+
+#[derive(Clone, Copy)]
+pub struct UnknownOpcode(pub u8);
+
+impl fmt::Debug for UnknownOpcode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "UnknownOpcode({:02X})", self.0)
+    }
+}
 
 pub mod address {
     use super::*;

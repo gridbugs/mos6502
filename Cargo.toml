@@ -7,4 +7,5 @@ members = [
     "mos6502",
     "nes",
     "nes-samples",
+    "samples",
 ]

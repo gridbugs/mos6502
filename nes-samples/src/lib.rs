@@ -2,6 +2,7 @@ extern crate assembler;
 extern crate ines;
 extern crate mos6502;
 extern crate nes;
+extern crate samples;
 
 pub mod single_block {
     pub use addressing_mode::*;
@@ -9,6 +10,7 @@ pub mod single_block {
     pub use assembler_instruction::*;
     pub use mos6502::*;
     pub use nes::*;
+    pub use samples::*;
     use std::io::{self, Write};
 
     use ines::*;
@@ -42,5 +44,9 @@ pub mod single_block {
         b.set_offset(INTERRUPT_VECTOR_START_PC_OFFSET);
         b.literal_offset_le(0);
         assemble_ines_file_to_stdout(&b);
+    }
+
+    pub fn with_sample<S: Sample>(_: S) {
+        with_block(|b| S::program(b));
     }
 }

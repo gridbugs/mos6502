@@ -1,7 +1,7 @@
 use crate::addressing_mode::*;
 use crate::instruction::*;
-use crate::opcode;
-use crate::Address;
+pub use crate::Address;
+use crate::{opcode, UnknownOpcode};
 use std::fmt;
 
 #[derive(Debug, Clone)]
@@ -12,15 +12,6 @@ pub struct Cpu {
     pub x: u8,
     pub y: u8,
     pub status: StatusRegister,
-}
-
-#[derive(Clone, Copy)]
-pub struct UnknownOpcode(pub u8);
-
-impl fmt::Debug for UnknownOpcode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "UnknownOpcode({:02X})", self.0)
-    }
 }
 
 impl Cpu {

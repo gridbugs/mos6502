@@ -5,6 +5,7 @@ extern crate mos6502;
 
 use ines::*;
 use mos6502::debug::*;
+use mos6502::machine::*;
 use mos6502::*;
 use std::fs::File;
 use std::io::{self, Read, Write};
