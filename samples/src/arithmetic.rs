@@ -56,7 +56,6 @@ impl Sample for Arithmetic {
         b.inst(Lda(Immediate), 5);
         b.inst(Adc(Immediate), -3);
         store_result(b, offset);
-        offset += 2;
 
         b.label("loop");
         b.inst(Jmp(Absolute), "loop");

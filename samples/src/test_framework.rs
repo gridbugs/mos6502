@@ -40,7 +40,9 @@ pub fn test_sample<S: Sample>(_: S) {
     block.set_offset(INTERRUPT_VECTOR_START_PC_OFFSET);
     block.literal_offset_le(0);
     let mut rom = Vec::new();
-    block.assemble(PRG_START, ROM_BYTES, &mut rom);
+    block
+        .assemble(PRG_START, ROM_BYTES, &mut rom)
+        .expect("Failed to assemble");
     let mut devices = Devices {
         ram: [0; RAM_BYTES],
         rom,

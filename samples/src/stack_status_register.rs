@@ -37,7 +37,7 @@ impl Sample for StackStatusRegister {
     fn num_steps() -> usize {
         14
     }
-    fn check_result<M: MemoryReadOnly>(cpu: &Cpu, m: &M) {
+    fn check_result<M: MemoryReadOnly>(_cpu: &Cpu, m: &M) {
         assert_eq!(m.read_u8_read_only(0x01FF), 0x20);
         assert_eq!(m.read_u8_read_only(0x01FE), 0x24);
         assert_eq!(m.read_u8_read_only(0x01FD), 0x25);
