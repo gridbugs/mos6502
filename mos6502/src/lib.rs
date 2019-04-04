@@ -1,6 +1,13 @@
+pub mod addressing_mode;
+pub mod assembler_instruction;
+pub mod debug;
 mod instruction;
 mod machine;
+pub mod opcode;
+pub mod operand;
 
+pub use addressing_mode::Trait as AddressingMode;
+pub use assembler_instruction::Trait as AssemblerInstruction;
 pub use instruction::*;
 pub use machine::*;
 

@@ -1,3 +1,6 @@
+use crate::addressing_mode::*;
+use crate::instruction::*;
+use crate::opcode;
 use crate::Address;
 use std::fmt;
 
@@ -49,7 +52,6 @@ impl Cpu {
     }
     pub fn step<M: Memory>(&mut self, memory: &mut M) -> Result<(), UnknownOpcode> {
         let opcode = memory.read_u8(self.pc);
-        use crate::instruction::{addressing_mode::*, instruction::*, opcode};
         match opcode {
             opcode::adc::ABSOLUTE => adc::interpret(Absolute, self, memory),
             opcode::adc::ABSOLUTE_X_INDEXED => adc::interpret(AbsoluteXIndexed, self, memory),
@@ -194,6 +196,11 @@ pub trait Memory {
         ((hi as u16) << 8) | lo as u16
     }
     fn write_u8(&mut self, address: Address, data: u8);
+}
+
+/// View of memory which never changed by reading, for use in debugging and testing
+pub trait MemoryReadOnly {
+    fn read_u8_read_only(&self, address: Address) -> u8;
 }
 
 #[derive(Clone)]

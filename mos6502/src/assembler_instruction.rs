@@ -1,0 +1,54 @@
+pub use crate::addressing_mode;
+use crate::instruction::*;
+
+pub trait Trait {
+    type AddressingMode: addressing_mode::Trait;
+    fn opcode() -> u8;
+}
+
+pub use adc::Inst as Adc;
+pub use and::Inst as And;
+pub use asl::Inst as Asl;
+pub use bcc::Inst as Bcc;
+pub use bcs::Inst as Bcs;
+pub use beq::Inst as Beq;
+pub use bit::Inst as Bit;
+pub use bmi::Inst as Bmi;
+pub use bne::Inst as Bne;
+pub use bpl::Inst as Bpl;
+pub use bvc::Inst as Bvc;
+pub use bvs::Inst as Bvs;
+pub use clc::Inst as Clc;
+pub use cld::Inst as Cld;
+pub use cli::Inst as Cli;
+pub use clv::Inst as Clv;
+pub use cmp::Inst as Cmp;
+pub use dec::Inst as Dec;
+pub use dex::Inst as Dex;
+pub use dey::Inst as Dey;
+pub use eor::Inst as Eor;
+pub use inc::Inst as Inc;
+pub use inx::Inst as Inx;
+pub use iny::Inst as Iny;
+pub use jmp::Inst as Jmp;
+pub use lda::Inst as Lda;
+pub use ldx::Inst as Ldx;
+pub use ldy::Inst as Ldy;
+pub use ora::Inst as Ora;
+pub use pha::Inst as Pha;
+pub use php::Inst as Php;
+pub use pla::Inst as Pla;
+pub use plp::Inst as Plp;
+pub use rol::Inst as Rol;
+pub use ror::Inst as Ror;
+pub use sbc::Inst as Sbc;
+pub use sec::Inst as Sec;
+pub use sed::Inst as Sed;
+pub use sei::Inst as Sei;
+pub use sta::Inst as Sta;
+pub use tax::Inst as Tax;
+pub use tay::Inst as Tay;
+pub use tsx::Inst as Tsx;
+pub use txa::Inst as Txa;
+pub use txs::Inst as Txs;
+pub use tya::Inst as Tya;

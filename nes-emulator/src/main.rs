@@ -76,8 +76,8 @@ impl Memory for NesDevices {
     }
 }
 
-impl debug::MemoryDebug for NesDevices {
-    fn read_u8_debug(&self, address: Address) -> u8 {
+impl MemoryReadOnly for NesDevices {
+    fn read_u8_read_only(&self, address: Address) -> u8 {
         match address {
             0..=0x7FFF => panic!("unimplemented read from {:x}", address),
             0x8000..=0xFFFF => self.rom[(address as usize - 0x8000) % 0x4000],
