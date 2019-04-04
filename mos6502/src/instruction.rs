@@ -574,7 +574,11 @@ pub mod instruction {
         }
         pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
             let value = A::read_data(cpu, memory);
-            adc_common(cpu, value);
+            if cpu.status.is_decimal() {
+                panic!("decimal addition not implemented");
+            } else {
+                adc_common(cpu, value);
+            }
             cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
         }
     }
@@ -1738,7 +1742,11 @@ pub mod instruction {
         }
         pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
             let value = A::read_data(cpu, memory);
-            adc_common(cpu, !value);
+            if cpu.status.is_decimal() {
+                panic!("decimal subtraction not implemented");
+            } else {
+                adc_common(cpu, !value);
+            }
             cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
         }
     }

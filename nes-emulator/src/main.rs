@@ -97,7 +97,9 @@ impl Nes {
     fn step(&mut self) {
         let instruction_with_operand =
             InstructionWithOperand::next(&self.cpu, &self.devices).unwrap();
-        println!("{}", instruction_with_operand);
+        let stdout = io::stdout();
+        let mut handle = stdout.lock();
+        //let _ = writeln!(handle, "{}", instruction_with_operand);
         match self.cpu.step(&mut self.devices) {
             Ok(()) => (),
             Err(UnknownOpcode(opcode)) => {
@@ -158,7 +160,7 @@ fn main() {
     for _ in 0..N_STEPS {
         nes.step();
     }
-    //    nes.print_state();
+    nes.print_state();
 }
 
 pub fn print_bytes_hex(data: &[u8], address_offset: u16, line_width: usize) {

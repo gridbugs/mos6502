@@ -236,13 +236,12 @@ impl StatusRegister {
     }
     pub fn set_decimal(&mut self) {
         self.raw |= STATUS_DECIMAL;
-        panic!("arithmetic operation emulation does not respect the decimal flag");
     }
     pub fn clear_decimal(&mut self) {
         self.raw &= !STATUS_DECIMAL;
     }
     pub fn is_decimal(&self) -> bool {
-        self.raw & STATUS_CARRY != 0
+        self.raw & STATUS_DECIMAL != 0
     }
     pub fn set_zero(&mut self) {
         self.raw |= STATUS_ZERO;
