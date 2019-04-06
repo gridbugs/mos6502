@@ -1187,7 +1187,7 @@ pub mod ror {
 }
 pub mod sbc {
     use super::*;
-    use opcode::adc::*;
+    use opcode::sbc::*;
     pub trait AddressingMode: ReadData {}
     impl AddressingMode for Absolute {}
     impl AddressingMode for AbsoluteXIndexed {}

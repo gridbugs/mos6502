@@ -38,5 +38,5 @@ pub(crate) mod prelude {
     pub use assembler::*;
     pub use mos6502::addressing_mode::*;
     pub use mos6502::assembler_instruction::*;
-    pub use mos6502::machine::{Cpu, MemoryReadOnly};
+    pub use mos6502::machine::{status, Address, Cpu, MemoryReadOnly};
 }

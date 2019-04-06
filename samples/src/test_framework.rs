@@ -50,7 +50,7 @@ pub fn test_sample<S: Sample>(_: S) {
     let mut cpu = Cpu::new();
     cpu.start(&mut devices);
     for _ in 0..S::num_steps() {
-        cpu.step(&mut devices);
+        cpu.step(&mut devices).unwrap();
     }
     S::check_result(&cpu, &devices);
 }
