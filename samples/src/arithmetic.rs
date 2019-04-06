@@ -6,6 +6,14 @@
 /// Note that SBC treats the carry flag as "not borrowed". Carry must be set to 1
 /// before performing subtraction unless a borrow is required, and "carry == 1"
 /// after subtraction means that no borrow was performed.
+///
+/// Instructions:
+/// JMP
+/// LDA
+/// SEC
+/// CLC
+/// ADC
+/// SBC
 use crate::prelude::*;
 
 pub struct Arithmetic;
@@ -93,6 +101,14 @@ impl Sample for Arithmetic {
         b.inst(Sbc(Immediate), 3);
         store_result.store(b);
 
+        // 8
+        // 5 - 6 = -1 (0xFF)
+        // flags:
+        b.inst(Sec, ());
+        b.inst(Lda(Immediate), 5);
+        b.inst(Sbc(Immediate), 6);
+        store_result.store(b);
+
         b.label("loop");
         b.inst(Jmp(Absolute), "loop");
     }
@@ -138,5 +154,8 @@ impl Sample for Arithmetic {
 
         // 7
         check_result.check(m, 2, CARRY);
+
+        // 8
+        check_result.check(m, 0xFF, NEGATIVE);
     }
 }

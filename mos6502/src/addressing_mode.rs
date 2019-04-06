@@ -152,7 +152,10 @@ impl Trait for Relative {
 }
 impl Relative {
     pub fn read_offset<M: Memory>(cpu: &Cpu, memory: &mut M) -> i8 {
-        memory.read_u8(cpu.pc.wrapping_add(1)) as i8
+        println!("relative reading from {:x?}", cpu.pc.wrapping_add(1));
+        // read from 1 before the pc as this assumes that the pc has already
+        // been advanced to past the instruction containing the relative address
+        memory.read_u8(cpu.pc.wrapping_sub(1)) as i8
     }
 }
 

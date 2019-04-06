@@ -307,6 +307,7 @@ pub mod bne {
         cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
         if !cpu.status.is_zero() {
             let offset = Relative::read_offset(cpu, memory);
+            println!("jumping relative {:x?}", offset);
             cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
         }
     }

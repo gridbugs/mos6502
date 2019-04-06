@@ -31,3 +31,6 @@ name = "jump_indirect"
 
 [[example]]
 name = "load_and_store_all_addressing_modes"
+
+[[example]]
+name = "counter"

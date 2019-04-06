@@ -9,6 +9,7 @@ pub mod test;
 pub mod test_framework;
 
 mod arithmetic;
+mod counter;
 mod infinite_loop;
 mod jump_indirect;
 mod load_accumulator_immediate;
@@ -17,6 +18,7 @@ mod stack_basic;
 mod stack_status_register;
 mod store_accumulator;
 pub use arithmetic::*;
+pub use counter::*;
 pub use infinite_loop::*;
 pub use jump_indirect::*;
 pub use load_accumulator_immediate::*;

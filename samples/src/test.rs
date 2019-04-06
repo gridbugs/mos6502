@@ -40,3 +40,8 @@ fn stack_status_register() {
 fn store_accumulator() {
     test_sample(StoreAccumulator);
 }
+
+#[test]
+fn counter() {
+    test_sample(Counter);
+}

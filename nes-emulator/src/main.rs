@@ -96,8 +96,8 @@ impl Nes {
         self.cpu.start(&mut self.devices);
     }
     fn step(&mut self) {
-        let instruction_with_operand =
-            InstructionWithOperand::next(&self.cpu, &self.devices).unwrap();
+        //let instruction_with_operand =
+        //    InstructionWithOperand::next(&self.cpu, &self.devices).unwrap();
         let stdout = io::stdout();
         let mut handle = stdout.lock();
         //let _ = writeln!(handle, "{}", instruction_with_operand);
@@ -105,7 +105,7 @@ impl Nes {
             Ok(()) => (),
             Err(UnknownOpcode(opcode)) => {
                 self.print_state();
-                panic!("Unknown opcode: {:x}", opcode);
+                panic!("Unknown opcode: {:x} ({:x?})", opcode, self.cpu);
             }
         }
     }
@@ -121,7 +121,7 @@ impl Nes {
     }
 }
 
-const N_STEPS: usize = 100;
+const N_STEPS: usize = 10000;
 
 fn main() {
     let args = Args::arg().with_help_default().parse_env_default_or_exit();

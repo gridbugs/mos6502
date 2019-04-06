@@ -10,6 +10,7 @@ enum Data {
     LiteralAddressLe(Address),
     LabelOffsetLo(String),
     LabelOffsetHi(String),
+    LabelRelativeOffset(String),
 }
 
 struct DataAtOffset {
@@ -73,6 +74,7 @@ impl ArgOperand for () {
 
 pub struct LabelOffsetLo(pub &'static str);
 pub struct LabelOffsetHi(pub &'static str);
+pub struct LabelRelativeOffset(pub &'static str);
 
 impl ArgOperand for LabelOffsetLo {
     type Operand = operand::Byte;
@@ -88,10 +90,18 @@ impl ArgOperand for LabelOffsetHi {
     }
 }
 
+impl ArgOperand for LabelRelativeOffset {
+    type Operand = operand::Byte;
+    fn program(self, block: &mut Block) {
+        block.label_relative_offset(self.0);
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Error {
     OffsetOutOfBounds,
     UndeclaredLabel(String),
+    BranchTargetOutOfRange,
 }
 
 impl Block {
@@ -146,6 +156,14 @@ impl Block {
         let string = label.as_ref().to_string();
         self.program.push(DataAtOffset {
             data: Data::LabelOffsetHi(string),
+            offset: self.cursor_offset,
+        });
+        self.cursor_offset += 1;
+    }
+    pub fn label_relative_offset<S: AsRef<str>>(&mut self, label: S) {
+        let string = label.as_ref().to_string();
+        self.program.push(DataAtOffset {
+            data: Data::LabelRelativeOffset(string),
             offset: self.cursor_offset,
         });
         self.cursor_offset += 1;
@@ -220,6 +238,18 @@ impl Block {
                         }
                         let address = label_offset + base;
                         buffer[offset as usize] = address::hi(address);
+                    } else {
+                        return Err(Error::UndeclaredLabel(label.clone()));
+                    }
+                }
+                Data::LabelRelativeOffset(label) => {
+                    if let Some(&label_offset) = self.labels.get(label) {
+                        let delta = label_offset as i16 - offset as i16 - 1;
+                        if delta < -128 || delta > 127 {
+                            return Err(Error::BranchTargetOutOfRange);
+                        }
+                        eprintln!("delta {:?}", delta);
+                        buffer[offset as usize] = (delta as i8) as u8;
                     } else {
                         return Err(Error::UndeclaredLabel(label.clone()));
                     }
