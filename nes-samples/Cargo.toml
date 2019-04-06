@@ -12,13 +12,22 @@ ines = { path = "../ines" }
 samples = { path = "../samples" }
 
 [[example]]
+name = "counter"
+
+[[example]]
 name = "infinite_loop"
+
+[[example]]
+name = "jump_indirect"
 
 [[example]]
 name = "load_accumulator_immediate"
 
 [[example]]
-name = "store_accumulator"
+name = "load_and_store_all_addressing_modes"
+
+[[example]]
+name = "memory_operations"
 
 [[example]]
 name = "stack_basic"
@@ -27,10 +36,4 @@ name = "stack_basic"
 name = "stack_status_register"
 
 [[example]]
-name = "jump_indirect"
-
-[[example]]
-name = "load_and_store_all_addressing_modes"
-
-[[example]]
-name = "counter"
+name = "store_accumulator"

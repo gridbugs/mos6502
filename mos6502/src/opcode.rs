@@ -137,6 +137,16 @@ pub mod ldy {
     pub const ZERO_PAGE: u8 = 0xA4;
     pub const ZERO_PAGE_X_INDEXED: u8 = 0xB4;
 }
+pub mod lsr {
+    pub const ABSOLUTE: u8 = 0x4A;
+    pub const ABSOLUTE_X_INDEXED: u8 = 0x5E;
+    pub const ACCUMULATOR: u8 = 0x4A;
+    pub const ZERO_PAGE: u8 = 0x46;
+    pub const ZERO_PAGE_X_INDEXED: u8 = 0x56;
+}
+pub mod nop {
+    pub const IMPLIED: u8 = 0xEA;
+}
 pub mod ora {
     pub const ABSOLUTE: u8 = 0x0D;
     pub const ABSOLUTE_X_INDEXED: u8 = 0x1D;

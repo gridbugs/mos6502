@@ -7,6 +7,11 @@ fn arithmetic() {
 }
 
 #[test]
+fn counter() {
+    test_sample(Counter);
+}
+
+#[test]
 fn infinite_loop() {
     test_sample(InfiniteLoop);
 }
@@ -27,6 +32,11 @@ fn load_and_store_all_addressing_modes() {
 }
 
 #[test]
+fn memory_operations() {
+    test_sample(MemoryOperations);
+}
+
+#[test]
 fn stack_basic() {
     test_sample(StackBasic);
 }
@@ -39,9 +49,4 @@ fn stack_status_register() {
 #[test]
 fn store_accumulator() {
     test_sample(StoreAccumulator);
-}
-
-#[test]
-fn counter() {
-    test_sample(Counter);
 }

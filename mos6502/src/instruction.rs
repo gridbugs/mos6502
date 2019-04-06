@@ -928,6 +928,84 @@ pub mod ldy {
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
     }
 }
+pub mod lsr {
+    use super::*;
+    use opcode::lsr::*;
+    pub trait AddressingMode: Trait {}
+    pub trait MemoryAddressingMode: ReadData + WriteData + AddressingMode {}
+    impl AddressingMode for Accumulator {}
+    impl AddressingMode for Absolute {}
+    impl MemoryAddressingMode for Absolute {}
+    impl AddressingMode for AbsoluteXIndexed {}
+    impl MemoryAddressingMode for AbsoluteXIndexed {}
+    impl AddressingMode for ZeroPage {}
+    impl MemoryAddressingMode for ZeroPage {}
+    impl AddressingMode for ZeroPageXIndexed {}
+    impl MemoryAddressingMode for ZeroPageXIndexed {}
+    pub struct Inst<A: AddressingMode>(pub A);
+    impl AssemblerInstruction for Inst<Absolute> {
+        type AddressingMode = Absolute;
+        fn opcode() -> u8 {
+            ABSOLUTE
+        }
+    }
+    impl AssemblerInstruction for Inst<AbsoluteXIndexed> {
+        type AddressingMode = AbsoluteXIndexed;
+        fn opcode() -> u8 {
+            ABSOLUTE_X_INDEXED
+        }
+    }
+    impl AssemblerInstruction for Inst<Accumulator> {
+        type AddressingMode = Accumulator;
+        fn opcode() -> u8 {
+            ACCUMULATOR
+        }
+    }
+    impl AssemblerInstruction for Inst<ZeroPage> {
+        type AddressingMode = ZeroPage;
+        fn opcode() -> u8 {
+            ZERO_PAGE
+        }
+    }
+    impl AssemblerInstruction for Inst<ZeroPageXIndexed> {
+        type AddressingMode = ZeroPageXIndexed;
+        fn opcode() -> u8 {
+            ZERO_PAGE_X_INDEXED
+        }
+    }
+    pub fn interpret<A: MemoryAddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+        let data = A::read_data(cpu, memory);
+        let carry = data & 1 != 0;
+        let data = data.wrapping_shr(1);
+        A::write_data(cpu, memory, data);
+        cpu.status.set_carry_to(carry);
+        cpu.status.set_zero_from_value(cpu.acc);
+        cpu.status.clear_negative();
+        cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+    }
+    pub fn interpret_acc(cpu: &mut Cpu) {
+        let carry = cpu.acc & 1 != 0;
+        cpu.acc = cpu.acc.wrapping_shr(1);
+        cpu.status.set_carry_to(carry);
+        cpu.status.set_zero_from_value(cpu.acc);
+        cpu.status.clear_negative();
+        cpu.pc = cpu.pc.wrapping_add(Accumulator::instruction_bytes());
+    }
+}
+pub mod nop {
+    use super::*;
+    use opcode::nop::*;
+    pub struct Inst;
+    impl AssemblerInstruction for Inst {
+        type AddressingMode = Implied;
+        fn opcode() -> u8 {
+            IMPLIED
+        }
+    }
+    pub fn interpret(cpu: &mut Cpu) {
+        cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+    }
+}
 pub mod ora {
     use super::*;
     use opcode::ora::*;

@@ -34,6 +34,8 @@ pub use jmp::Inst as Jmp;
 pub use lda::Inst as Lda;
 pub use ldx::Inst as Ldx;
 pub use ldy::Inst as Ldy;
+pub use lsr::Inst as Lsr;
+pub use nop::Inst as Nop;
 pub use ora::Inst as Ora;
 pub use pha::Inst as Pha;
 pub use php::Inst as Php;
