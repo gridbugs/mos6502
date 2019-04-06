@@ -1,3 +1,4 @@
+use crate::address;
 use crate::addressing_mode::*;
 use crate::assembler_instruction::Trait as AssemblerInstruction;
 use crate::machine::*;
@@ -766,6 +767,25 @@ pub mod jmp {
         cpu.pc = A::read_jump_target(cpu, memory);
     }
 }
+pub mod jsr {
+    use super::*;
+    use opcode::jsr::*;
+    pub trait AddressingMode: ReadJumpTarget {}
+    impl AddressingMode for Absolute {}
+    pub struct Inst<A: AddressingMode>(pub A);
+    impl AssemblerInstruction for Inst<Absolute> {
+        type AddressingMode = Absolute;
+        fn opcode() -> u8 {
+            ABSOLUTE
+        }
+    }
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+        let return_address = cpu.pc.wrapping_add(2);
+        cpu.push_stack_u8(memory, address::hi(return_address));
+        cpu.push_stack_u8(memory, address::lo(return_address));
+        cpu.pc = A::read_jump_target(cpu, memory);
+    }
+}
 pub mod lda {
     use super::*;
     use opcode::lda::*;
@@ -1262,6 +1282,22 @@ pub mod ror {
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(Accumulator::instruction_bytes());
+    }
+}
+pub mod rts {
+    use super::*;
+    use opcode::rts::*;
+    pub struct Inst;
+    impl AssemblerInstruction for Inst {
+        type AddressingMode = Implied;
+        fn opcode() -> u8 {
+            IMPLIED
+        }
+    }
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+        let return_address_lo = cpu.pop_stack_u8(memory);
+        let return_address_hi = cpu.pop_stack_u8(memory);
+        cpu.pc = address::from_u8_lo_hi(return_address_lo, return_address_hi).wrapping_add(1);
     }
 }
 pub mod sbc {

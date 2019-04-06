@@ -12,6 +12,11 @@ fn counter() {
 }
 
 #[test]
+fn factorial() {
+    test_sample(Factorial);
+}
+
+#[test]
 fn infinite_loop() {
     test_sample(InfiniteLoop);
 }

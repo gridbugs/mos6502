@@ -28,7 +28,10 @@ pub mod address {
         address as u8
     }
     pub fn hi(address: Address) -> u8 {
-        (address >> 8) as u8
+        address.wrapping_shr(8) as u8
+    }
+    pub fn from_u8_lo_hi(lo: u8, hi: u8) -> Address {
+        (hi as Address).wrapping_shl(8) | lo as Address
     }
 }
 

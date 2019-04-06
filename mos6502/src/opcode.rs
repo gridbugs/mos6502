@@ -113,6 +113,9 @@ pub mod jmp {
     pub const ABSOLUTE: u8 = 0x4C;
     pub const INDIRECT: u8 = 0x6C;
 }
+pub mod jsr {
+    pub const ABSOLUTE: u8 = 0x20;
+}
 pub mod lda {
     pub const ABSOLUTE: u8 = 0xAD;
     pub const ABSOLUTE_X_INDEXED: u8 = 0xBD;
@@ -138,7 +141,7 @@ pub mod ldy {
     pub const ZERO_PAGE_X_INDEXED: u8 = 0xB4;
 }
 pub mod lsr {
-    pub const ABSOLUTE: u8 = 0x4A;
+    pub const ABSOLUTE: u8 = 0x4E;
     pub const ABSOLUTE_X_INDEXED: u8 = 0x5E;
     pub const ACCUMULATOR: u8 = 0x4A;
     pub const ZERO_PAGE: u8 = 0x46;
@@ -182,6 +185,9 @@ pub mod ror {
     pub const ACCUMULATOR: u8 = 0x6A;
     pub const ZERO_PAGE: u8 = 0x66;
     pub const ZERO_PAGE_X_INDEXED: u8 = 0x76;
+}
+pub mod rts {
+    pub const IMPLIED: u8 = 0x60;
 }
 pub mod sbc {
     pub const ABSOLUTE: u8 = 0xED;
