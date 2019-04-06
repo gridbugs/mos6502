@@ -52,6 +52,8 @@ pub use sec::Inst as Sec;
 pub use sed::Inst as Sed;
 pub use sei::Inst as Sei;
 pub use sta::Inst as Sta;
+pub use stx::Inst as Stx;
+pub use sty::Inst as Sty;
 pub use tax::Inst as Tax;
 pub use tay::Inst as Tay;
 pub use tsx::Inst as Tsx;

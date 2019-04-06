@@ -223,6 +223,16 @@ pub mod sta {
     pub const ZERO_PAGE: u8 = 0x85;
     pub const ZERO_PAGE_X_INDEXED: u8 = 0x95;
 }
+pub mod stx {
+    pub const ABSOLUTE: u8 = 0x86;
+    pub const ZERO_PAGE: u8 = 0x96;
+    pub const ZERO_PAGE_Y_INDEXED: u8 = 0x8E;
+}
+pub mod sty {
+    pub const ABSOLUTE: u8 = 0x8C;
+    pub const ZERO_PAGE: u8 = 0x84;
+    pub const ZERO_PAGE_X_INDEXED: u8 = 0x94;
+}
 pub mod tax {
     pub const IMPLIED: u8 = 0xAA;
 }

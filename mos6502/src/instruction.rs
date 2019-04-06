@@ -1456,13 +1456,13 @@ pub mod sta {
     use super::*;
     use opcode::sta::*;
     pub trait AddressingMode: WriteData {}
-    impl AddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
     impl AddressingMode for Absolute {}
     impl AddressingMode for AbsoluteXIndexed {}
     impl AddressingMode for AbsoluteYIndexed {}
-    impl AddressingMode for XIndexedIndirect {}
     impl AddressingMode for IndirectYIndexed {}
+    impl AddressingMode for XIndexedIndirect {}
+    impl AddressingMode for ZeroPage {}
+    impl AddressingMode for ZeroPageXIndexed {}
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -1508,6 +1508,68 @@ pub mod sta {
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
         A::write_data(cpu, memory, cpu.acc);
+        cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+    }
+}
+pub mod stx {
+    use super::*;
+    use opcode::stx::*;
+    pub trait AddressingMode: WriteData {}
+    impl AddressingMode for Absolute {}
+    impl AddressingMode for ZeroPage {}
+    impl AddressingMode for ZeroPageYIndexed {}
+    pub struct Inst<A: AddressingMode>(pub A);
+    impl AssemblerInstruction for Inst<Absolute> {
+        type AddressingMode = Absolute;
+        fn opcode() -> u8 {
+            ABSOLUTE
+        }
+    }
+    impl AssemblerInstruction for Inst<ZeroPage> {
+        type AddressingMode = ZeroPage;
+        fn opcode() -> u8 {
+            ZERO_PAGE
+        }
+    }
+    impl AssemblerInstruction for Inst<ZeroPageYIndexed> {
+        type AddressingMode = ZeroPageYIndexed;
+        fn opcode() -> u8 {
+            ZERO_PAGE_Y_INDEXED
+        }
+    }
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+        A::write_data(cpu, memory, cpu.x);
+        cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+    }
+}
+pub mod sty {
+    use super::*;
+    use opcode::sty::*;
+    pub trait AddressingMode: WriteData {}
+    impl AddressingMode for Absolute {}
+    impl AddressingMode for ZeroPage {}
+    impl AddressingMode for ZeroPageXIndexed {}
+    pub struct Inst<A: AddressingMode>(pub A);
+    impl AssemblerInstruction for Inst<Absolute> {
+        type AddressingMode = Absolute;
+        fn opcode() -> u8 {
+            ABSOLUTE
+        }
+    }
+    impl AssemblerInstruction for Inst<ZeroPage> {
+        type AddressingMode = ZeroPage;
+        fn opcode() -> u8 {
+            ZERO_PAGE
+        }
+    }
+    impl AssemblerInstruction for Inst<ZeroPageXIndexed> {
+        type AddressingMode = ZeroPageXIndexed;
+        fn opcode() -> u8 {
+            ZERO_PAGE_X_INDEXED
+        }
+    }
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+        A::write_data(cpu, memory, cpu.y);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
     }
 }
