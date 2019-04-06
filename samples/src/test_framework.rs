@@ -32,7 +32,7 @@ impl Memory for Devices {
     }
 }
 
-const INTERRUPT_VECTOR_START_PC_OFFSET: Address = interrupt_vector::START_PC_LO - PRG_START;
+const INTERRUPT_VECTOR_START_PC_OFFSET: Address = interrupt_vector::START_LO - PRG_START;
 
 pub fn test_sample<S: Sample>(_: S) {
     let mut block = Block::new();

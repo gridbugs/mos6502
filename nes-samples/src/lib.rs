@@ -16,7 +16,7 @@ pub mod single_block {
     use ines::*;
 
     pub const PRG_START: Address = nrom::PRG_START_HI;
-    pub const INTERRUPT_VECTOR_START_PC_OFFSET: Address = interrupt_vector::START_PC_LO - PRG_START;
+    pub const INTERRUPT_VECTOR_START_PC_OFFSET: Address = interrupt_vector::START_LO - PRG_START;
 
     pub fn assemble_ines_file_to_stdout(block: &Block) {
         let mut prg_rom = Vec::new();

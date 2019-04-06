@@ -42,6 +42,11 @@ fn memory_operations() {
 }
 
 #[test]
+fn software_interrupt() {
+    test_sample(SoftwareInterrupt);
+}
+
+#[test]
 fn stack_basic() {
     test_sample(StackBasic);
 }

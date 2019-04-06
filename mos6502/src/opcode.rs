@@ -43,6 +43,9 @@ pub mod bne {
 pub mod bpl {
     pub const RELATIVE: u8 = 0x10;
 }
+pub mod brk {
+    pub const IMPLIED: u8 = 0x00;
+}
 pub mod bvc {
     pub const RELATIVE: u8 = 0x50;
 }
@@ -185,6 +188,9 @@ pub mod ror {
     pub const ACCUMULATOR: u8 = 0x6A;
     pub const ZERO_PAGE: u8 = 0x66;
     pub const ZERO_PAGE_X_INDEXED: u8 = 0x76;
+}
+pub mod rti {
+    pub const IMPLIED: u8 = 0x40;
 }
 pub mod rts {
     pub const IMPLIED: u8 = 0x60;

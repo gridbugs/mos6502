@@ -30,6 +30,9 @@ name = "load_and_store_all_addressing_modes"
 name = "memory_operations"
 
 [[example]]
+name = "software_interrupt"
+
+[[example]]
 name = "stack_basic"
 
 [[example]]

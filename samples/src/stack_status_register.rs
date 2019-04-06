@@ -6,6 +6,7 @@
 /// - JMP (Absolute)
 /// - LDA (Immediate)
 /// - PHP
+/// - CLI
 /// - SEI
 /// - SEC
 /// - SED
@@ -16,6 +17,7 @@ use crate::prelude::*;
 pub struct StackStatusRegister;
 impl Sample for StackStatusRegister {
     fn program(b: &mut Block) {
+        b.inst(Cli, ());
         b.inst(Php, ());
         b.inst(Sei, ());
         b.inst(Php, ());
@@ -35,16 +37,16 @@ impl Sample for StackStatusRegister {
         b.inst(Jmp(Absolute), "loop");
     }
     fn num_steps() -> usize {
-        14
+        100
     }
     fn check_result<M: MemoryReadOnly>(_cpu: &Cpu, m: &M) {
-        assert_eq!(m.read_u8_read_only(0x01FF), 0x20);
-        assert_eq!(m.read_u8_read_only(0x01FE), 0x24);
-        assert_eq!(m.read_u8_read_only(0x01FD), 0x25);
-        assert_eq!(m.read_u8_read_only(0x01FC), 0x2D);
-        assert_eq!(m.read_u8_read_only(0x01FB), 0x2F);
-        assert_eq!(m.read_u8_read_only(0x01FA), 0x2E);
-        assert_eq!(m.read_u8_read_only(0x01F9), 0xAC);
+        assert_eq!(m.read_u8_read_only(0x01FF), 0x00);
+        assert_eq!(m.read_u8_read_only(0x01FE), 0x04);
+        assert_eq!(m.read_u8_read_only(0x01FD), 0x05);
+        assert_eq!(m.read_u8_read_only(0x01FC), 0x0D);
+        assert_eq!(m.read_u8_read_only(0x01FB), 0x0F);
+        assert_eq!(m.read_u8_read_only(0x01FA), 0x0E);
+        assert_eq!(m.read_u8_read_only(0x01F9), 0x8C);
         assert_eq!(m.read_u8_read_only(0x01F8), 0xFF);
     }
 }

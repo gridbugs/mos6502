@@ -120,21 +120,21 @@ impl Block {
             data: Data::LiteralByte(byte),
             offset: self.cursor_offset,
         });
-        self.cursor_offset += 1;
+        self.cursor_offset = self.cursor_offset.wrapping_add(1);
     }
     pub fn literal_offset_le(&mut self, offset: Address) {
         self.program.push(DataAtOffset {
             data: Data::LiteralOffsetLe(offset),
             offset: self.cursor_offset,
         });
-        self.cursor_offset += 2;
+        self.cursor_offset = self.cursor_offset.wrapping_add(2);
     }
     pub fn literal_address_le(&mut self, offset: Address) {
         self.program.push(DataAtOffset {
             data: Data::LiteralAddressLe(offset),
             offset: self.cursor_offset,
         });
-        self.cursor_offset += 2;
+        self.cursor_offset = self.cursor_offset.wrapping_add(2);
     }
     pub fn label_offset_le<S: AsRef<str>>(&mut self, label: S) {
         let string = label.as_ref().to_string();
@@ -142,7 +142,7 @@ impl Block {
             data: Data::LabelOffsetLe(string),
             offset: self.cursor_offset,
         });
-        self.cursor_offset += 2;
+        self.cursor_offset = self.cursor_offset.wrapping_add(2);
     }
     pub fn label_offset_lo<S: AsRef<str>>(&mut self, label: S) {
         let string = label.as_ref().to_string();
@@ -150,7 +150,7 @@ impl Block {
             data: Data::LabelOffsetLo(string),
             offset: self.cursor_offset,
         });
-        self.cursor_offset += 1;
+        self.cursor_offset = self.cursor_offset.wrapping_add(1);
     }
     pub fn label_offset_hi<S: AsRef<str>>(&mut self, label: S) {
         let string = label.as_ref().to_string();
@@ -158,7 +158,7 @@ impl Block {
             data: Data::LabelOffsetHi(string),
             offset: self.cursor_offset,
         });
-        self.cursor_offset += 1;
+        self.cursor_offset = self.cursor_offset.wrapping_add(1);
     }
     pub fn label_relative_offset<S: AsRef<str>>(&mut self, label: S) {
         let string = label.as_ref().to_string();
@@ -166,7 +166,7 @@ impl Block {
             data: Data::LabelRelativeOffset(string),
             offset: self.cursor_offset,
         });
-        self.cursor_offset += 1;
+        self.cursor_offset = self.cursor_offset.wrapping_add(1);
     }
     pub fn label<S: AsRef<str>>(&mut self, s: S) {
         let string = s.as_ref().to_string();
@@ -248,7 +248,6 @@ impl Block {
                         if delta < -128 || delta > 127 {
                             return Err(Error::BranchTargetOutOfRange);
                         }
-                        eprintln!("delta {:?}", delta);
                         buffer[offset as usize] = (delta as i8) as u8;
                     } else {
                         return Err(Error::UndeclaredLabel(label.clone()));

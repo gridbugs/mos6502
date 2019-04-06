@@ -124,7 +124,10 @@ impl Sample for Arithmetic {
         impl CheckResult {
             fn check<M: MemoryReadOnly>(&mut self, m: &M, result: u8, status: u8) {
                 assert_eq!(m.read_u8_read_only(self.offset), result);
-                assert_eq!(m.read_u8_read_only(self.offset + 1), EXPANSION | status);
+                assert_eq!(
+                    m.read_u8_read_only(self.offset + 1),
+                    INTERRUPT_DISABLE | status
+                );
                 self.offset += 2;
             }
         }

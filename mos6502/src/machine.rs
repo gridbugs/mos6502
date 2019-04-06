@@ -38,7 +38,7 @@ impl Cpu {
         memory.read_u8(address)
     }
     pub fn start<M: Memory>(&mut self, memory: &mut M) {
-        self.pc = memory.read_u16_le(crate::interrupt_vector::START_PC_LO);
+        self.pc = memory.read_u16_le(crate::interrupt_vector::START_LO);
     }
     pub fn step<M: Memory>(&mut self, memory: &mut M) -> Result<(), UnknownOpcode> {
         let opcode = memory.read_u8(self.pc);
@@ -74,6 +74,7 @@ impl Cpu {
             opcode::bvs::RELATIVE => bvs::interpret(self, memory),
             opcode::bit::ABSOLUTE => bit::interpret(Absolute, self, memory),
             opcode::bit::ZERO_PAGE => bit::interpret(ZeroPage, self, memory),
+            opcode::brk::IMPLIED => brk::interpret(self, memory),
             opcode::clc::IMPLIED => clc::interpret(self),
             opcode::cld::IMPLIED => cld::interpret(self),
             opcode::cli::IMPLIED => cli::interpret(self),
@@ -155,6 +156,7 @@ impl Cpu {
             opcode::ror::ACCUMULATOR => ror::interpret_acc(self),
             opcode::ror::ZERO_PAGE => ror::interpret(ZeroPage, self, memory),
             opcode::ror::ZERO_PAGE_X_INDEXED => ror::interpret(ZeroPageXIndexed, self, memory),
+            opcode::rti::IMPLIED => rti::interpret(self, memory),
             opcode::rts::IMPLIED => rts::interpret(self, memory),
             opcode::sbc::ABSOLUTE => sbc::interpret(Absolute, self, memory),
             opcode::sbc::ABSOLUTE_X_INDEXED => sbc::interpret(AbsoluteXIndexed, self, memory),
@@ -223,15 +225,25 @@ pub mod status {
         pub const OVERFLOW: u8 = 1 << bit::OVERFLOW;
         pub const NEGATIVE: u8 = 1 << bit::NEGATIVE;
     }
+    const MASK: u8 = !(flag::BRK | flag::EXPANSION);
     #[derive(Clone)]
     pub struct Register {
-        pub raw: u8,
+        raw: u8,
     }
     impl Register {
         pub fn new() -> Self {
             Self {
-                raw: flag::EXPANSION,
+                raw: flag::INTERRUPT_DISABLE,
             }
+        }
+        pub fn masked(&self) -> u8 {
+            self.raw
+        }
+        pub fn masked_with_brk(&self) -> u8 {
+            self.raw | flag::BRK
+        }
+        pub fn set(&mut self, value: u8) {
+            self.raw = value & MASK;
         }
         pub fn set_carry(&mut self) {
             self.raw |= flag::CARRY;
@@ -257,29 +269,11 @@ pub mod status {
         pub fn is_decimal(&self) -> bool {
             self.raw & flag::DECIMAL != 0
         }
-        pub fn set_zero(&mut self) {
-            self.raw |= flag::ZERO;
-        }
         pub fn set_zero_from_value(&mut self, value: u8) {
             self.raw = (((value == 0) as u8) << bit::ZERO) | (self.raw & !flag::ZERO);
         }
-        pub fn clear_zero(&mut self) {
-            self.raw &= !flag::ZERO;
-        }
         pub fn is_zero(&self) -> bool {
             self.raw & flag::ZERO != 0
-        }
-        pub fn set_brk(&mut self) {
-            self.raw |= flag::BRK;
-        }
-        pub fn clear_brk(&mut self) {
-            self.raw &= !flag::BRK;
-        }
-        pub fn is_brk(&self) -> bool {
-            self.raw & flag::BRK != 0
-        }
-        pub fn set_overflow(&mut self) {
-            self.raw |= flag::OVERFLOW;
         }
         pub fn clear_overflow(&mut self) {
             self.raw &= !flag::OVERFLOW;
@@ -289,9 +283,6 @@ pub mod status {
         }
         pub fn set_overflow_to(&mut self, value: bool) {
             self.raw = ((value as u8) << bit::OVERFLOW) | (self.raw & !flag::OVERFLOW);
-        }
-        pub fn set_negative(&mut self) {
-            self.raw |= flag::NEGATIVE;
         }
         pub fn clear_negative(&mut self) {
             self.raw &= !flag::NEGATIVE;
@@ -311,20 +302,15 @@ pub mod status {
         pub fn is_interrupt_disable(&self) -> bool {
             self.raw & flag::INTERRUPT_DISABLE != 0
         }
-        pub fn is_expansion(&self) -> bool {
-            self.raw & flag::EXPANSION != 0
-        }
     }
     use std::fmt;
     impl fmt::Debug for Register {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(
                 f,
-                "[N={:?},V={:?},E={:?},B={:?},D={:?},I:{:?},Z:{:?},C:{:?}]",
+                "[N={:?},V={:?},D={:?},I:{:?},Z:{:?},C:{:?}]",
                 self.is_negative() as u8,
                 self.is_overflow() as u8,
-                self.is_expansion() as u8,
-                self.is_brk() as u8,
                 self.is_decimal() as u8,
                 self.is_interrupt_disable() as u8,
                 self.is_zero() as u8,

@@ -96,11 +96,11 @@ impl Nes {
         self.cpu.start(&mut self.devices);
     }
     fn step(&mut self) {
-        //let instruction_with_operand =
-        //    InstructionWithOperand::next(&self.cpu, &self.devices).unwrap();
+        let instruction_with_operand =
+            InstructionWithOperand::next(&self.cpu, &self.devices).unwrap();
         let stdout = io::stdout();
         let mut handle = stdout.lock();
-        //let _ = writeln!(handle, "{}", instruction_with_operand);
+        let _ = writeln!(handle, "{}", instruction_with_operand);
         match self.cpu.step(&mut self.devices) {
             Ok(()) => (),
             Err(UnknownOpcode(opcode)) => {

@@ -16,6 +16,7 @@ mod jump_indirect;
 mod load_accumulator_immediate;
 mod load_and_store_all_addressing_modes;
 mod memory_operations;
+mod software_interrupt;
 mod stack_basic;
 mod stack_status_register;
 mod store_accumulator;
@@ -27,6 +28,7 @@ pub use jump_indirect::*;
 pub use load_accumulator_immediate::*;
 pub use load_and_store_all_addressing_modes::*;
 pub use memory_operations::*;
+pub use software_interrupt::*;
 pub use stack_basic::*;
 pub use stack_status_register::*;
 pub use store_accumulator::*;
@@ -44,5 +46,6 @@ pub(crate) mod prelude {
     pub use assembler::*;
     pub use mos6502::addressing_mode::*;
     pub use mos6502::assembler_instruction::*;
+    pub use mos6502::interrupt_vector;
     pub use mos6502::machine::{status, Address, Cpu, MemoryReadOnly};
 }

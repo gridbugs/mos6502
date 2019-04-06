@@ -308,7 +308,6 @@ pub mod bne {
         cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
         if !cpu.status.is_zero() {
             let offset = Relative::read_offset(cpu, memory);
-            println!("jumping relative {:x?}", offset);
             cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
         }
     }
@@ -329,6 +328,24 @@ pub mod bpl {
             let offset = Relative::read_offset(cpu, memory);
             cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
         }
+    }
+}
+pub mod brk {
+    use super::*;
+    use opcode::brk::*;
+    pub struct Inst;
+    impl AssemblerInstruction for Inst {
+        type AddressingMode = Implied;
+        fn opcode() -> u8 {
+            IMPLIED
+        }
+    }
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+        let pc_to_save = cpu.pc.wrapping_add(2);
+        cpu.push_stack_u8(memory, address::hi(pc_to_save));
+        cpu.push_stack_u8(memory, address::lo(pc_to_save));
+        cpu.push_stack_u8(memory, cpu.status.masked_with_brk());
+        cpu.pc = memory.read_u16_le(crate::interrupt_vector::IRQ_LO);
     }
 }
 pub mod bvc {
@@ -1107,6 +1124,7 @@ pub mod pha {
     }
     pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
         cpu.push_stack_u8(memory, cpu.acc);
+        println!("pushing acc {:x}", cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
     }
 }
@@ -1121,7 +1139,7 @@ pub mod php {
         }
     }
     pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
-        cpu.push_stack_u8(memory, cpu.status.raw);
+        cpu.push_stack_u8(memory, cpu.status.masked());
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
     }
 }
@@ -1151,8 +1169,8 @@ pub mod plp {
         }
     }
     pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
-        let status_raw = cpu.pop_stack_u8(memory);
-        cpu.status.raw = status_raw;
+        let status = cpu.pop_stack_u8(memory);
+        cpu.status.set(status);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
     }
 }
@@ -1282,6 +1300,24 @@ pub mod ror {
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(Accumulator::instruction_bytes());
+    }
+}
+pub mod rti {
+    use super::*;
+    use opcode::rti::*;
+    pub struct Inst;
+    impl AssemblerInstruction for Inst {
+        type AddressingMode = Implied;
+        fn opcode() -> u8 {
+            IMPLIED
+        }
+    }
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+        let status = cpu.pop_stack_u8(memory);
+        let return_address_lo = cpu.pop_stack_u8(memory);
+        let return_address_hi = cpu.pop_stack_u8(memory);
+        cpu.status.set(status);
+        cpu.pc = address::from_u8_lo_hi(return_address_lo, return_address_hi);
     }
 }
 pub mod rts {
