@@ -1,3 +1,22 @@
+/// Compute the factorial of 12 and store it little endian in the first 4 bytes of memory.
+/// Demonstrates how rust can be used as a macro language for 6502 assembly programs.
+///
+/// Instructions:
+/// JSR
+/// RTS
+/// LDA
+/// STA
+/// LDX
+/// LDY
+/// STY
+/// INX
+/// DEX
+/// ADC
+/// SBC
+/// BNE
+/// JMP
+///
+/// Uses the same calling convention as the "factorial" sample.
 use crate::prelude::*;
 
 const ARG: u32 = 12;
@@ -5,7 +24,6 @@ const ARG: u32 = 12;
 pub struct WideFactorial;
 impl Sample for WideFactorial {
     fn program(b: &mut Block) {
-        // macro to push a 32 bit value to the value stack
         fn push_u32(b: &mut Block, value: u32) {
             b.inst(Ldy(Immediate), value as u8);
             b.inst(Sty(ZeroPageXIndexed), 0);
@@ -21,7 +39,6 @@ impl Sample for WideFactorial {
             b.inst(Inx, ());
         }
 
-        // macro to call a function
         fn call(b: &mut Block, label: &'static str) {
             b.inst(Jsr(Absolute), label);
         }
