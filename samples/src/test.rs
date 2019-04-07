@@ -60,3 +60,8 @@ fn stack_status_register() {
 fn store_accumulator() {
     test_sample(StoreAccumulator);
 }
+
+#[test]
+fn wide_factorial() {
+    test_sample(WideFactorial);
+}

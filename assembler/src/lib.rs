@@ -186,6 +186,11 @@ impl Block {
         self.literal_byte(I::opcode());
         arg.program(self);
     }
+    pub fn infinite_loop(&mut self) {
+        let offset = self.cursor_offset;
+        self.literal_byte(assembler_instruction::Jmp::<addressing_mode::Absolute>::opcode());
+        self.literal_offset_le(offset);
+    }
     pub fn assemble(&self, base: Address, size: usize, buffer: &mut Vec<u8>) -> Result<(), Error> {
         buffer.resize(size, 0);
         for &DataAtOffset { offset, ref data } in self.program.iter() {

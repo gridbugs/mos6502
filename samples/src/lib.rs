@@ -20,6 +20,7 @@ mod software_interrupt;
 mod stack_basic;
 mod stack_status_register;
 mod store_accumulator;
+mod wide_factorial;
 pub use arithmetic::*;
 pub use counter::*;
 pub use factorial::*;
@@ -32,6 +33,7 @@ pub use software_interrupt::*;
 pub use stack_basic::*;
 pub use stack_status_register::*;
 pub use store_accumulator::*;
+pub use wide_factorial::*;
 
 pub const PRG_START: Address = 0xC000;
 
