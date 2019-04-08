@@ -37,6 +37,8 @@ pub mod address {
 
 pub mod interrupt_vector {
     use super::*;
+    pub const NMI_LO: Address = 0xFFFA;
+    pub const NMI_HI: Address = 0xFFFB;
     pub const START_LO: Address = 0xFFFC;
     pub const START_HI: Address = 0xFFFD;
     pub const IRQ_LO: Address = 0xFFFE;

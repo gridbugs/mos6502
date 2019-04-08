@@ -1,6 +1,6 @@
 use crate::addressing_mode::*;
 use crate::instruction::*;
-pub use crate::Address;
+pub use crate::{address, Address};
 use crate::{opcode, UnknownOpcode};
 
 #[derive(Debug, Clone)]
@@ -23,6 +23,12 @@ impl Cpu {
             y: 0,
             status: StatusRegister::new(),
         }
+    }
+    pub fn nmi<M: Memory>(&mut self, memory: &mut M) {
+        self.push_stack_u8(memory, address::hi(self.pc));
+        self.push_stack_u8(memory, address::lo(self.pc));
+        self.push_stack_u8(memory, self.status.masked());
+        self.pc = memory.read_u16_le(crate::interrupt_vector::NMI_LO);
     }
     pub fn sp_address(&self) -> Address {
         (0x01 << 8) | (self.sp as Address)

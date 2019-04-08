@@ -140,7 +140,7 @@ impl Instruction {
             opcode::bmi::RELATIVE => (Bmi, Relative),
             opcode::bne::RELATIVE => (Bne, Relative),
             opcode::bpl::RELATIVE => (Bpl, Relative),
-            opcode::brk::IMPLIED => (Bpl, Implied),
+            opcode::brk::IMPLIED => (Brk, Implied),
             opcode::bvc::RELATIVE => (Bvc, Relative),
             opcode::bvs::RELATIVE => (Bvs, Relative),
             opcode::bit::ABSOLUTE => (Bit, Absolute),

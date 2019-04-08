@@ -224,9 +224,9 @@ pub mod sta {
     pub const ZERO_PAGE_X_INDEXED: u8 = 0x95;
 }
 pub mod stx {
-    pub const ABSOLUTE: u8 = 0x86;
-    pub const ZERO_PAGE: u8 = 0x96;
-    pub const ZERO_PAGE_Y_INDEXED: u8 = 0x8E;
+    pub const ABSOLUTE: u8 = 0x8E;
+    pub const ZERO_PAGE: u8 = 0x86;
+    pub const ZERO_PAGE_Y_INDEXED: u8 = 0x96;
 }
 pub mod sty {
     pub const ABSOLUTE: u8 = 0x8C;

@@ -17,9 +17,9 @@ impl Ppu {
     }
     pub fn write_control(&mut self, data: u8) {
         if data & control::flag::ADDRESS_INCREMENT != 0 {
-            self.address_write_offset = 32;
+            self.address_increment = 32;
         } else {
-            self.address_write_offset = 1;
+            self.address_increment = 1;
         }
         self.vblank_nmi = data & control::flag::VBLANK_NMI != 0;
     }
@@ -37,16 +37,27 @@ impl Ppu {
     pub fn write_scroll(&mut self, _data: u8) {}
     pub fn write_address(&mut self, data: u8) {
         self.address |= (data as u16).wrapping_shl(self.address_write_offset as u32);
+        println!("write address {:X} {:X}", data, self.address);
         self.address_write_offset = 0;
     }
     pub fn write_data(&mut self, vram: &mut [u8], data: u8) {
-        vram[self.address as usize] = data;
+        println!("{:X}", self.address);
+        // hardcode horizontal mirroring
+        match self.address {
+            0x0000..=0x0FFF => println!("unimplemented pattern table write"),
+            0x1000..=0x1FFF => println!("unimplemented pattern table write"),
+            0x2000..=0x23FF => vram[self.address as usize - 0x2000] = data,
+            0x2400..=0x27FF => vram[self.address as usize - 0x2400] = data,
+            0x2800..=0x2BFF => vram[self.address as usize - 0x2400] = data,
+            0x2C00..=0x2FFF => vram[self.address as usize - 0x2800] = data,
+            0x3000..=0x3EFF => println!("unimplemented mirror write"),
+            0x3F00..=0x3FFF => println!("unimplemented palette write"),
+            _ => panic!("ppu write out of bounds"),
+        }
         self.address = self.address.wrapping_add(self.address_increment as u16);
     }
     pub fn read_data(&mut self, vram: &[u8]) -> u8 {
-        let result = vram[self.address as usize];
-        self.address = self.address.wrapping_add(self.address_increment as u16);
-        result
+        panic!()
     }
 }
 

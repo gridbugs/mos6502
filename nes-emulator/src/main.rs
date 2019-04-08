@@ -55,7 +55,10 @@ impl Memory for NesDevices {
                 7 => self.ppu.read_data(&self.vram),
                 _ => unreachable!(),
             },
-            0x4000..=0x7FFF => panic!("unimplemented read from {:x}", address),
+            0x4000..=0x7FFF => {
+                println!("unimplemented read from {:x}", address);
+                0
+            }
             0x8000..=0xFFFF => self.rom[(address as usize - 0x8000) % 0x4000],
         }
     }
@@ -73,7 +76,7 @@ impl Memory for NesDevices {
                 7 => self.ppu.write_data(&mut self.vram, data),
                 _ => unreachable!(),
             },
-            0x4000..=0x7FFF => panic!("unimplemented write {:x} to {:x}", data, address),
+            0x4000..=0x7FFF => println!("unimplemented write {:x} to {:x}", data, address),
             0x8000..=0xFFFF => panic!("unimplemented write {:x} to {:x}", data, address),
         }
     }
@@ -111,6 +114,9 @@ impl Nes {
             }
         }
     }
+    fn nmi(&mut self) {
+        self.cpu.nmi(&mut self.devices);
+    }
     fn print_state(&self) {
         let stdout = io::stdout();
         let mut handle = stdout.lock();
@@ -121,13 +127,11 @@ impl Nes {
         let _ = writeln!(handle, "\nRAM");
         print_bytes_hex(&self.devices.ram, 0, 16);
         let _ = writeln!(handle, "\nVRAM");
-        print_bytes_hex(&self.devices.vram, 0, 32);
+        print_vram(&self.devices.vram);
         let _ = writeln!(handle, "PPU");
-        let _ = writeln!(handle, "{:?}", self.devices.ppu);
+        let _ = writeln!(handle, "{:X?}", self.devices.ppu);
     }
 }
-
-const N_STEPS: usize = 100000;
 
 fn main() {
     let args = Args::arg().with_help_default().parse_env_default_or_exit();
@@ -165,7 +169,11 @@ fn main() {
         },
     };
     nes.start();
-    for _ in 0..N_STEPS {
+    for _ in 0..100000 {
+        nes.step();
+    }
+    nes.nmi();
+    for _ in 0..100000 {
         nes.step();
     }
     nes.print_state();
@@ -178,6 +186,21 @@ pub fn print_bytes_hex(data: &[u8], address_offset: u16, line_width: usize) {
         let _ = write!(handle, "{:04X}: ", address_offset as usize + i * line_width);
         for x in chunk {
             let _ = write!(handle, "{:02X}  ", x);
+        }
+        let _ = writeln!(handle, "");
+    }
+}
+
+pub fn print_vram(data: &[u8]) {
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    for (i, chunk) in data.chunks(32).enumerate() {
+        for x in chunk {
+            let c = match x {
+                0x24 => '.',
+                _ => ' ',
+            };
+            let _ = write!(handle, "{}", c);
         }
         let _ = writeln!(handle, "");
     }
