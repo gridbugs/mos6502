@@ -1124,7 +1124,6 @@ pub mod pha {
     }
     pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
         cpu.push_stack_u8(memory, cpu.acc);
-        println!("pushing acc {:x}", cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
     }
 }

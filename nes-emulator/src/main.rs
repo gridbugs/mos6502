@@ -31,11 +31,13 @@ impl Args {
 }
 
 const RAM_BYTES: usize = 0x800;
+pub const VRAM_BYTES: usize = 0x800;
 
 struct NesDevices {
     ram: [u8; RAM_BYTES],
     rom: Vec<u8>,
     ppu: Ppu,
+    vram: [u8; VRAM_BYTES],
 }
 
 impl Memory for NesDevices {
@@ -50,7 +52,7 @@ impl Memory for NesDevices {
                 4 => self.ppu.read_oam_data(),
                 5 => 0,
                 6 => 0,
-                7 => self.ppu.read_data(),
+                7 => self.ppu.read_data(&self.vram),
                 _ => unreachable!(),
             },
             0x4000..=0x7FFF => panic!("unimplemented read from {:x}", address),
@@ -68,7 +70,7 @@ impl Memory for NesDevices {
                 4 => self.ppu.write_oam_data(data),
                 5 => self.ppu.write_scroll(data),
                 6 => self.ppu.write_address(data),
-                7 => self.ppu.write_data(data),
+                7 => self.ppu.write_data(&mut self.vram, data),
                 _ => unreachable!(),
             },
             0x4000..=0x7FFF => panic!("unimplemented write {:x} to {:x}", data, address),
@@ -118,10 +120,14 @@ impl Nes {
         print_bytes_hex(&self.devices.rom, 0xC000, 16);
         let _ = writeln!(handle, "\nRAM");
         print_bytes_hex(&self.devices.ram, 0, 16);
+        let _ = writeln!(handle, "\nVRAM");
+        print_bytes_hex(&self.devices.vram, 0, 32);
+        let _ = writeln!(handle, "PPU");
+        let _ = writeln!(handle, "{:?}", self.devices.ppu);
     }
 }
 
-const N_STEPS: usize = 10000;
+const N_STEPS: usize = 100000;
 
 fn main() {
     let args = Args::arg().with_help_default().parse_env_default_or_exit();
@@ -155,6 +161,7 @@ fn main() {
             ram: [0; RAM_BYTES],
             rom: prg_rom.clone(),
             ppu: Ppu::new(),
+            vram: [0; VRAM_BYTES],
         },
     };
     nes.start();
