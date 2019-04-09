@@ -127,6 +127,7 @@ impl Nes {
         let _ = writeln!(handle, "\nRAM");
         print_bytes_hex(&self.devices.ram, 0, 16);
         let _ = writeln!(handle, "\nVRAM");
+        print_bytes_hex(&self.devices.vram, 0, 32);
         print_vram(&self.devices.vram);
         let _ = writeln!(handle, "PPU");
         let _ = writeln!(handle, "{:X?}", self.devices.ppu);
@@ -155,9 +156,7 @@ fn main() {
         }
     };
     let Ines {
-        prg_rom,
-        chr_rom: _,
-        ..
+        prg_rom, chr_rom, ..
     } = Ines::parse(&buffer);
     let mut nes = Nes {
         cpu: Cpu::new(),
@@ -177,6 +176,10 @@ fn main() {
         nes.step();
     }
     nes.print_state();
+    let text_pattern = &chr_rom[0x1620..=0x162F];
+    for row in text_pattern {
+        println!("{:08b}", row);
+    }
 }
 
 pub fn print_bytes_hex(data: &[u8], address_offset: u16, line_width: usize) {
@@ -197,8 +200,9 @@ pub fn print_vram(data: &[u8]) {
     for (i, chunk) in data.chunks(32).enumerate() {
         for x in chunk {
             let c = match x {
-                0x24 => '.',
-                _ => ' ',
+                0x24 => ' ',
+                0x62 => '#',
+                _ => '.',
             };
             let _ = write!(handle, "{}", c);
         }

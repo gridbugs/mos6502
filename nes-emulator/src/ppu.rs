@@ -4,6 +4,8 @@ pub struct Ppu {
     address: u16,
     address_increment: u8,
     vblank_nmi: bool,
+    sprite_pattern_table_address: u16,
+    background_pattern_table_address: u16,
 }
 
 impl Ppu {
@@ -13,6 +15,8 @@ impl Ppu {
             address: 0,
             address_increment: 1,
             vblank_nmi: false,
+            sprite_pattern_table_address: 0,
+            background_pattern_table_address: 0,
         }
     }
     pub fn write_control(&mut self, data: u8) {
@@ -21,6 +25,10 @@ impl Ppu {
         } else {
             self.address_increment = 1;
         }
+        self.sprite_pattern_table_address =
+            ((data & control::flag::SPRITE_PATTERN_TABLE) != 0) as u16 * 0x1000;
+        self.background_pattern_table_address =
+            ((data & control::flag::BACKGROUND_PATTERN_TABLE) != 0) as u16 * 0x1000;
         self.vblank_nmi = data & control::flag::VBLANK_NMI != 0;
     }
     pub fn write_mask(&mut self, _data: u8) {}
@@ -65,11 +73,15 @@ pub mod control {
     pub mod bit {
         pub const VBLANK_NMI: u8 = 7;
         pub const ADDRESS_INCREMENT: u8 = 2;
+        pub const SPRITE_PATTERN_TABLE: u8 = 3;
+        pub const BACKGROUND_PATTERN_TABLE: u8 = 4;
     }
     pub mod flag {
         use super::bit;
         pub const VBLANK_NMI: u8 = 1 << bit::VBLANK_NMI;
         pub const ADDRESS_INCREMENT: u8 = 1 << bit::ADDRESS_INCREMENT;
+        pub const SPRITE_PATTERN_TABLE: u8 = 1 << bit::SPRITE_PATTERN_TABLE;
+        pub const BACKGROUND_PATTERN_TABLE: u8 = 1 << bit::BACKGROUND_PATTERN_TABLE;
     }
 }
 
