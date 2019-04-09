@@ -49,14 +49,30 @@ impl Cpu {
     pub fn step<M: Memory>(&mut self, memory: &mut M) -> Result<(), UnknownOpcode> {
         let opcode = memory.read_u8(self.pc);
         match opcode {
-            opcode::adc::ABSOLUTE => adc::interpret(Absolute, self, memory),
-            opcode::adc::ABSOLUTE_X_INDEXED => adc::interpret(AbsoluteXIndexed, self, memory),
-            opcode::adc::ABSOLUTE_Y_INDEXED => adc::interpret(AbsoluteYIndexed, self, memory),
-            opcode::adc::IMMEDIATE => adc::interpret(Immediate, self, memory),
-            opcode::adc::INDIRECT_Y_INDEXED => adc::interpret(IndirectYIndexed, self, memory),
-            opcode::adc::X_INDEXED_INDIRECT => adc::interpret(XIndexedIndirect, self, memory),
-            opcode::adc::ZERO_PAGE => adc::interpret(ZeroPage, self, memory),
-            opcode::adc::ZERO_PAGE_X_INDEXED => adc::interpret(ZeroPageXIndexed, self, memory),
+            opcode::adc::ABSOLUTE => {
+                adc::interpret(Absolute, self, memory);
+            }
+            opcode::adc::ABSOLUTE_X_INDEXED => {
+                adc::interpret(AbsoluteXIndexed, self, memory);
+            }
+            opcode::adc::ABSOLUTE_Y_INDEXED => {
+                adc::interpret(AbsoluteYIndexed, self, memory);
+            }
+            opcode::adc::IMMEDIATE => {
+                adc::interpret(Immediate, self, memory);
+            }
+            opcode::adc::INDIRECT_Y_INDEXED => {
+                adc::interpret(IndirectYIndexed, self, memory);
+            }
+            opcode::adc::X_INDEXED_INDIRECT => {
+                adc::interpret(XIndexedIndirect, self, memory);
+            }
+            opcode::adc::ZERO_PAGE => {
+                adc::interpret(ZeroPage, self, memory);
+            }
+            opcode::adc::ZERO_PAGE_X_INDEXED => {
+                adc::interpret(ZeroPageXIndexed, self, memory);
+            }
             opcode::and::ABSOLUTE => and::interpret(Absolute, self, memory),
             opcode::and::ABSOLUTE_X_INDEXED => and::interpret(AbsoluteXIndexed, self, memory),
             opcode::and::ABSOLUTE_Y_INDEXED => and::interpret(AbsoluteYIndexed, self, memory),

@@ -2,6 +2,10 @@ use crate::machine::{Cpu, Memory};
 use crate::operand;
 use crate::Address;
 
+fn addresses_on_different_pages(a: Address, b: Address) -> bool {
+    a.wrapping_shr(8) != b.wrapping_shr(8)
+}
+
 pub trait Trait {
     type Operand: operand::Trait;
     fn instruction_bytes() -> u16 {
@@ -57,6 +61,18 @@ impl AbsoluteXIndexed {
         let base_address = memory.read_u16_le(cpu.pc.wrapping_add(1));
         base_address.wrapping_add(cpu.x as Address)
     }
+    fn address_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (Address, bool) {
+        let base_address = memory.read_u16_le(cpu.pc.wrapping_add(1));
+        let indexed_address = base_address.wrapping_add(cpu.x as Address);
+        (
+            indexed_address,
+            addresses_on_different_pages(base_address, indexed_address),
+        )
+    }
+    pub fn read_data_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (u8, bool) {
+        let (address, cross_page_boundary) = Self::address_check_cross_page_boundary(cpu, memory);
+        (memory.read_u8(address), cross_page_boundary)
+    }
 }
 impl ReadData for AbsoluteXIndexed {
     fn read_data<M: Memory>(cpu: &Cpu, memory: &mut M) -> u8 {
@@ -75,17 +91,33 @@ pub struct AbsoluteYIndexed;
 impl Trait for AbsoluteYIndexed {
     type Operand = operand::Address;
 }
+impl AbsoluteYIndexed {
+    fn address<M: Memory>(cpu: &Cpu, memory: &mut M) -> Address {
+        let base_address = memory.read_u16_le(cpu.pc.wrapping_add(1));
+        base_address.wrapping_add(cpu.y as Address)
+    }
+    fn address_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (Address, bool) {
+        let base_address = memory.read_u16_le(cpu.pc.wrapping_add(1));
+        let indexed_address = base_address.wrapping_add(cpu.y as Address);
+        (
+            indexed_address,
+            addresses_on_different_pages(base_address, indexed_address),
+        )
+    }
+    pub fn read_data_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (u8, bool) {
+        let (address, cross_page_boundary) = Self::address_check_cross_page_boundary(cpu, memory);
+        (memory.read_u8(address), cross_page_boundary)
+    }
+}
 impl ReadData for AbsoluteYIndexed {
     fn read_data<M: Memory>(cpu: &Cpu, memory: &mut M) -> u8 {
-        let base_address = memory.read_u16_le(cpu.pc.wrapping_add(1));
-        let address = base_address.wrapping_add(cpu.y as Address);
+        let address = Self::address(cpu, memory);
         memory.read_u8(address)
     }
 }
 impl WriteData for AbsoluteYIndexed {
     fn write_data<M: Memory>(cpu: &Cpu, memory: &mut M, data: u8) {
-        let base_address = memory.read_u16_le(cpu.pc.wrapping_add(1));
-        let address = base_address.wrapping_add(cpu.y as Address);
+        let address = Self::address(cpu, memory);
         memory.write_u8(address, data)
     }
 }
@@ -131,6 +163,19 @@ impl IndirectYIndexed {
         memory
             .read_u16_le(base_address)
             .wrapping_add(cpu.y as Address)
+    }
+    fn address_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (Address, bool) {
+        let indirect_address = memory.read_u8(cpu.pc.wrapping_add(1)) as Address;
+        let base_address = memory.read_u16_le(indirect_address);
+        let indexed_address = base_address.wrapping_add(cpu.y as Address);
+        (
+            indexed_address,
+            addresses_on_different_pages(base_address, indexed_address),
+        )
+    }
+    pub fn read_data_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (u8, bool) {
+        let (address, cross_page_boundary) = Self::address_check_cross_page_boundary(cpu, memory);
+        (memory.read_u8(address), cross_page_boundary)
     }
 }
 impl ReadData for IndirectYIndexed {
