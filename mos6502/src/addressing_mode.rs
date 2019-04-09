@@ -1,10 +1,7 @@
+use crate::address;
 use crate::machine::{Cpu, Memory};
 use crate::operand;
 use crate::Address;
-
-fn addresses_on_different_pages(a: Address, b: Address) -> bool {
-    a.wrapping_shr(8) != b.wrapping_shr(8)
-}
 
 pub trait Trait {
     type Operand: operand::Trait;
@@ -66,7 +63,7 @@ impl AbsoluteXIndexed {
         let indexed_address = base_address.wrapping_add(cpu.x as Address);
         (
             indexed_address,
-            addresses_on_different_pages(base_address, indexed_address),
+            address::on_different_pages(base_address, indexed_address),
         )
     }
     pub fn read_data_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (u8, bool) {
@@ -101,7 +98,7 @@ impl AbsoluteYIndexed {
         let indexed_address = base_address.wrapping_add(cpu.y as Address);
         (
             indexed_address,
-            addresses_on_different_pages(base_address, indexed_address),
+            address::on_different_pages(base_address, indexed_address),
         )
     }
     pub fn read_data_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (u8, bool) {
@@ -170,7 +167,7 @@ impl IndirectYIndexed {
         let indexed_address = base_address.wrapping_add(cpu.y as Address);
         (
             indexed_address,
-            addresses_on_different_pages(base_address, indexed_address),
+            address::on_different_pages(base_address, indexed_address),
         )
     }
     pub fn read_data_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (u8, bool) {

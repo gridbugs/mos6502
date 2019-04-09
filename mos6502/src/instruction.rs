@@ -162,15 +162,77 @@ pub mod adc {
 pub mod and {
     use super::*;
     use opcode::and::*;
-    pub trait AddressingMode: ReadData {}
-    impl AddressingMode for Absolute {}
-    impl AddressingMode for AbsoluteXIndexed {}
-    impl AddressingMode for AbsoluteYIndexed {}
-    impl AddressingMode for Immediate {}
-    impl AddressingMode for IndirectYIndexed {}
-    impl AddressingMode for XIndexedIndirect {}
-    impl AddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
+    pub trait AddressingMode: addressing_mode::Trait {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles;
+    }
+    impl AddressingMode for Absolute {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
+    impl AddressingMode for AbsoluteXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 4u8 + page_boundary_cross as u8,
+            }
+        }
+    }
+    impl AddressingMode for AbsoluteYIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 4u8 + page_boundary_cross as u8,
+            }
+        }
+    }
+    impl AddressingMode for Immediate {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 2,
+            }
+        }
+    }
+    impl AddressingMode for IndirectYIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 5,
+            }
+        }
+    }
+    impl AddressingMode for XIndexedIndirect {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 6,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 3,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPageXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -220,27 +282,50 @@ pub mod and {
             ZERO_PAGE_X_INDEXED
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
-        let value = A::read_data(cpu, memory);
-        cpu.acc &= value;
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
+        cpu.acc &= data;
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        cycles
     }
 }
 pub mod asl {
     use super::*;
     use opcode::asl::*;
-    pub trait AddressingMode: Trait {}
-    pub trait MemoryAddressingMode: ReadData + WriteData + AddressingMode {}
-    impl AddressingMode for Accumulator {}
-    impl AddressingMode for Absolute {}
+    pub trait AddressingMode: addressing_mode::Trait {
+        fn num_cycles() -> u8;
+    }
+    pub trait MemoryAddressingMode: AddressingMode + ReadData + WriteData {}
+    impl AddressingMode for Accumulator {
+        fn num_cycles() -> u8 {
+            2
+        }
+    }
+    impl AddressingMode for Absolute {
+        fn num_cycles() -> u8 {
+            6
+        }
+    }
     impl MemoryAddressingMode for Absolute {}
-    impl AddressingMode for AbsoluteXIndexed {}
+    impl AddressingMode for AbsoluteXIndexed {
+        fn num_cycles() -> u8 {
+            7
+        }
+    }
     impl MemoryAddressingMode for AbsoluteXIndexed {}
-    impl AddressingMode for ZeroPage {}
+    impl AddressingMode for ZeroPage {
+        fn num_cycles() -> u8 {
+            5
+        }
+    }
     impl MemoryAddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
+    impl AddressingMode for ZeroPageXIndexed {
+        fn num_cycles() -> u8 {
+            6
+        }
+    }
     impl MemoryAddressingMode for ZeroPageXIndexed {}
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
@@ -273,7 +358,11 @@ pub mod asl {
             ZERO_PAGE_X_INDEXED
         }
     }
-    pub fn interpret<A: MemoryAddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<A: MemoryAddressingMode, M: Memory>(
+        _: A,
+        cpu: &mut Cpu,
+        memory: &mut M,
+    ) -> u8 {
         let data = A::read_data(cpu, memory);
         let carry = data & (1 << 7) != 0;
         let data = data.wrapping_shl(1);
@@ -282,15 +371,22 @@ pub mod asl {
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        A::num_cycles()
     }
-    pub fn interpret_acc(cpu: &mut Cpu) {
+    pub fn interpret_acc(cpu: &mut Cpu) -> u8 {
         let carry = cpu.acc & (1 << 7) != 0;
         cpu.acc = cpu.acc.wrapping_shl(1);
         cpu.status.set_carry_to(carry);
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(Accumulator::instruction_bytes());
+        Accumulator::num_cycles()
     }
+}
+fn branch_next_pc_with_cycles(pc: Address, offset: i8) -> (Address, u8) {
+    let next_pc = ((pc as i16).wrapping_add(offset as i16)) as Address;
+    let cycles = 3 + address::on_different_pages(pc, next_pc) as u8;
+    (next_pc, cycles)
 }
 pub mod bcc {
     use super::*;
@@ -302,11 +398,15 @@ pub mod bcc {
             RELATIVE
         }
     }
-    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
         if !cpu.status.is_carry() {
             let offset = Relative::read_offset(cpu, memory);
-            cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            let (pc, cycles) = branch_next_pc_with_cycles(cpu.pc, offset);
+            cpu.pc = pc;
+            cycles
+        } else {
+            2
         }
     }
 }
@@ -320,11 +420,15 @@ pub mod bcs {
             RELATIVE
         }
     }
-    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
         if cpu.status.is_carry() {
             let offset = Relative::read_offset(cpu, memory);
-            cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            let (pc, cycles) = branch_next_pc_with_cycles(cpu.pc, offset);
+            cpu.pc = pc;
+            cycles
+        } else {
+            2
         }
     }
 }
@@ -338,11 +442,15 @@ pub mod beq {
             RELATIVE
         }
     }
-    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
         if cpu.status.is_zero() {
             let offset = Relative::read_offset(cpu, memory);
-            cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            let (pc, cycles) = branch_next_pc_with_cycles(cpu.pc, offset);
+            cpu.pc = pc;
+            cycles
+        } else {
+            2
         }
     }
 }
@@ -356,11 +464,15 @@ pub mod bmi {
             RELATIVE
         }
     }
-    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
         if cpu.status.is_negative() {
             let offset = Relative::read_offset(cpu, memory);
-            cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            let (pc, cycles) = branch_next_pc_with_cycles(cpu.pc, offset);
+            cpu.pc = pc;
+            cycles
+        } else {
+            2
         }
     }
 }
@@ -374,11 +486,15 @@ pub mod bne {
             RELATIVE
         }
     }
-    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
         if !cpu.status.is_zero() {
             let offset = Relative::read_offset(cpu, memory);
-            cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            let (pc, cycles) = branch_next_pc_with_cycles(cpu.pc, offset);
+            cpu.pc = pc;
+            cycles
+        } else {
+            2
         }
     }
 }
@@ -392,11 +508,15 @@ pub mod bpl {
             RELATIVE
         }
     }
-    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
         if !cpu.status.is_negative() {
             let offset = Relative::read_offset(cpu, memory);
-            cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            let (pc, cycles) = branch_next_pc_with_cycles(cpu.pc, offset);
+            cpu.pc = pc;
+            cycles
+        } else {
+            2
         }
     }
 }
@@ -410,12 +530,13 @@ pub mod brk {
             IMPLIED
         }
     }
-    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         let pc_to_save = cpu.pc.wrapping_add(2);
         cpu.push_stack_u8(memory, address::hi(pc_to_save));
         cpu.push_stack_u8(memory, address::lo(pc_to_save));
         cpu.push_stack_u8(memory, cpu.status.masked_with_brk());
         cpu.pc = memory.read_u16_le(crate::interrupt_vector::IRQ_LO);
+        7
     }
 }
 pub mod bvc {
@@ -428,11 +549,15 @@ pub mod bvc {
             RELATIVE
         }
     }
-    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
         if !cpu.status.is_overflow() {
             let offset = Relative::read_offset(cpu, memory);
-            cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            let (pc, cycles) = branch_next_pc_with_cycles(cpu.pc, offset);
+            cpu.pc = pc;
+            cycles
+        } else {
+            2
         }
     }
 }
@@ -446,20 +571,34 @@ pub mod bvs {
             RELATIVE
         }
     }
-    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         cpu.pc = cpu.pc.wrapping_add(Relative::instruction_bytes());
         if cpu.status.is_overflow() {
             let offset = Relative::read_offset(cpu, memory);
-            cpu.pc = ((cpu.pc as i16).wrapping_add(offset as i16)) as Address;
+            let (pc, cycles) = branch_next_pc_with_cycles(cpu.pc, offset);
+            cpu.pc = pc;
+            cycles
+        } else {
+            2
         }
     }
 }
 pub mod bit {
     use super::*;
     use opcode::bit::*;
-    pub trait AddressingMode: ReadData {}
-    impl AddressingMode for ZeroPage {}
-    impl AddressingMode for Absolute {}
+    pub trait AddressingMode: ReadData {
+        fn num_cycles() -> u8;
+    }
+    impl AddressingMode for ZeroPage {
+        fn num_cycles() -> u8 {
+            3
+        }
+    }
+    impl AddressingMode for Absolute {
+        fn num_cycles() -> u8 {
+            4
+        }
+    }
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -473,13 +612,14 @@ pub mod bit {
             ZERO_PAGE
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let data = A::read_data(cpu, memory);
         let value = cpu.acc & data;
         cpu.status.set_zero_from_value(value);
         cpu.status.set_negative_from_value(value);
         cpu.status.set_overflow_to(value & (1 << 6) != 0);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        A::num_cycles()
     }
 }
 pub mod clc {
@@ -492,9 +632,10 @@ pub mod clc {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.status.clear_carry();
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod cld {
@@ -507,9 +648,10 @@ pub mod cld {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.status.clear_decimal();
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod cli {
@@ -522,9 +664,10 @@ pub mod cli {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.status.clear_interrupt_disable();
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod clv {
@@ -537,23 +680,88 @@ pub mod clv {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.status.clear_overflow();
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod cmp {
     use super::*;
     use opcode::cmp::*;
-    pub trait AddressingMode: ReadData {}
-    impl AddressingMode for Absolute {}
-    impl AddressingMode for AbsoluteXIndexed {}
-    impl AddressingMode for AbsoluteYIndexed {}
-    impl AddressingMode for Immediate {}
-    impl AddressingMode for IndirectYIndexed {}
-    impl AddressingMode for XIndexedIndirect {}
-    impl AddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
+    pub trait AddressingMode: addressing_mode::Trait {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles;
+    }
+    impl AddressingMode for Absolute {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
+    impl AddressingMode for AbsoluteXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 4u8.wrapping_add(page_boundary_cross as u8),
+            }
+        }
+    }
+    impl AddressingMode for AbsoluteYIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 4u8.wrapping_add(page_boundary_cross as u8),
+            }
+        }
+    }
+    impl AddressingMode for Immediate {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 2,
+            }
+        }
+    }
+    impl AddressingMode for IndirectYIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 5u8.wrapping_add(page_boundary_cross as u8),
+            }
+        }
+    }
+    impl AddressingMode for XIndexedIndirect {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 6,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 3,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPageXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -603,23 +811,142 @@ pub mod cmp {
             ZERO_PAGE_X_INDEXED
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
-        let value = A::read_data(cpu, memory);
-        let (diff, borrow) = cpu.acc.overflowing_sub(value);
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
+        let (diff, borrow) = cpu.acc.overflowing_sub(data);
         cpu.status.set_zero_from_value(diff);
         cpu.status.set_negative_from_value(diff);
         cpu.status.set_carry_to(!borrow);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        cycles
+    }
+}
+pub mod cpx {
+    use super::*;
+    use opcode::cpx::*;
+    pub trait AddressingMode: ReadData {
+        fn num_cycles() -> u8;
+    }
+    impl AddressingMode for Absolute {
+        fn num_cycles() -> u8 {
+            4
+        }
+    }
+    impl AddressingMode for Immediate {
+        fn num_cycles() -> u8 {
+            2
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn num_cycles() -> u8 {
+            3
+        }
+    }
+    pub struct Inst<A: AddressingMode>(pub A);
+    impl AssemblerInstruction for Inst<Absolute> {
+        type AddressingMode = Absolute;
+        fn opcode() -> u8 {
+            ABSOLUTE
+        }
+    }
+    impl AssemblerInstruction for Inst<Immediate> {
+        type AddressingMode = Immediate;
+        fn opcode() -> u8 {
+            IMMEDIATE
+        }
+    }
+    impl AssemblerInstruction for Inst<ZeroPage> {
+        type AddressingMode = ZeroPage;
+        fn opcode() -> u8 {
+            ZERO_PAGE
+        }
+    }
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let data = A::read_data(cpu, memory);
+        let (diff, borrow) = cpu.x.overflowing_sub(data);
+        cpu.status.set_zero_from_value(diff);
+        cpu.status.set_negative_from_value(diff);
+        cpu.status.set_carry_to(!borrow);
+        cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        A::num_cycles()
+    }
+}
+pub mod cpy {
+    use super::*;
+    use opcode::cpy::*;
+    pub trait AddressingMode: ReadData {
+        fn num_cycles() -> u8;
+    }
+    impl AddressingMode for Absolute {
+        fn num_cycles() -> u8 {
+            4
+        }
+    }
+    impl AddressingMode for Immediate {
+        fn num_cycles() -> u8 {
+            2
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn num_cycles() -> u8 {
+            3
+        }
+    }
+    pub struct Inst<A: AddressingMode>(pub A);
+    impl AssemblerInstruction for Inst<Absolute> {
+        type AddressingMode = Absolute;
+        fn opcode() -> u8 {
+            ABSOLUTE
+        }
+    }
+    impl AssemblerInstruction for Inst<Immediate> {
+        type AddressingMode = Immediate;
+        fn opcode() -> u8 {
+            IMMEDIATE
+        }
+    }
+    impl AssemblerInstruction for Inst<ZeroPage> {
+        type AddressingMode = ZeroPage;
+        fn opcode() -> u8 {
+            ZERO_PAGE
+        }
+    }
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let data = A::read_data(cpu, memory);
+        let (diff, borrow) = cpu.y.overflowing_sub(data);
+        cpu.status.set_zero_from_value(diff);
+        cpu.status.set_negative_from_value(diff);
+        cpu.status.set_carry_to(!borrow);
+        cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        A::num_cycles()
     }
 }
 pub mod dec {
     use super::*;
     use opcode::dec::*;
-    pub trait AddressingMode: ReadData + WriteData {}
-    impl AddressingMode for Absolute {}
-    impl AddressingMode for AbsoluteXIndexed {}
-    impl AddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
+    pub trait AddressingMode: ReadData + WriteData {
+        fn num_cycles() -> u8;
+    }
+    impl AddressingMode for Absolute {
+        fn num_cycles() -> u8 {
+            6
+        }
+    }
+    impl AddressingMode for AbsoluteXIndexed {
+        fn num_cycles() -> u8 {
+            7
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn num_cycles() -> u8 {
+            5
+        }
+    }
+    impl AddressingMode for ZeroPageXIndexed {
+        fn num_cycles() -> u8 {
+            6
+        }
+    }
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -645,12 +972,13 @@ pub mod dec {
             ZERO_PAGE_X_INDEXED
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let data = A::read_data(cpu, memory).wrapping_sub(1);
         A::write_data(cpu, memory, data);
         cpu.status.set_negative_from_value(data);
         cpu.status.set_zero_from_value(data);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        A::num_cycles()
     }
 }
 pub mod dex {
@@ -663,11 +991,12 @@ pub mod dex {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.x = cpu.x.wrapping_sub(1);
         cpu.status.set_negative_from_value(cpu.x);
         cpu.status.set_zero_from_value(cpu.x);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod dey {
@@ -680,25 +1009,90 @@ pub mod dey {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.y = cpu.y.wrapping_sub(1);
         cpu.status.set_negative_from_value(cpu.y);
         cpu.status.set_zero_from_value(cpu.y);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod eor {
     use super::*;
     use opcode::eor::*;
-    pub trait AddressingMode: ReadData {}
-    impl AddressingMode for Absolute {}
-    impl AddressingMode for AbsoluteXIndexed {}
-    impl AddressingMode for AbsoluteYIndexed {}
-    impl AddressingMode for Immediate {}
-    impl AddressingMode for IndirectYIndexed {}
-    impl AddressingMode for XIndexedIndirect {}
-    impl AddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
+    pub trait AddressingMode: addressing_mode::Trait {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles;
+    }
+    impl AddressingMode for Absolute {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
+    impl AddressingMode for AbsoluteXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 4u8.wrapping_add(page_boundary_cross as u8),
+            }
+        }
+    }
+    impl AddressingMode for AbsoluteYIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 4u8.wrapping_add(page_boundary_cross as u8),
+            }
+        }
+    }
+    impl AddressingMode for Immediate {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 2,
+            }
+        }
+    }
+    impl AddressingMode for IndirectYIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 5u8.wrapping_add(page_boundary_cross as u8),
+            }
+        }
+    }
+    impl AddressingMode for XIndexedIndirect {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 6,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 3,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPageXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -748,22 +1142,41 @@ pub mod eor {
             ZERO_PAGE_X_INDEXED
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
-        let value = A::read_data(cpu, memory);
-        cpu.acc ^= value;
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
+        cpu.acc ^= data;
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        cycles
     }
 }
 pub mod inc {
     use super::*;
     use opcode::inc::*;
-    pub trait AddressingMode: ReadData + WriteData {}
-    impl AddressingMode for Absolute {}
-    impl AddressingMode for AbsoluteXIndexed {}
-    impl AddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
+    pub trait AddressingMode: ReadData + WriteData {
+        fn num_cycles() -> u8;
+    }
+    impl AddressingMode for Absolute {
+        fn num_cycles() -> u8 {
+            6
+        }
+    }
+    impl AddressingMode for AbsoluteXIndexed {
+        fn num_cycles() -> u8 {
+            7
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn num_cycles() -> u8 {
+            5
+        }
+    }
+    impl AddressingMode for ZeroPageXIndexed {
+        fn num_cycles() -> u8 {
+            6
+        }
+    }
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -789,12 +1202,13 @@ pub mod inc {
             ZERO_PAGE_X_INDEXED
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let data = A::read_data(cpu, memory).wrapping_add(1);
         A::write_data(cpu, memory, data);
         cpu.status.set_negative_from_value(data);
         cpu.status.set_zero_from_value(data);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        A::num_cycles()
     }
 }
 pub mod inx {
@@ -807,11 +1221,12 @@ pub mod inx {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.x = cpu.x.wrapping_add(1);
         cpu.status.set_negative_from_value(cpu.x);
         cpu.status.set_zero_from_value(cpu.x);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod iny {
@@ -824,19 +1239,30 @@ pub mod iny {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.y = cpu.y.wrapping_add(1);
         cpu.status.set_negative_from_value(cpu.y);
         cpu.status.set_zero_from_value(cpu.y);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod jmp {
     use super::*;
     use opcode::jmp::*;
-    pub trait AddressingMode: ReadJumpTarget {}
-    impl AddressingMode for Absolute {}
-    impl AddressingMode for Indirect {}
+    pub trait AddressingMode: ReadJumpTarget {
+        fn num_cycles() -> u8;
+    }
+    impl AddressingMode for Absolute {
+        fn num_cycles() -> u8 {
+            3
+        }
+    }
+    impl AddressingMode for Indirect {
+        fn num_cycles() -> u8 {
+            5
+        }
+    }
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -850,8 +1276,9 @@ pub mod jmp {
             INDIRECT
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         cpu.pc = A::read_jump_target(cpu, memory);
+        A::num_cycles()
     }
 }
 pub mod jsr {
@@ -866,25 +1293,90 @@ pub mod jsr {
             ABSOLUTE
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let return_address = cpu.pc.wrapping_add(2);
         cpu.push_stack_u8(memory, address::hi(return_address));
         cpu.push_stack_u8(memory, address::lo(return_address));
         cpu.pc = A::read_jump_target(cpu, memory);
+        6
     }
 }
 pub mod lda {
     use super::*;
     use opcode::lda::*;
-    pub trait AddressingMode: ReadData {}
-    impl AddressingMode for Immediate {}
-    impl AddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
-    impl AddressingMode for Absolute {}
-    impl AddressingMode for AbsoluteXIndexed {}
-    impl AddressingMode for AbsoluteYIndexed {}
-    impl AddressingMode for XIndexedIndirect {}
-    impl AddressingMode for IndirectYIndexed {}
+    pub trait AddressingMode: addressing_mode::Trait {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles;
+    }
+    impl AddressingMode for Absolute {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
+    impl AddressingMode for AbsoluteXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 4u8.wrapping_add(page_boundary_cross as u8),
+            }
+        }
+    }
+    impl AddressingMode for AbsoluteYIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 4u8.wrapping_add(page_boundary_cross as u8),
+            }
+        }
+    }
+    impl AddressingMode for Immediate {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 2,
+            }
+        }
+    }
+    impl AddressingMode for IndirectYIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 5u8.wrapping_add(page_boundary_cross as u8),
+            }
+        }
+    }
+    impl AddressingMode for XIndexedIndirect {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 6,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 3,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPageXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -934,22 +1426,64 @@ pub mod lda {
             ZERO_PAGE_X_INDEXED
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
-        cpu.acc = A::read_data(cpu, memory);
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
+        cpu.acc = data;
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        cycles
     }
 }
 pub mod ldx {
     use super::*;
     use opcode::ldx::*;
-    pub trait AddressingMode: ReadData {}
-    impl AddressingMode for Absolute {}
-    impl AddressingMode for AbsoluteYIndexed {}
-    impl AddressingMode for Immediate {}
-    impl AddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageYIndexed {}
+    pub trait AddressingMode: addressing_mode::Trait {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles;
+    }
+
+    impl AddressingMode for Absolute {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
+    impl AddressingMode for AbsoluteYIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 4u8.wrapping_add(page_boundary_cross as u8),
+            }
+        }
+    }
+    impl AddressingMode for Immediate {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 2,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 3,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPageYIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -981,22 +1515,63 @@ pub mod ldx {
             ZERO_PAGE_Y_INDEXED
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
-        cpu.x = A::read_data(cpu, memory);
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
+        cpu.x = data;
         cpu.status.set_zero_from_value(cpu.x);
         cpu.status.set_negative_from_value(cpu.x);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        cycles
     }
 }
 pub mod ldy {
     use super::*;
     use opcode::ldy::*;
-    pub trait AddressingMode: ReadData {}
-    impl AddressingMode for Absolute {}
-    impl AddressingMode for AbsoluteXIndexed {}
-    impl AddressingMode for Immediate {}
-    impl AddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
+    pub trait AddressingMode: addressing_mode::Trait {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles;
+    }
+    impl AddressingMode for Absolute {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
+    impl AddressingMode for AbsoluteXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 4u8.wrapping_add(page_boundary_cross as u8),
+            }
+        }
+    }
+    impl AddressingMode for Immediate {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 2,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 3,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPageXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -1028,26 +1603,50 @@ pub mod ldy {
             ZERO_PAGE_X_INDEXED
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
-        cpu.y = A::read_data(cpu, memory);
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
+        cpu.y = data;
         cpu.status.set_zero_from_value(cpu.y);
         cpu.status.set_negative_from_value(cpu.y);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        cycles
     }
 }
 pub mod lsr {
     use super::*;
     use opcode::lsr::*;
-    pub trait AddressingMode: Trait {}
-    pub trait MemoryAddressingMode: ReadData + WriteData + AddressingMode {}
-    impl AddressingMode for Accumulator {}
-    impl AddressingMode for Absolute {}
+    pub trait AddressingMode: addressing_mode::Trait {
+        fn num_cycles() -> u8;
+    }
+    pub trait MemoryAddressingMode: AddressingMode + ReadData + WriteData {}
+    impl AddressingMode for Accumulator {
+        fn num_cycles() -> u8 {
+            2
+        }
+    }
+    impl AddressingMode for Absolute {
+        fn num_cycles() -> u8 {
+            6
+        }
+    }
     impl MemoryAddressingMode for Absolute {}
-    impl AddressingMode for AbsoluteXIndexed {}
+    impl AddressingMode for AbsoluteXIndexed {
+        fn num_cycles() -> u8 {
+            7
+        }
+    }
     impl MemoryAddressingMode for AbsoluteXIndexed {}
-    impl AddressingMode for ZeroPage {}
+    impl AddressingMode for ZeroPage {
+        fn num_cycles() -> u8 {
+            5
+        }
+    }
     impl MemoryAddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
+    impl AddressingMode for ZeroPageXIndexed {
+        fn num_cycles() -> u8 {
+            6
+        }
+    }
     impl MemoryAddressingMode for ZeroPageXIndexed {}
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
@@ -1080,7 +1679,11 @@ pub mod lsr {
             ZERO_PAGE_X_INDEXED
         }
     }
-    pub fn interpret<A: MemoryAddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<A: MemoryAddressingMode, M: Memory>(
+        _: A,
+        cpu: &mut Cpu,
+        memory: &mut M,
+    ) -> u8 {
         let data = A::read_data(cpu, memory);
         let carry = data & 1 != 0;
         let data = data.wrapping_shr(1);
@@ -1089,14 +1692,16 @@ pub mod lsr {
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.clear_negative();
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        A::num_cycles()
     }
-    pub fn interpret_acc(cpu: &mut Cpu) {
+    pub fn interpret_acc(cpu: &mut Cpu) -> u8 {
         let carry = cpu.acc & 1 != 0;
         cpu.acc = cpu.acc.wrapping_shr(1);
         cpu.status.set_carry_to(carry);
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.clear_negative();
         cpu.pc = cpu.pc.wrapping_add(Accumulator::instruction_bytes());
+        Accumulator::num_cycles()
     }
 }
 pub mod nop {
@@ -1109,22 +1714,85 @@ pub mod nop {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod ora {
     use super::*;
     use opcode::ora::*;
-    pub trait AddressingMode: ReadData {}
-    impl AddressingMode for Absolute {}
-    impl AddressingMode for AbsoluteXIndexed {}
-    impl AddressingMode for AbsoluteYIndexed {}
-    impl AddressingMode for Immediate {}
-    impl AddressingMode for IndirectYIndexed {}
-    impl AddressingMode for XIndexedIndirect {}
-    impl AddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
+    pub trait AddressingMode: addressing_mode::Trait {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles;
+    }
+    impl AddressingMode for Absolute {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
+    impl AddressingMode for AbsoluteXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 4u8 + page_boundary_cross as u8,
+            }
+        }
+    }
+    impl AddressingMode for AbsoluteYIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 4u8 + page_boundary_cross as u8,
+            }
+        }
+    }
+    impl AddressingMode for Immediate {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 2,
+            }
+        }
+    }
+    impl AddressingMode for IndirectYIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 5,
+            }
+        }
+    }
+    impl AddressingMode for XIndexedIndirect {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 6,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 3,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPageXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -1174,12 +1842,13 @@ pub mod ora {
             ZERO_PAGE_X_INDEXED
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
-        let value = A::read_data(cpu, memory);
-        cpu.acc |= value;
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
+        cpu.acc |= data;
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        cycles
     }
 }
 pub mod pha {
@@ -1192,9 +1861,10 @@ pub mod pha {
             IMPLIED
         }
     }
-    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         cpu.push_stack_u8(memory, cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        3
     }
 }
 pub mod php {
@@ -1207,9 +1877,10 @@ pub mod php {
             IMPLIED
         }
     }
-    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         cpu.push_stack_u8(memory, cpu.status.masked());
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        3
     }
 }
 pub mod pla {
@@ -1222,9 +1893,10 @@ pub mod pla {
             IMPLIED
         }
     }
-    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         cpu.acc = cpu.pop_stack_u8(memory);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        4
     }
 }
 pub mod plp {
@@ -1237,25 +1909,48 @@ pub mod plp {
             IMPLIED
         }
     }
-    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         let status = cpu.pop_stack_u8(memory);
         cpu.status.set(status);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        4
     }
 }
 pub mod rol {
     use super::*;
     use opcode::rol::*;
-    pub trait AddressingMode: Trait {}
-    pub trait MemoryAddressingMode: ReadData + WriteData + AddressingMode {}
-    impl AddressingMode for Accumulator {}
-    impl AddressingMode for Absolute {}
+    pub trait AddressingMode: addressing_mode::Trait {
+        fn num_cycles() -> u8;
+    }
+    pub trait MemoryAddressingMode: AddressingMode + ReadData + WriteData {}
+    impl AddressingMode for Accumulator {
+        fn num_cycles() -> u8 {
+            2
+        }
+    }
+    impl AddressingMode for Absolute {
+        fn num_cycles() -> u8 {
+            6
+        }
+    }
     impl MemoryAddressingMode for Absolute {}
-    impl AddressingMode for AbsoluteXIndexed {}
+    impl AddressingMode for AbsoluteXIndexed {
+        fn num_cycles() -> u8 {
+            7
+        }
+    }
     impl MemoryAddressingMode for AbsoluteXIndexed {}
-    impl AddressingMode for ZeroPage {}
+    impl AddressingMode for ZeroPage {
+        fn num_cycles() -> u8 {
+            5
+        }
+    }
     impl MemoryAddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
+    impl AddressingMode for ZeroPageXIndexed {
+        fn num_cycles() -> u8 {
+            6
+        }
+    }
     impl MemoryAddressingMode for ZeroPageXIndexed {}
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
@@ -1288,7 +1983,11 @@ pub mod rol {
             ZERO_PAGE_X_INDEXED
         }
     }
-    pub fn interpret<A: MemoryAddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<A: MemoryAddressingMode, M: Memory>(
+        _: A,
+        cpu: &mut Cpu,
+        memory: &mut M,
+    ) -> u8 {
         let data = A::read_data(cpu, memory);
         let carry = data & (1 << 7) != 0;
         let data = data.wrapping_shl(1) | cpu.status.carry_value();
@@ -1297,29 +1996,53 @@ pub mod rol {
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        A::num_cycles()
     }
-    pub fn interpret_acc(cpu: &mut Cpu) {
+    pub fn interpret_acc(cpu: &mut Cpu) -> u8 {
         let carry = cpu.acc & (1 << 7) != 0;
         cpu.acc = cpu.acc.wrapping_shl(1) | cpu.status.carry_value();
         cpu.status.set_carry_to(carry);
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(Accumulator::instruction_bytes());
+        Accumulator::num_cycles()
     }
 }
 pub mod ror {
     use super::*;
     use opcode::ror::*;
-    pub trait AddressingMode: Trait {}
-    pub trait MemoryAddressingMode: ReadData + WriteData + AddressingMode {}
-    impl AddressingMode for Accumulator {}
-    impl AddressingMode for Absolute {}
+    pub trait AddressingMode: addressing_mode::Trait {
+        fn num_cycles() -> u8;
+    }
+    pub trait MemoryAddressingMode: AddressingMode + ReadData + WriteData {}
+    impl AddressingMode for Accumulator {
+        fn num_cycles() -> u8 {
+            2
+        }
+    }
+    impl AddressingMode for Absolute {
+        fn num_cycles() -> u8 {
+            6
+        }
+    }
     impl MemoryAddressingMode for Absolute {}
-    impl AddressingMode for AbsoluteXIndexed {}
+    impl AddressingMode for AbsoluteXIndexed {
+        fn num_cycles() -> u8 {
+            7
+        }
+    }
     impl MemoryAddressingMode for AbsoluteXIndexed {}
-    impl AddressingMode for ZeroPage {}
+    impl AddressingMode for ZeroPage {
+        fn num_cycles() -> u8 {
+            5
+        }
+    }
     impl MemoryAddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
+    impl AddressingMode for ZeroPageXIndexed {
+        fn num_cycles() -> u8 {
+            6
+        }
+    }
     impl MemoryAddressingMode for ZeroPageXIndexed {}
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
@@ -1352,7 +2075,11 @@ pub mod ror {
             ZERO_PAGE_X_INDEXED
         }
     }
-    pub fn interpret<A: MemoryAddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<A: MemoryAddressingMode, M: Memory>(
+        _: A,
+        cpu: &mut Cpu,
+        memory: &mut M,
+    ) -> u8 {
         let data = A::read_data(cpu, memory);
         let carry = data & 1 != 0;
         let data = data.wrapping_shr(1) | cpu.status.carry_value().wrapping_shl(7);
@@ -1361,14 +2088,16 @@ pub mod ror {
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        A::num_cycles()
     }
-    pub fn interpret_acc(cpu: &mut Cpu) {
+    pub fn interpret_acc(cpu: &mut Cpu) -> u8 {
         let carry = cpu.acc & 1 != 0;
         cpu.acc = cpu.acc.wrapping_shr(1) | cpu.status.carry_value().wrapping_shl(7);
         cpu.status.set_carry_to(carry);
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(Accumulator::instruction_bytes());
+        Accumulator::num_cycles()
     }
 }
 pub mod rti {
@@ -1381,12 +2110,13 @@ pub mod rti {
             IMPLIED
         }
     }
-    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         let status = cpu.pop_stack_u8(memory);
         let return_address_lo = cpu.pop_stack_u8(memory);
         let return_address_hi = cpu.pop_stack_u8(memory);
         cpu.status.set(status);
         cpu.pc = address::from_u8_lo_hi(return_address_lo, return_address_hi);
+        6
     }
 }
 pub mod rts {
@@ -1399,24 +2129,89 @@ pub mod rts {
             IMPLIED
         }
     }
-    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         let return_address_lo = cpu.pop_stack_u8(memory);
         let return_address_hi = cpu.pop_stack_u8(memory);
         cpu.pc = address::from_u8_lo_hi(return_address_lo, return_address_hi).wrapping_add(1);
+        6
     }
 }
 pub mod sbc {
     use super::*;
     use opcode::sbc::*;
-    pub trait AddressingMode: ReadData {}
-    impl AddressingMode for Absolute {}
-    impl AddressingMode for AbsoluteXIndexed {}
-    impl AddressingMode for AbsoluteYIndexed {}
-    impl AddressingMode for Immediate {}
-    impl AddressingMode for IndirectYIndexed {}
-    impl AddressingMode for XIndexedIndirect {}
-    impl AddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
+    pub trait AddressingMode: addressing_mode::Trait {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles;
+    }
+    impl AddressingMode for Absolute {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
+    impl AddressingMode for AbsoluteXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 4u8.wrapping_add(page_boundary_cross as u8),
+            }
+        }
+    }
+    impl AddressingMode for AbsoluteYIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 4u8.wrapping_add(page_boundary_cross as u8),
+            }
+        }
+    }
+    impl AddressingMode for Immediate {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 2,
+            }
+        }
+    }
+    impl AddressingMode for IndirectYIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 5u8.wrapping_add(page_boundary_cross as u8),
+            }
+        }
+    }
+    impl AddressingMode for XIndexedIndirect {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 6,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 3,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPageXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -1466,14 +2261,15 @@ pub mod sbc {
             ZERO_PAGE_X_INDEXED
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
-        let value = A::read_data(cpu, memory);
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
         if cpu.status.is_decimal() {
             panic!("decimal subtraction not implemented");
         } else {
-            adc_common(cpu, !value);
+            adc_common(cpu, !data);
         }
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        cycles
     }
 }
 pub mod sec {
@@ -1486,9 +2282,10 @@ pub mod sec {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.status.set_carry();
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod sed {
@@ -1501,9 +2298,10 @@ pub mod sed {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.status.set_decimal();
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod sei {
@@ -1516,22 +2314,53 @@ pub mod sei {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.status.set_interrupt_disable();
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod sta {
     use super::*;
     use opcode::sta::*;
-    pub trait AddressingMode: WriteData {}
-    impl AddressingMode for Absolute {}
-    impl AddressingMode for AbsoluteXIndexed {}
-    impl AddressingMode for AbsoluteYIndexed {}
-    impl AddressingMode for IndirectYIndexed {}
-    impl AddressingMode for XIndexedIndirect {}
-    impl AddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
+    pub trait AddressingMode: WriteData {
+        fn num_cycles() -> u8;
+    }
+    impl AddressingMode for Absolute {
+        fn num_cycles() -> u8 {
+            4
+        }
+    }
+    impl AddressingMode for AbsoluteXIndexed {
+        fn num_cycles() -> u8 {
+            5
+        }
+    }
+    impl AddressingMode for AbsoluteYIndexed {
+        fn num_cycles() -> u8 {
+            5
+        }
+    }
+    impl AddressingMode for IndirectYIndexed {
+        fn num_cycles() -> u8 {
+            6
+        }
+    }
+    impl AddressingMode for XIndexedIndirect {
+        fn num_cycles() -> u8 {
+            6
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn num_cycles() -> u8 {
+            3
+        }
+    }
+    impl AddressingMode for ZeroPageXIndexed {
+        fn num_cycles() -> u8 {
+            4
+        }
+    }
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -1575,18 +2404,33 @@ pub mod sta {
             ZERO_PAGE_X_INDEXED
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         A::write_data(cpu, memory, cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        A::num_cycles()
     }
 }
 pub mod stx {
     use super::*;
     use opcode::stx::*;
-    pub trait AddressingMode: WriteData {}
-    impl AddressingMode for Absolute {}
-    impl AddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageYIndexed {}
+    pub trait AddressingMode: WriteData {
+        fn num_cycles() -> u8;
+    }
+    impl AddressingMode for Absolute {
+        fn num_cycles() -> u8 {
+            4
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn num_cycles() -> u8 {
+            3
+        }
+    }
+    impl AddressingMode for ZeroPageYIndexed {
+        fn num_cycles() -> u8 {
+            4
+        }
+    }
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -1606,18 +2450,33 @@ pub mod stx {
             ZERO_PAGE_Y_INDEXED
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         A::write_data(cpu, memory, cpu.x);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        A::num_cycles()
     }
 }
 pub mod sty {
     use super::*;
     use opcode::sty::*;
-    pub trait AddressingMode: WriteData {}
-    impl AddressingMode for Absolute {}
-    impl AddressingMode for ZeroPage {}
-    impl AddressingMode for ZeroPageXIndexed {}
+    pub trait AddressingMode: WriteData {
+        fn num_cycles() -> u8;
+    }
+    impl AddressingMode for Absolute {
+        fn num_cycles() -> u8 {
+            4
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn num_cycles() -> u8 {
+            3
+        }
+    }
+    impl AddressingMode for ZeroPageXIndexed {
+        fn num_cycles() -> u8 {
+            4
+        }
+    }
     pub struct Inst<A: AddressingMode>(pub A);
     impl AssemblerInstruction for Inst<Absolute> {
         type AddressingMode = Absolute;
@@ -1637,9 +2496,10 @@ pub mod sty {
             ZERO_PAGE_X_INDEXED
         }
     }
-    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) {
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         A::write_data(cpu, memory, cpu.y);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        A::num_cycles()
     }
 }
 pub mod tax {
@@ -1652,11 +2512,12 @@ pub mod tax {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.x = cpu.acc;
         cpu.status.set_zero_from_value(cpu.x);
         cpu.status.set_negative_from_value(cpu.x);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod tay {
@@ -1669,11 +2530,12 @@ pub mod tay {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.y = cpu.acc;
         cpu.status.set_zero_from_value(cpu.y);
         cpu.status.set_negative_from_value(cpu.y);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod tsx {
@@ -1686,11 +2548,12 @@ pub mod tsx {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.x = cpu.sp;
         cpu.status.set_zero_from_value(cpu.x);
         cpu.status.set_negative_from_value(cpu.x);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod txa {
@@ -1703,11 +2566,12 @@ pub mod txa {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.acc = cpu.x;
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod txs {
@@ -1720,9 +2584,10 @@ pub mod txs {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.sp = cpu.x;
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }
 pub mod tya {
@@ -1735,10 +2600,11 @@ pub mod tya {
             IMPLIED
         }
     }
-    pub fn interpret(cpu: &mut Cpu) {
+    pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.acc = cpu.y;
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
     }
 }

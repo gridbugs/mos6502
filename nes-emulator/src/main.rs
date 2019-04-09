@@ -107,7 +107,7 @@ impl Nes {
         let mut handle = stdout.lock();
         let _ = writeln!(handle, "{}", instruction_with_operand);
         match self.cpu.step(&mut self.devices) {
-            Ok(()) => (),
+            Ok(_) => (),
             Err(UnknownOpcode(opcode)) => {
                 self.print_state();
                 panic!("Unknown opcode: {:x} ({:x?})", opcode, self.cpu);

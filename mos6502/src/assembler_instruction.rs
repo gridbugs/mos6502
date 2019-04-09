@@ -24,6 +24,8 @@ pub use cld::Inst as Cld;
 pub use cli::Inst as Cli;
 pub use clv::Inst as Clv;
 pub use cmp::Inst as Cmp;
+pub use cpx::Inst as Cpx;
+pub use cpy::Inst as Cpy;
 pub use dec::Inst as Dec;
 pub use dex::Inst as Dex;
 pub use dey::Inst as Dey;

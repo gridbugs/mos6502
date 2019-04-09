@@ -5,6 +5,7 @@ pub mod instruction;
 pub mod machine;
 pub mod opcode;
 pub mod operand;
+pub mod status;
 
 pub use addressing_mode::Trait as AddressingMode;
 pub use assembler_instruction::Trait as AssemblerInstruction;
@@ -32,6 +33,9 @@ pub mod address {
     }
     pub fn from_u8_lo_hi(lo: u8, hi: u8) -> Address {
         (hi as Address).wrapping_shl(8) | lo as Address
+    }
+    pub fn on_different_pages(a: Address, b: Address) -> bool {
+        a.wrapping_shr(8) != b.wrapping_shr(8)
     }
 }
 

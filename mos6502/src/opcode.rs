@@ -84,6 +84,16 @@ pub mod dec {
     pub const ZERO_PAGE: u8 = 0xC6;
     pub const ZERO_PAGE_X_INDEXED: u8 = 0xD6;
 }
+pub mod cpx {
+    pub const ABSOLUTE: u8 = 0xEC;
+    pub const IMMEDIATE: u8 = 0xE0;
+    pub const ZERO_PAGE: u8 = 0xE4;
+}
+pub mod cpy {
+    pub const ABSOLUTE: u8 = 0xCC;
+    pub const IMMEDIATE: u8 = 0xC0;
+    pub const ZERO_PAGE: u8 = 0xC4;
+}
 pub mod dex {
     pub const IMPLIED: u8 = 0xCA;
 }
