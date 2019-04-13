@@ -1,11 +1,12 @@
 [workspace]
 
 members = [
-    "nes-emulator",
     "assembler",
+    "glutin_frontend",
     "ines",
     "mos6502",
     "nes",
-    "nes-samples",
+    "nes_emulator",
+    "nes_samples",
     "samples",
 ]
