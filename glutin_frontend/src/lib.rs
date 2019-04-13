@@ -2,7 +2,14 @@
 extern crate gfx;
 extern crate gfx_device_gl;
 extern crate gfx_window_glutin;
-extern crate glutin;
+pub extern crate glutin;
+
+mod dimensions {
+    pub const NES_SCREEN_WIDTH_PX: u16 = 256;
+    pub const NES_SCREEN_HEIGHT_PX: u16 = 240;
+    pub const SCALE: u16 = 2;
+    pub const PIXEL_BUFFER_SIZE: usize = (NES_SCREEN_WIDTH_PX * NES_SCREEN_HEIGHT_PX) as usize;
+}
 
 mod formats {
     pub type ColourFormat = gfx::format::Rgba8;
@@ -10,6 +17,7 @@ mod formats {
 }
 
 mod renderer {
+    use super::dimensions::*;
     use super::formats::*;
     use gfx;
 
@@ -22,6 +30,7 @@ mod renderer {
 
     gfx_pipeline!(pipe {
         quad_corners: gfx::VertexBuffer<QuadCorner> = (),
+        pixel_colours: gfx::ShaderResource<[f32; 4]> = "t_PixelColours",
         out_colour: gfx::BlendTarget<ColourFormat> =
             ("Target0", gfx::state::ColorMask::all(), gfx::preset::blend::ALPHA),
         out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
@@ -37,6 +46,8 @@ mod renderer {
         encoder: gfx::Encoder<R, C>,
         factory: F,
         device: D,
+        pixel_colour_upload_buffer: gfx::handle::Buffer<R, [f32; 4]>,
+        pixel_colour_buffer: gfx::handle::Buffer<R, [f32; 4]>,
         bundle: gfx::Bundle<R, pipe::Data<R>>,
     }
 
@@ -69,8 +80,23 @@ mod renderer {
                 .collect::<Vec<_>>();
             let (quad_corners_buf, slice) =
                 factory.create_vertex_buffer_with_slice(&quad_corners_data, &QUAD_INDICES[..]);
+            let pixel_colour_buffer = factory
+                .create_buffer::<[f32; 4]>(
+                    PIXEL_BUFFER_SIZE,
+                    gfx::buffer::Role::Vertex,
+                    gfx::memory::Usage::Data,
+                    gfx::memory::Bind::TRANSFER_DST,
+                )
+                .expect("Failed to create buffer");
+            let pixel_colour_srv = factory
+                .view_buffer_as_shader_resource(&pixel_colour_buffer)
+                .expect("Failed to view buffer as srv");
+            let pixel_colour_upload_buffer = factory
+                .create_upload_buffer::<[f32; 4]>(PIXEL_BUFFER_SIZE)
+                .expect("Failed to create buffer");
             let data = pipe::Data {
                 quad_corners: quad_corners_buf,
+                pixel_colours: pixel_colour_srv,
                 out_colour: rtv,
                 out_depth: dsv,
             };
@@ -80,9 +106,27 @@ mod renderer {
                 factory,
                 device,
                 bundle,
+                pixel_colour_upload_buffer,
+                pixel_colour_buffer,
             }
         }
+        pub fn with_pixels<G: FnMut(&mut [[f32; 4]])>(&mut self, mut g: G) {
+            let mut writer = self
+                .factory
+                .write_mapping(&self.pixel_colour_upload_buffer)
+                .expect("Failed to map pixel colour buffer");
+            g(&mut writer);
+        }
         pub fn render(&mut self) {
+            self.encoder
+                .copy_buffer(
+                    &self.pixel_colour_upload_buffer,
+                    &self.pixel_colour_buffer,
+                    0,
+                    0,
+                    PIXEL_BUFFER_SIZE,
+                )
+                .expect("Failed to copy pixel colour buffer");
             self.encoder
                 .clear(&self.bundle.data.out_colour, [0.0, 0.0, 0.0, 1.0]);
             self.encoder.clear_depth(&self.bundle.data.out_depth, 1.0);
@@ -94,8 +138,12 @@ mod renderer {
 
 }
 
+use dimensions::*;
 use formats::*;
 use renderer::Renderer;
+
+pub use dimensions::NES_SCREEN_HEIGHT_PX as HEIGHT_PX;
+pub use dimensions::NES_SCREEN_WIDTH_PX as WIDTH_PX;
 
 type GlutinRenderer = Renderer<
     gfx_device_gl::Resources,
@@ -110,29 +158,30 @@ pub struct Frontend {
     events_loop: glutin::EventsLoop,
 }
 
-const NES_SCREEN_WIDTH_PX: u32 = 256;
-const NES_SCREEN_HEIGHT_PX: u32 = 240;
-const SCALE: u32 = 1;
-
 impl Frontend {
     pub fn new() -> Self {
         let events_loop = glutin::EventsLoop::new();
-        let context_builder = glutin::ContextBuilder::new();
-        let window_size = glutin::dpi::LogicalSize {
-            width: (NES_SCREEN_WIDTH_PX * SCALE) as f64,
-            height: (NES_SCREEN_HEIGHT_PX * SCALE) as f64,
-        };
+        let window_size = glutin::dpi::LogicalSize::new(
+            (NES_SCREEN_WIDTH_PX * SCALE) as f64,
+            (NES_SCREEN_HEIGHT_PX * SCALE) as f64,
+        );
         let window_builder = glutin::WindowBuilder::new()
             .with_dimensions(window_size)
             .with_max_dimensions(window_size)
             .with_min_dimensions(window_size);
-        let (window, device, mut factory, rtv, dsv) =
-            gfx_window_glutin::init::<ColourFormat, DepthFormat>(
-                window_builder,
-                context_builder,
-                &events_loop,
-            )
+        let context_builder = glutin::ContextBuilder::new();
+        let window = context_builder
+            .build_windowed(window_builder, &events_loop)
             .expect("Failed to create window");
+        let hidpi = window.get_hidpi_factor();
+        let window_size = glutin::dpi::PhysicalSize::new(
+            (NES_SCREEN_WIDTH_PX * SCALE) as f64,
+            (NES_SCREEN_HEIGHT_PX * SCALE) as f64,
+        )
+        .to_logical(hidpi);
+        window.set_inner_size(window_size);
+        let (device, mut factory, rtv, dsv) =
+            gfx_window_glutin::init_existing::<ColourFormat, DepthFormat>(&window);
         let encoder = factory.create_command_buffer().into();
         let renderer = Renderer::new(encoder, factory, device, rtv, dsv);
         Self {
@@ -147,5 +196,8 @@ impl Frontend {
     }
     pub fn poll_glutin_events<F: FnMut(glutin::Event)>(&mut self, f: F) {
         self.events_loop.poll_events(f)
+    }
+    pub fn with_pixels<F: FnMut(&mut [[f32; 4]])>(&mut self, f: F) {
+        self.renderer.with_pixels(f)
     }
 }

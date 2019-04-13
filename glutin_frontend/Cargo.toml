@@ -11,4 +11,4 @@ gfx_device_gl = "0.16"
 gfx = "0.18"
 
 [[example]]
-name = "empty_window"
+name = "test_pattern"
