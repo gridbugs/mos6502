@@ -52,7 +52,6 @@ impl Ppu {
         self.next_address_write_is_hi_byte = !self.next_address_write_is_hi_byte;
     }
     pub fn write_data(&mut self, vram: &mut [u8], data: u8) {
-        println!("{:X}", self.address);
         // hardcode horizontal mirroring
         match self.address {
             0x0000..=0x0FFF => println!("unimplemented pattern table write"),
@@ -85,7 +84,6 @@ impl Ppu {
             let y = index / 32;
             let attribute_base = (y / 4) * 8 + (x / 4);
             let attribute = attribute_table[attribute_base as usize];
-
             let top = y & 2 == 0;
             let left = x & 2 == 0;
             let shift = match (top, left) {
@@ -118,20 +116,18 @@ impl Ppu {
                     let colour = match colour_code {
                         0x0F => [0., 0., 0.],
                         0x12 => [0., 0., 1.],
+                        0x02 => [0., 0., 0.5],
                         0x2C => [0., 1., 1.],
                         0x38 => [1., 1., 0.],
                         0x27 => [1., 0.5, 0.],
+                        0x17 => [1., 0.25, 0.],
                         0x30 => [1., 1., 1.],
+                        0x15 => [1., 0.25, 0.25],
+                        0x36 => [1., 1., 0.75],
+                        0x06 => [0.5, 0.5, 0.],
                         0x00 => [0.5, 0.5, 0.5],
                         _ => panic!("unknown colour {:X}", colour_code),
-                    }; /*
-                       let colour = match (palette_base / 4) {
-                           0 => [1., 0., 0.],
-                           1 => [0., 1., 0.],
-                           2 => [0., 0., 1.],
-                           3 => [1., 1., 0.],
-                           _ => unimplemented!(),
-                       };*/
+                    };
                     pixels.set_pixel_colour(
                         x as u16 * 8 + i as u16,
                         y as u16 * 8 + row_index as u16,

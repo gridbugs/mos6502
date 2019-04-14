@@ -46,6 +46,17 @@ impl Cpu {
     pub fn start<M: Memory>(&mut self, memory: &mut M) {
         self.pc = memory.read_u16_le(crate::interrupt_vector::START_LO);
     }
+    pub fn run_for_cycles<M: Memory>(
+        &mut self,
+        memory: &mut M,
+        num_cycles: usize,
+    ) -> Result<usize, UnknownOpcode> {
+        let mut cycle_count = 0;
+        while cycle_count < num_cycles {
+            cycle_count += self.step(memory)? as usize;
+        }
+        Ok(cycle_count)
+    }
     pub fn step<M: Memory>(&mut self, memory: &mut M) -> Result<u8, UnknownOpcode> {
         let opcode = memory.read_u8(self.pc);
         let cycles = match opcode {

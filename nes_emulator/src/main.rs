@@ -58,7 +58,7 @@ impl Memory for NesDevices {
                 _ => unreachable!(),
             },
             0x4000..=0x7FFF => {
-                println!("unimplemented read from {:x}", address);
+                //println!("unimplemented read from {:x}", address);
                 0
             }
             0x8000..=0xFFFF => self.rom[(address as usize - 0x8000) % 0x4000],
@@ -78,7 +78,7 @@ impl Memory for NesDevices {
                 7 => self.ppu.write_data(&mut self.vram, data),
                 _ => unreachable!(),
             },
-            0x4000..=0x7FFF => println!("unimplemented write {:x} to {:x}", data, address),
+            0x4000..=0x7FFF => (), //println!("unimplemented write {:x} to {:x}", data, address),
             0x8000..=0xFFFF => panic!("unimplemented write {:x} to {:x}", data, address),
         }
     }
@@ -115,6 +115,11 @@ impl Nes {
                 panic!("Unknown opcode: {:x} ({:x?})", opcode, self.cpu);
             }
         }
+    }
+    fn run_for_cycles(&mut self, num_cycles: usize) {
+        self.cpu
+            .run_for_cycles(&mut self.devices, num_cycles)
+            .unwrap();
     }
     fn nmi(&mut self) {
         self.cpu.nmi(&mut self.devices);
@@ -171,14 +176,6 @@ fn main() {
         },
     };
     nes.start();
-    for _ in 0..100000 {
-        nes.step();
-    }
-    nes.nmi();
-    for _ in 0..100000 {
-        nes.step();
-    }
-    nes.print_state();
     let mut running = true;
     loop {
         frontend.poll_glutin_events(|event| match event {
@@ -198,6 +195,8 @@ fn main() {
                 .ppu
                 .render(&mut nes.devices.vram, &chr_rom, pixels)
         });
+        nes.run_for_cycles(25000);
+        nes.nmi();
         frontend.render();
     }
 }
