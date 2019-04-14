@@ -18,13 +18,13 @@ fn main() {
         if !running {
             break;
         }
-        frontend.with_pixels(|pixels| {
-            for p in pixels.iter_mut() {
-                *p = [0., 0., 0., 1.];
+        frontend.with_pixels(|mut pixels| {
+            for mut p in pixels.iter_mut() {
+                p.set_colour([0., 0., 0.]);
             }
             for i in 0..HEIGHT_PX {
                 let x = (i + offset) % WIDTH_PX;
-                pixels[(i * WIDTH_PX + x) as usize] = [1., 0., 1., 1.];
+                pixels.set_pixel_colour(x, i, [1., 0., 1.]);
             }
             offset += 1;
         });

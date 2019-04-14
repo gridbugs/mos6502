@@ -8,3 +8,4 @@ edition = "2018"
 simon = "0.2"
 mos6502 = { path = "../mos6502" }
 ines = { path = "../ines" }
+glutin_frontend = { path = "../glutin_frontend" }

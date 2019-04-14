@@ -141,6 +141,7 @@ mod renderer {
 use dimensions::*;
 use formats::*;
 use renderer::Renderer;
+use std::slice;
 
 pub use dimensions::NES_SCREEN_HEIGHT_PX as HEIGHT_PX;
 pub use dimensions::NES_SCREEN_WIDTH_PX as WIDTH_PX;
@@ -156,6 +157,42 @@ pub struct Frontend {
     renderer: GlutinRenderer,
     window: glutin::WindowedContext,
     events_loop: glutin::EventsLoop,
+}
+
+pub struct Pixels<'a> {
+    raw: &'a mut [[f32; 4]],
+}
+
+impl<'a> Pixels<'a> {
+    pub fn set_pixel_colour(&mut self, x: u16, y: u16, [r, g, b]: [f32; 3]) {
+        self.raw[(y * NES_SCREEN_WIDTH_PX + x) as usize] = [r, g, b, 1.];
+    }
+    pub fn iter_mut(&mut self) -> PixelsIterMut {
+        PixelsIterMut {
+            iter: self.raw.iter_mut(),
+        }
+    }
+}
+
+pub struct Pixel<'a> {
+    raw: &'a mut [f32; 4],
+}
+
+impl<'a> Pixel<'a> {
+    pub fn set_colour(&mut self, [r, g, b]: [f32; 3]) {
+        *self.raw = [r, g, b, 1.];
+    }
+}
+
+pub struct PixelsIterMut<'a> {
+    iter: slice::IterMut<'a, [f32; 4]>,
+}
+
+impl<'a> Iterator for PixelsIterMut<'a> {
+    type Item = Pixel<'a>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|raw| Pixel { raw })
+    }
 }
 
 impl Frontend {
@@ -197,7 +234,7 @@ impl Frontend {
     pub fn poll_glutin_events<F: FnMut(glutin::Event)>(&mut self, f: F) {
         self.events_loop.poll_events(f)
     }
-    pub fn with_pixels<F: FnMut(&mut [[f32; 4]])>(&mut self, f: F) {
-        self.renderer.with_pixels(f)
+    pub fn with_pixels<F: FnMut(Pixels)>(&mut self, mut f: F) {
+        self.renderer.with_pixels(|raw| f(Pixels { raw }))
     }
 }

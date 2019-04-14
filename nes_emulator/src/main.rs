@@ -1,8 +1,10 @@
 #[macro_use]
 extern crate simon;
+extern crate glutin_frontend;
 extern crate ines;
 extern crate mos6502;
 
+use glutin_frontend::*;
 use ines::*;
 use mos6502::debug::*;
 use mos6502::machine::*;
@@ -136,6 +138,7 @@ impl Nes {
 
 fn main() {
     let args = Args::arg().with_help_default().parse_env_default_or_exit();
+    let mut frontend = Frontend::new();
     let buffer = match args.rom_filename {
         Some(rom_filename) => {
             let mut buffer = Vec::new();
@@ -176,9 +179,26 @@ fn main() {
         nes.step();
     }
     nes.print_state();
-    let text_pattern = &chr_rom[0x1620..=0x162F];
-    for row in text_pattern {
-        println!("{:08b}", row);
+    let mut running = true;
+    loop {
+        frontend.poll_glutin_events(|event| match event {
+            glutin::Event::WindowEvent { event, .. } => match event {
+                glutin::WindowEvent::CloseRequested => {
+                    running = false;
+                }
+                _ => (),
+            },
+            _ => (),
+        });
+        if !running {
+            break;
+        }
+        frontend.with_pixels(|pixels| {
+            nes.devices
+                .ppu
+                .render(&mut nes.devices.vram, &chr_rom, pixels)
+        });
+        frontend.render();
     }
 }
 
