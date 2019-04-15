@@ -11,6 +11,30 @@ pub struct Ppu {
     palette_ram: [u8; 0x20],
 }
 
+pub type PpuAddress = u16;
+
+#[repr(u8)]
+pub enum PatternTableChoice {
+    PatternTable0,
+    PatternTable1,
+}
+
+#[repr(u8)]
+pub enum NameTableChoice {
+    NameTable0,
+    NameTable1,
+    NameTable2,
+    NameTable3,
+}
+
+pub trait PpuMemory {
+    fn write_u8(&mut self, address: PpuAddress, data: u8);
+    fn read_u8(&self, address: PpuAddress) -> u8;
+    fn pattern_table(&self, choice: PatternTableChoice) -> &[u8];
+    fn name_table(&self, choice: NameTableChoice) -> &[u8];
+    fn palette_ram(&self) -> &[u8];
+}
+
 impl Ppu {
     pub fn new() -> Self {
         Self {
