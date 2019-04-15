@@ -1,6 +1,9 @@
 extern crate glutin_frontend;
 use glutin_frontend::*;
 
+const BLACK: u8 = 0x0F;
+const PINK: u8 = 0x15;
+
 fn main() {
     let mut frontend = Frontend::new();
     let mut running = true;
@@ -20,11 +23,11 @@ fn main() {
         }
         frontend.with_pixels(|mut pixels| {
             for mut p in pixels.iter_mut() {
-                p.set_colour([0., 0., 0.]);
+                p.set_colour(BLACK);
             }
             for i in 0..HEIGHT_PX {
                 let x = (i + offset) % WIDTH_PX;
-                pixels.set_pixel_colour(x, i, [1., 0., 1.]);
+                pixels.set_pixel_colour(x, i, PINK);
             }
             offset += 1;
         });

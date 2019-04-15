@@ -113,25 +113,10 @@ impl Ppu {
                         0 => universal_background_colour,
                         _ => palette[palette_index as usize],
                     };
-                    let colour = match colour_code {
-                        0x0F => [0., 0., 0.],
-                        0x12 => [0., 0., 1.],
-                        0x02 => [0., 0., 0.5],
-                        0x2C => [0., 1., 1.],
-                        0x38 => [1., 1., 0.],
-                        0x27 => [1., 0.5, 0.],
-                        0x17 => [1., 0.25, 0.],
-                        0x30 => [1., 1., 1.],
-                        0x15 => [1., 0.25, 0.25],
-                        0x36 => [1., 1., 0.75],
-                        0x06 => [0.5, 0.5, 0.],
-                        0x00 => [0.5, 0.5, 0.5],
-                        _ => panic!("unknown colour {:X}", colour_code),
-                    };
                     pixels.set_pixel_colour(
                         x as u16 * 8 + i as u16,
                         y as u16 * 8 + row_index as u16,
-                        colour,
+                        colour_code,
                     );
                 }
             }

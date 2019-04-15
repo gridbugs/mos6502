@@ -142,6 +142,7 @@ use dimensions::*;
 use formats::*;
 use renderer::Renderer;
 use std::slice;
+mod colour;
 
 pub use dimensions::NES_SCREEN_HEIGHT_PX as HEIGHT_PX;
 pub use dimensions::NES_SCREEN_WIDTH_PX as WIDTH_PX;
@@ -164,8 +165,8 @@ pub struct Pixels<'a> {
 }
 
 impl<'a> Pixels<'a> {
-    pub fn set_pixel_colour(&mut self, x: u16, y: u16, [r, g, b]: [f32; 3]) {
-        self.raw[(y * NES_SCREEN_WIDTH_PX + x) as usize] = [r, g, b, 1.];
+    pub fn set_pixel_colour(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.raw[(y * NES_SCREEN_WIDTH_PX + x) as usize] = colour::lookup(colour_index);
     }
     pub fn iter_mut(&mut self) -> PixelsIterMut {
         PixelsIterMut {
@@ -179,8 +180,8 @@ pub struct Pixel<'a> {
 }
 
 impl<'a> Pixel<'a> {
-    pub fn set_colour(&mut self, [r, g, b]: [f32; 3]) {
-        *self.raw = [r, g, b, 1.];
+    pub fn set_colour(&mut self, colour_index: u8) {
+        *self.raw = colour::lookup(colour_index);
     }
 }
 
