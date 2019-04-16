@@ -6,25 +6,40 @@ pub struct Ppu {
     address: u16,
     address_increment: u8,
     vblank_nmi: bool,
-    sprite_pattern_table_address: u16,
-    background_pattern_table_address: u16,
-    palette_ram: [u8; 0x20],
+    sprite_pattern_table: PatternTableChoice,
+    background_pattern_table: PatternTableChoice,
 }
 
 pub type PpuAddress = u16;
+pub const PATTERN_TABLE_BYTES: usize = 0x1000;
+pub const NAME_TABLE_BYTES: usize = 0x400;
 
 #[repr(u8)]
+#[derive(Debug, Clone, Copy)]
 pub enum PatternTableChoice {
     PatternTable0,
     PatternTable1,
 }
 
+impl PatternTableChoice {
+    pub fn base_address(self) -> PpuAddress {
+        self as PpuAddress * (PATTERN_TABLE_BYTES as PpuAddress)
+    }
+}
+
 #[repr(u8)]
+#[derive(Debug, Clone, Copy)]
 pub enum NameTableChoice {
-    NameTable0,
-    NameTable1,
-    NameTable2,
-    NameTable3,
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+impl NameTableChoice {
+    pub fn address_offset_horizontal_mirror(self) -> PpuAddress {
+        (self as PpuAddress / 2) * (NAME_TABLE_BYTES as PpuAddress)
+    }
 }
 
 pub trait PpuMemory {
@@ -42,21 +57,26 @@ impl Ppu {
             address: 0,
             address_increment: 1,
             vblank_nmi: false,
-            sprite_pattern_table_address: 0,
-            background_pattern_table_address: 0,
-            palette_ram: [0; 0x20],
+            sprite_pattern_table: PatternTableChoice::PatternTable0,
+            background_pattern_table: PatternTableChoice::PatternTable0,
         }
     }
     pub fn write_control(&mut self, data: u8) {
-        if data & control::flag::ADDRESS_INCREMENT != 0 {
-            self.address_increment = 32;
+        self.address_increment = if data & control::flag::ADDRESS_INCREMENT != 0 {
+            32
         } else {
-            self.address_increment = 1;
-        }
-        self.sprite_pattern_table_address =
-            ((data & control::flag::SPRITE_PATTERN_TABLE) != 0) as u16 * 0x1000;
-        self.background_pattern_table_address =
-            ((data & control::flag::BACKGROUND_PATTERN_TABLE) != 0) as u16 * 0x1000;
+            1
+        };
+        self.sprite_pattern_table = if (data & control::flag::SPRITE_PATTERN_TABLE) == 0 {
+            PatternTableChoice::PatternTable0
+        } else {
+            PatternTableChoice::PatternTable1
+        };
+        self.background_pattern_table = if (data & control::flag::BACKGROUND_PATTERN_TABLE) == 0 {
+            PatternTableChoice::PatternTable0
+        } else {
+            PatternTableChoice::PatternTable1
+        };
         self.vblank_nmi = data & control::flag::VBLANK_NMI != 0;
     }
     pub fn write_mask(&mut self, _data: u8) {}
@@ -75,35 +95,23 @@ impl Ppu {
         self.address |= (data as u16).wrapping_shl((self.next_address_write_is_hi_byte as u32) * 8);
         self.next_address_write_is_hi_byte = !self.next_address_write_is_hi_byte;
     }
-    pub fn write_data(&mut self, vram: &mut [u8], data: u8) {
-        // hardcode horizontal mirroring
-        match self.address {
-            0x0000..=0x0FFF => println!("unimplemented pattern table write"),
-            0x1000..=0x1FFF => println!("unimplemented pattern table write"),
-            0x2000..=0x23FF => {
-                vram[self.address as usize - 0x2000] = data;
-                if self.address >= 0x23C0 {
-                    println!("attribute table write {:X} = {:X}", self.address, data);
-                }
-            }
-            0x2400..=0x27FF => vram[self.address as usize - 0x2400] = data,
-            0x2800..=0x2BFF => vram[self.address as usize - 0x2400] = data,
-            0x2C00..=0x2FFF => vram[self.address as usize - 0x2800] = data,
-            0x3000..=0x3EFF => println!("unimplemented mirror write"),
-            0x3F00..=0x3F1F => self.palette_ram[self.address as usize - 0x3F00] = data,
-            0x3F20..=0x3FFF => println!("unimplemented palette write"),
-            _ => panic!("ppu write out of bounds {:X}", self.address),
-        }
+    pub fn write_data<M: PpuMemory>(&mut self, memory: &mut M, data: u8) {
+        memory.write_u8(self.address, data);
         self.address = self.address.wrapping_add(self.address_increment as u16);
     }
-    pub fn read_data(&mut self, vram: &[u8]) -> u8 {
-        panic!()
+    pub fn read_data<M: PpuMemory>(&mut self, memory: &M) -> u8 {
+        let data = memory.read_u8(self.address);
+        self.address = self.address.wrapping_add(self.address_increment as u16);
+        data
     }
-    pub fn render(&mut self, vram: &[u8], chr_rom: &[u8], mut pixels: Pixels) {
-        let nametable = &vram[0x0..=0x3BF];
-        let attribute_table = &vram[0x3C0..=0x3FF];
-        let universal_background_colour = self.palette_ram[0];
-        for (index, &nametable_entry) in nametable.iter().enumerate() {
+    pub fn render<M: PpuMemory>(&mut self, memory: &M, mut pixels: Pixels) {
+        let name_table_and_attribute_table = memory.name_table(NameTableChoice::TopLeft);
+        let name_table = &name_table_and_attribute_table[0x0..=0x3BF];
+        let attribute_table = &name_table_and_attribute_table[0x3C0..=0x3FF];
+        let palette_ram = memory.palette_ram();
+        let universal_background_colour = palette_ram[0];
+        let background_pattern_table = memory.pattern_table(self.background_pattern_table);
+        for (index, &name_table_entry) in name_table.iter().enumerate() {
             let x = index % 32;
             let y = index / 32;
             let attribute_base = (y / 4) * 8 + (x / 4);
@@ -117,14 +125,12 @@ impl Ppu {
                 (false, false) => 6,
             };
             let palette_base = (attribute.wrapping_shr(shift) & 0x3) * 4;
-            let palette = &self.palette_ram[palette_base as usize..palette_base as usize + 4];
-            let pattern_address = self
-                .background_pattern_table_address
-                .wrapping_add(nametable_entry as u16 * 16);
-            let pattern_lo =
-                &chr_rom[pattern_address as usize + 0x0..=pattern_address as usize + 0x7];
-            let pattern_hi =
-                &chr_rom[pattern_address as usize + 0x8..=pattern_address as usize + 0xF];
+            let palette = &palette_ram[palette_base as usize..palette_base as usize + 4];
+            let pattern_address = name_table_entry as u16 * 16;
+            let pattern_lo = &background_pattern_table
+                [pattern_address as usize + 0x0..=pattern_address as usize + 0x7];
+            let pattern_hi = &background_pattern_table
+                [pattern_address as usize + 0x8..=pattern_address as usize + 0xF];
             for (row_index, (&pixel_row_lo, &pixel_row_hi)) in
                 pattern_lo.iter().zip(pattern_hi.iter()).enumerate()
             {

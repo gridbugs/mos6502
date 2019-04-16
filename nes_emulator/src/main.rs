@@ -13,7 +13,7 @@ use std::fs::File;
 use std::io::{self, Read, Write};
 
 mod ppu;
-use ppu::Ppu;
+use ppu::*;
 
 #[derive(Debug)]
 struct Args {
@@ -33,13 +33,54 @@ impl Args {
 }
 
 const RAM_BYTES: usize = 0x800;
-pub const VRAM_BYTES: usize = 0x800;
+const PALETTE_RAM_BYTES: usize = 0x20;
+const NAME_TABLE_RAM_BYTES: usize = NAME_TABLE_BYTES * 2;
 
 struct NesDevices {
     ram: [u8; RAM_BYTES],
     rom: Vec<u8>,
     ppu: Ppu,
-    vram: [u8; VRAM_BYTES],
+    ppu_memory: NesPpuMemory,
+}
+
+struct NesPpuMemory {
+    name_table_ram: [u8; NAME_TABLE_RAM_BYTES],
+    chr_rom: Vec<u8>,
+    palette_ram: [u8; PALETTE_RAM_BYTES],
+}
+
+impl PpuMemory for NesPpuMemory {
+    fn write_u8(&mut self, address: PpuAddress, data: u8) {
+        match address % 0x4000 {
+            0x0000..=0x0FFF => panic!("unimplemented pattern table write"),
+            0x1000..=0x1FFF => panic!("unimplemented pattern table write"),
+            0x2000..=0x23FF => self.name_table_ram[address as usize - 0x2000] = data,
+            0x2400..=0x27FF => self.name_table_ram[address as usize - 0x2400] = data,
+            0x2800..=0x2BFF => self.name_table_ram[address as usize - 0x2400] = data,
+            0x2C00..=0x2FFF => self.name_table_ram[address as usize - 0x2800] = data,
+            0x3000..=0x33FF => self.name_table_ram[address as usize - 0x3000] = data,
+            0x3400..=0x37FF => self.name_table_ram[address as usize - 0x3400] = data,
+            0x3800..=0x3BFF => self.name_table_ram[address as usize - 0x3400] = data,
+            0x3C00..=0x3EFF => self.name_table_ram[address as usize - 0x3800] = data,
+            0x3F00..=0x3F1F => self.palette_ram[address as usize - 0x3F00] = data,
+            0x3F20..=0x3FFF => self.palette_ram[(address as usize - 0x3F20) % 0x20] = data,
+            _ => unreachable!(),
+        }
+    }
+    fn read_u8(&self, address: PpuAddress) -> u8 {
+        unimplemented!()
+    }
+    fn pattern_table(&self, choice: PatternTableChoice) -> &[u8] {
+        let base_address = choice.base_address() as usize;
+        &self.chr_rom[base_address..(base_address + PATTERN_TABLE_BYTES)]
+    }
+    fn name_table(&self, choice: NameTableChoice) -> &[u8] {
+        let address_offset = choice.address_offset_horizontal_mirror() as usize;
+        &self.name_table_ram[address_offset..(address_offset + NAME_TABLE_BYTES)]
+    }
+    fn palette_ram(&self) -> &[u8] {
+        &self.palette_ram
+    }
 }
 
 impl Memory for NesDevices {
@@ -54,7 +95,7 @@ impl Memory for NesDevices {
                 4 => self.ppu.read_oam_data(),
                 5 => 0,
                 6 => 0,
-                7 => self.ppu.read_data(&self.vram),
+                7 => self.ppu.read_data(&self.ppu_memory),
                 _ => unreachable!(),
             },
             0x4000..=0x7FFF => {
@@ -75,7 +116,7 @@ impl Memory for NesDevices {
                 4 => self.ppu.write_oam_data(data),
                 5 => self.ppu.write_scroll(data),
                 6 => self.ppu.write_address(data),
-                7 => self.ppu.write_data(&mut self.vram, data),
+                7 => self.ppu.write_data(&mut self.ppu_memory, data),
                 _ => unreachable!(),
             },
             0x4000..=0x7FFF => (), //println!("unimplemented write {:x} to {:x}", data, address),
@@ -134,8 +175,8 @@ impl Nes {
         let _ = writeln!(handle, "\nRAM");
         print_bytes_hex(&self.devices.ram, 0, 16);
         let _ = writeln!(handle, "\nVRAM");
-        print_bytes_hex(&self.devices.vram, 0, 32);
-        print_vram(&self.devices.vram);
+        print_bytes_hex(&self.devices.ppu_memory.name_table_ram, 0, 32);
+        print_vram(&self.devices.ppu_memory.name_table_ram);
         let _ = writeln!(handle, "PPU");
         let _ = writeln!(handle, "{:X?}", self.devices.ppu);
     }
@@ -172,7 +213,11 @@ fn main() {
             ram: [0; RAM_BYTES],
             rom: prg_rom.clone(),
             ppu: Ppu::new(),
-            vram: [0; VRAM_BYTES],
+            ppu_memory: NesPpuMemory {
+                name_table_ram: [0; NAME_TABLE_RAM_BYTES],
+                chr_rom: chr_rom.clone(),
+                palette_ram: [0; PALETTE_RAM_BYTES],
+            },
         },
     };
     nes.start();
@@ -190,11 +235,7 @@ fn main() {
         if !running {
             break;
         }
-        frontend.with_pixels(|pixels| {
-            nes.devices
-                .ppu
-                .render(&mut nes.devices.vram, &chr_rom, pixels)
-        });
+        frontend.with_pixels(|pixels| nes.devices.ppu.render(&nes.devices.ppu_memory, pixels));
         nes.run_for_cycles(25000);
         nes.nmi();
         frontend.render();
