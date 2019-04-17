@@ -43,6 +43,11 @@ struct NesDevices {
     ppu_memory: NesPpuMemory,
 }
 
+struct NesDevicesWithOam {
+    devices: NesDevices,
+    oam: Oam,
+}
+
 struct NesPpuMemory {
     name_table_ram: [u8; NAME_TABLE_RAM_BYTES],
     chr_rom: Vec<u8>,
@@ -119,8 +124,21 @@ impl Memory for NesDevices {
                 7 => self.ppu.write_data(&mut self.ppu_memory, data),
                 _ => unreachable!(),
             },
-            0x4000..=0x7FFF => (), //println!("unimplemented write {:x} to {:x}", data, address),
+            0x4000..=0x7FFF => (),
             0x8000..=0xFFFF => panic!("unimplemented write {:x} to {:x}", data, address),
+        }
+    }
+}
+
+impl Memory for NesDevicesWithOam {
+    fn read_u8(&mut self, address: Address) -> u8 {
+        self.devices.read_u8(address)
+    }
+    fn write_u8(&mut self, address: Address, data: u8) {
+        if address == 0x4014 {
+            self.oam.dma(&mut self.devices, data);
+        } else {
+            self.devices.write_u8(address, data);
         }
     }
 }
@@ -134,9 +152,15 @@ impl MemoryReadOnly for NesDevices {
     }
 }
 
+impl MemoryReadOnly for NesDevicesWithOam {
+    fn read_u8_read_only(&self, address: Address) -> u8 {
+        self.devices.read_u8_read_only(address)
+    }
+}
+
 struct Nes {
     cpu: Cpu,
-    devices: NesDevices,
+    devices: NesDevicesWithOam,
 }
 
 impl Nes {
@@ -171,14 +195,14 @@ impl Nes {
         let _ = writeln!(handle, "CPU");
         let _ = writeln!(handle, "{:X?}", self.cpu);
         let _ = writeln!(handle, "\nROM");
-        print_bytes_hex(&self.devices.rom, 0xC000, 16);
+        print_bytes_hex(&self.devices.devices.rom, 0xC000, 16);
         let _ = writeln!(handle, "\nRAM");
-        print_bytes_hex(&self.devices.ram, 0, 16);
+        print_bytes_hex(&self.devices.devices.ram, 0, 16);
         let _ = writeln!(handle, "\nVRAM");
-        print_bytes_hex(&self.devices.ppu_memory.name_table_ram, 0, 32);
-        print_vram(&self.devices.ppu_memory.name_table_ram);
+        print_bytes_hex(&self.devices.devices.ppu_memory.name_table_ram, 0, 32);
+        print_vram(&self.devices.devices.ppu_memory.name_table_ram);
         let _ = writeln!(handle, "PPU");
-        let _ = writeln!(handle, "{:X?}", self.devices.ppu);
+        let _ = writeln!(handle, "{:X?}", self.devices.devices.ppu);
     }
 }
 
@@ -209,15 +233,18 @@ fn main() {
     } = Ines::parse(&buffer);
     let mut nes = Nes {
         cpu: Cpu::new(),
-        devices: NesDevices {
-            ram: [0; RAM_BYTES],
-            rom: prg_rom.clone(),
-            ppu: Ppu::new(),
-            ppu_memory: NesPpuMemory {
-                name_table_ram: [0; NAME_TABLE_RAM_BYTES],
-                chr_rom: chr_rom.clone(),
-                palette_ram: [0; PALETTE_RAM_BYTES],
+        devices: NesDevicesWithOam {
+            devices: NesDevices {
+                ram: [0; RAM_BYTES],
+                rom: prg_rom.clone(),
+                ppu: Ppu::new(),
+                ppu_memory: NesPpuMemory {
+                    name_table_ram: [0; NAME_TABLE_RAM_BYTES],
+                    chr_rom: chr_rom.clone(),
+                    palette_ram: [0; PALETTE_RAM_BYTES],
+                },
             },
+            oam: Oam::new(),
         },
     };
     nes.start();
@@ -235,8 +262,15 @@ fn main() {
         if !running {
             break;
         }
-        frontend.with_pixels(|pixels| nes.devices.ppu.render(&nes.devices.ppu_memory, pixels));
+        frontend.with_pixels(|pixels| {
+            nes.devices.devices.ppu.render(
+                &nes.devices.devices.ppu_memory,
+                &nes.devices.oam,
+                pixels,
+            )
+        });
         nes.run_for_cycles(25000);
+        println!("{:X?}", nes.devices.oam);
         nes.nmi();
         frontend.render();
     }

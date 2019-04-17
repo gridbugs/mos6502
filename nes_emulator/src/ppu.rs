@@ -1,4 +1,42 @@
 use glutin_frontend::Pixels;
+use mos6502::address;
+use mos6502::machine::{Address, Memory};
+use std::fmt;
+
+const OAM_SPRITE_BYTES: usize = 4;
+const OAM_NUM_SPRITES: usize = 64;
+const OAM_BYTES: usize = OAM_SPRITE_BYTES * OAM_NUM_SPRITES;
+
+pub struct Oam {
+    ram: [u8; OAM_BYTES],
+}
+
+impl Oam {
+    pub fn new() -> Self {
+        Self {
+            ram: [0; OAM_BYTES],
+        }
+    }
+    pub fn dma<M: Memory>(&mut self, memory: &mut M, start_address_hi: u8) {
+        let start_address = address::from_u8_lo_hi(0, start_address_hi);
+        for (address, oam_byte) in (start_address..start_address.wrapping_add(OAM_BYTES as Address))
+            .zip(self.ram.iter_mut())
+        {
+            *oam_byte = memory.read_u8(address)
+        }
+    }
+}
+
+impl fmt::Debug for Oam {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for sprite_index in 0..OAM_NUM_SPRITES {
+            let sprite_address = sprite_index * OAM_SPRITE_BYTES;
+            let sprite = &self.ram[sprite_address..sprite_address + OAM_SPRITE_BYTES];
+            writeln!(f, "{:02}: {:02X?}", sprite_index, sprite)?;
+        }
+        Ok(())
+    }
+}
 
 #[derive(Debug)]
 pub struct Ppu {
@@ -85,9 +123,14 @@ impl Ppu {
         self.next_address_write_is_hi_byte = true;
         status::flag::VBLANK
     }
-    pub fn write_oam_address(&mut self, _data: u8) {}
-    pub fn write_oam_data(&mut self, _data: u8) {}
+    pub fn write_oam_address(&mut self, data: u8) {
+        println!("write oam address {}", data);
+    }
+    pub fn write_oam_data(&mut self, data: u8) {
+        println!("write oam data {}", data);
+    }
     pub fn read_oam_data(&mut self) -> u8 {
+        println!("read oam data");
         0
     }
     pub fn write_scroll(&mut self, _data: u8) {}
@@ -104,7 +147,7 @@ impl Ppu {
         self.address = self.address.wrapping_add(self.address_increment as u16);
         data
     }
-    pub fn render<M: PpuMemory>(&mut self, memory: &M, mut pixels: Pixels) {
+    pub fn render<M: PpuMemory>(&mut self, memory: &M, oam: &Oam, mut pixels: Pixels) {
         let name_table_and_attribute_table = memory.name_table(NameTableChoice::TopLeft);
         let name_table = &name_table_and_attribute_table[0x0..=0x3BF];
         let attribute_table = &name_table_and_attribute_table[0x3C0..=0x3FF];
