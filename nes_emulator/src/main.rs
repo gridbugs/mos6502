@@ -57,8 +57,8 @@ struct NesPpuMemory {
 impl PpuMemory for NesPpuMemory {
     fn write_u8(&mut self, address: PpuAddress, data: u8) {
         match address % 0x4000 {
-            0x0000..=0x0FFF => panic!("unimplemented pattern table write"),
-            0x1000..=0x1FFF => panic!("unimplemented pattern table write"),
+            0x0000..=0x0FFF => println!("unimplemented pattern table write"),
+            0x1000..=0x1FFF => println!("unimplemented pattern table write"),
             0x2000..=0x23FF => self.name_table_ram[address as usize - 0x2000] = data,
             0x2400..=0x27FF => self.name_table_ram[address as usize - 0x2400] = data,
             0x2800..=0x2BFF => self.name_table_ram[address as usize - 0x2400] = data,
@@ -107,7 +107,7 @@ impl Memory for NesDevices {
                 //println!("unimplemented read from {:x}", address);
                 0
             }
-            0x8000..=0xFFFF => self.rom[(address as usize - 0x8000) % 0x4000],
+            0x8000..=0xFFFF => self.rom[address as usize - 0x8000],
         }
     }
     fn write_u8(&mut self, address: Address, data: u8) {
@@ -231,6 +231,11 @@ fn main() {
     let Ines {
         prg_rom, chr_rom, ..
     } = Ines::parse(&buffer);
+    let prg_rom = match prg_rom.len() {
+        0x8000 => prg_rom,
+        0x4000 => prg_rom.iter().chain(prg_rom.iter()).cloned().collect(),
+        other => panic!("unexpected prg rom length {}", other),
+    };
     let mut nes = Nes {
         cpu: Cpu::new(),
         devices: NesDevicesWithOam {
@@ -271,6 +276,7 @@ fn main() {
         });
         nes.run_for_cycles(25000);
         println!("{:X?}", nes.devices.oam);
+        print_vram(&nes.devices.devices.ppu_memory.name_table_ram);
         nes.nmi();
         frontend.render();
     }
