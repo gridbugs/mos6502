@@ -1,8 +1,11 @@
 #[macro_use]
 extern crate simon;
+extern crate bincode;
 extern crate glutin_frontend;
 extern crate ines;
 extern crate mos6502;
+#[macro_use]
+extern crate serde;
 
 use glutin_frontend::*;
 use ines::*;
@@ -16,8 +19,29 @@ mod ppu;
 use ppu::*;
 
 #[derive(Debug)]
+struct SaveStateArgs {
+    frame: u64,
+    filename: String,
+}
+
+impl SaveStateArgs {
+    fn arg() -> simon::ArgExt<impl simon::Arg<Item = Option<Self>>> {
+        simon::opt("", "save-state-frame", "save state frame", "INT")
+            .depend(simon::opt(
+                "",
+                "save-state-filename",
+                "save state filename",
+                "FILE",
+            ))
+            .option_map(|(frame, filename)| Self { frame, filename })
+    }
+}
+
+#[derive(Debug)]
 struct Args {
     rom_filename: Option<String>,
+    state_filename: Option<String>,
+    save_state_args: Option<SaveStateArgs>,
 }
 
 impl Args {
@@ -25,8 +49,14 @@ impl Args {
         args_map! {
             let {
                 rom_filename = simon::opt("r", "rom", "rom filename", "FILE");
+                state_filename = simon::opt("s", "state", "state filename", "FILE");
+                save_state_args = SaveStateArgs::arg();
             } in {
-                Self { rom_filename }
+                Self {
+                    rom_filename,
+                    state_filename,
+                    save_state_args,
+                }
             }
         }
     }
@@ -36,22 +66,25 @@ const RAM_BYTES: usize = 0x800;
 const PALETTE_RAM_BYTES: usize = 0x20;
 const NAME_TABLE_RAM_BYTES: usize = NAME_TABLE_BYTES * 2;
 
+#[derive(Serialize, Deserialize)]
 struct NesDevices {
-    ram: [u8; RAM_BYTES],
+    ram: Vec<u8>,
     rom: Vec<u8>,
     ppu: Ppu,
     ppu_memory: NesPpuMemory,
 }
 
+#[derive(Serialize, Deserialize)]
 struct NesDevicesWithOam {
     devices: NesDevices,
     oam: Oam,
 }
 
+#[derive(Serialize, Deserialize)]
 struct NesPpuMemory {
-    name_table_ram: [u8; NAME_TABLE_RAM_BYTES],
+    name_table_ram: Vec<u8>,
     chr_rom: Vec<u8>,
-    palette_ram: [u8; PALETTE_RAM_BYTES],
+    palette_ram: Vec<u8>,
 }
 
 impl PpuMemory for NesPpuMemory {
@@ -158,6 +191,7 @@ impl MemoryReadOnly for NesDevicesWithOam {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 struct Nes {
     cpu: Cpu,
     devices: NesDevicesWithOam,
@@ -236,25 +270,45 @@ fn main() {
         0x4000 => prg_rom.iter().chain(prg_rom.iter()).cloned().collect(),
         other => panic!("unexpected prg rom length {}", other),
     };
-    let mut nes = Nes {
-        cpu: Cpu::new(),
-        devices: NesDevicesWithOam {
-            devices: NesDevices {
-                ram: [0; RAM_BYTES],
-                rom: prg_rom.clone(),
-                ppu: Ppu::new(),
-                ppu_memory: NesPpuMemory {
-                    name_table_ram: [0; NAME_TABLE_RAM_BYTES],
-                    chr_rom: chr_rom.clone(),
-                    palette_ram: [0; PALETTE_RAM_BYTES],
+    let mut nes = if let Some(ref state_filename) = args.state_filename {
+        let mut state_file = File::open(state_filename).expect("Failed to open state file");
+        let mut bytes = Vec::new();
+        state_file
+            .read_to_end(&mut bytes)
+            .expect("Failed to read state file");
+        bincode::deserialize(&bytes).expect("Failed to parse state file")
+    } else {
+        let mut nes = Nes {
+            cpu: Cpu::new(),
+            devices: NesDevicesWithOam {
+                devices: NesDevices {
+                    ram: [0; RAM_BYTES].to_vec(),
+                    rom: prg_rom.clone(),
+                    ppu: Ppu::new(),
+                    ppu_memory: NesPpuMemory {
+                        name_table_ram: [0; NAME_TABLE_RAM_BYTES].to_vec(),
+                        chr_rom: chr_rom.clone(),
+                        palette_ram: [0; PALETTE_RAM_BYTES].to_vec(),
+                    },
                 },
+                oam: Oam::new(),
             },
-            oam: Oam::new(),
-        },
+        };
+        nes.start();
+        nes
     };
-    nes.start();
     let mut running = true;
+    let mut frame_count = 0;
     loop {
+        println!("frame count: {}", frame_count);
+        if let Some(ref save_state_args) = args.save_state_args {
+            if frame_count == save_state_args.frame {
+                let bytes = bincode::serialize(&nes).expect("Failed to serialize state");
+                let mut file =
+                    File::create(&save_state_args.filename).expect("Failed to create state file");
+                file.write_all(&bytes).expect("Failed to write state file");
+            }
+        }
         frontend.poll_glutin_events(|event| match event {
             glutin::Event::WindowEvent { event, .. } => match event {
                 glutin::WindowEvent::CloseRequested => {
@@ -279,6 +333,7 @@ fn main() {
         print_vram(&nes.devices.devices.ppu_memory.name_table_ram);
         nes.nmi();
         frontend.render();
+        frame_count += 1;
     }
 }
 

@@ -1,3 +1,5 @@
+#[macro_use]
+extern crate serde;
 pub mod addressing_mode;
 pub mod assembler_instruction;
 pub mod debug;

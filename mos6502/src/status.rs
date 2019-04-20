@@ -20,7 +20,7 @@ pub mod flag {
     pub const NEGATIVE: u8 = 1 << bit::NEGATIVE;
 }
 const MASK: u8 = !(flag::BRK | flag::EXPANSION);
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Register {
     raw: u8,
 }

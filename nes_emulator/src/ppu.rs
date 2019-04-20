@@ -7,14 +7,15 @@ const OAM_SPRITE_BYTES: usize = 4;
 const OAM_NUM_SPRITES: usize = 64;
 const OAM_BYTES: usize = OAM_SPRITE_BYTES * OAM_NUM_SPRITES;
 
+#[derive(Serialize, Deserialize)]
 pub struct Oam {
-    ram: [u8; OAM_BYTES],
+    ram: Vec<u8>,
 }
 
 impl Oam {
     pub fn new() -> Self {
         Self {
-            ram: [0; OAM_BYTES],
+            ram: [0; OAM_BYTES].to_vec(),
         }
     }
     pub fn dma<M: Memory>(&mut self, memory: &mut M, start_address_hi: u8) {
@@ -38,7 +39,7 @@ impl fmt::Debug for Oam {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Ppu {
     next_address_write_is_hi_byte: bool,
     address: u16,
@@ -53,7 +54,7 @@ pub const PATTERN_TABLE_BYTES: usize = 0x1000;
 pub const NAME_TABLE_BYTES: usize = 0x400;
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum PatternTableChoice {
     PatternTable0,
     PatternTable1,
@@ -66,7 +67,7 @@ impl PatternTableChoice {
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum NameTableChoice {
     TopLeft,
     TopRight,

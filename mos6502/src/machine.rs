@@ -3,7 +3,7 @@ use crate::instruction::*;
 pub use crate::{address, status, Address};
 use crate::{opcode, UnknownOpcode};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Cpu {
     pub pc: Address,
     pub sp: u8,
