@@ -618,7 +618,7 @@ pub mod bit {
         cpu.status.set_zero_from_value(value);
         cpu.status.set_negative_from_value(value);
         cpu.status.set_overflow_to(value & (1 << 6) != 0);
-        cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
         A::num_cycles()
     }
 }
