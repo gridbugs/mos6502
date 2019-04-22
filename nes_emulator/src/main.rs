@@ -329,8 +329,8 @@ fn main() {
             )
         });
         nes.run_for_cycles(25000);
-        println!("{:X?}", nes.devices.oam);
-        print_vram(&nes.devices.devices.ppu_memory.name_table_ram);
+        //println!("{:X?}", nes.devices.oam);
+        //print_vram(&nes.devices.devices.ppu_memory.name_table_ram);
         nes.nmi();
         frontend.render();
         frame_count += 1;
