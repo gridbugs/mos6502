@@ -225,9 +225,21 @@ impl Ppu {
                         0 => continue,
                         _ => palette[palette_index as usize],
                     };
+                    let offset_x =
+                        if attributes & oam_attribute::flag::FLIP_SPRITE_HORIZONTALLY == 0 {
+                            i
+                        } else {
+                            7 - i
+                        };
+                    let offset_y = if attributes & oam_attribute::flag::FLIP_SPRITE_VERTICALLY == 0
+                    {
+                        row_index
+                    } else {
+                        7 - row_index
+                    };
                     pixels.set_pixel_colour(
-                        position_x as u16 + i as u16,
-                        position_y as u16 + row_index as u16,
+                        position_x as u16 + offset_x as u16,
+                        position_y as u16 + offset_y as u16,
                         colour_code,
                     );
                 }
@@ -259,5 +271,17 @@ pub mod status {
     pub mod flag {
         use super::bit;
         pub const VBLANK: u8 = 1 << bit::VBLANK;
+    }
+}
+
+pub mod oam_attribute {
+    pub mod bit {
+        pub const FLIP_SPRITE_VERTICALLY: u8 = 7;
+        pub const FLIP_SPRITE_HORIZONTALLY: u8 = 6;
+    }
+    pub mod flag {
+        use super::bit;
+        pub const FLIP_SPRITE_VERTICALLY: u8 = 1 << bit::FLIP_SPRITE_VERTICALLY;
+        pub const FLIP_SPRITE_HORIZONTALLY: u8 = 1 << bit::FLIP_SPRITE_HORIZONTALLY;
     }
 }
