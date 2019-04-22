@@ -136,7 +136,9 @@ impl Ppu {
     }
     pub fn write_scroll(&mut self, _data: u8) {}
     pub fn write_address(&mut self, data: u8) {
-        self.address |= (data as u16).wrapping_shl((self.next_address_write_is_hi_byte as u32) * 8);
+        let shift = self.next_address_write_is_hi_byte as u32 * 8;
+        let mask = 0xFF00u16.wrapping_shr(shift);
+        self.address = (self.address & mask) | (data as u16).wrapping_shl(shift);
         self.next_address_write_is_hi_byte = !self.next_address_write_is_hi_byte;
     }
     pub fn write_data<M: PpuMemory>(&mut self, memory: &mut M, data: u8) {
