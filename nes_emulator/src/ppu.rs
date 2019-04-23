@@ -125,7 +125,7 @@ impl Ppu {
         status::flag::VBLANK
     }
     pub fn write_oam_address(&mut self, data: u8) {
-        println!("write oam address {}", data);
+        //println!("write oam address {}", data);
     }
     pub fn write_oam_data(&mut self, data: u8) {
         println!("write oam data {}", data);
@@ -134,7 +134,9 @@ impl Ppu {
         println!("read oam data");
         0
     }
-    pub fn write_scroll(&mut self, _data: u8) {}
+    pub fn write_scroll(&mut self, data: u8) {
+        //println!("WRITE SCROLL {:X}", data);
+    }
     pub fn write_address(&mut self, data: u8) {
         let shift = self.next_address_write_is_hi_byte as u32 * 8;
         let mask = 0xFF00u16.wrapping_shr(shift);

@@ -150,6 +150,7 @@ pub mod adc {
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
+        println!("ADC adding {:X} (acc = {:X})", data, cpu.acc);
         if cpu.status.is_decimal() {
             panic!("decimal addition not implemented");
         } else {
@@ -1231,7 +1232,7 @@ pub mod inx {
 }
 pub mod iny {
     use super::*;
-    use opcode::dey::*;
+    use opcode::iny::*;
     pub struct Inst;
     impl AssemblerInstruction for Inst {
         type AddressingMode = Implied;
@@ -1428,6 +1429,7 @@ pub mod lda {
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
+        println!("LDA data {:X}", data);
         cpu.acc = data;
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);

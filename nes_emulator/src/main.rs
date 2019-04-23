@@ -89,7 +89,8 @@ struct NesPpuMemory {
 
 impl PpuMemory for NesPpuMemory {
     fn write_u8(&mut self, address: PpuAddress, data: u8) {
-        match address % 0x4000 {
+        let address = address % 0x4000;
+        match address {
             0x0000..=0x0FFF => println!("unimplemented pattern table write"),
             0x1000..=0x1FFF => println!("unimplemented pattern table write"),
             0x2000..=0x23FF => self.name_table_ram[address as usize - 0x2000] = data,
@@ -106,7 +107,22 @@ impl PpuMemory for NesPpuMemory {
         }
     }
     fn read_u8(&self, address: PpuAddress) -> u8 {
-        unimplemented!()
+        let address = address % 0x4000;
+        match address {
+            0x0000..=0x0FFF => self.chr_rom[address as usize],
+            0x1000..=0x1FFF => self.chr_rom[address as usize],
+            0x2000..=0x23FF => self.name_table_ram[address as usize - 0x2000],
+            0x2400..=0x27FF => self.name_table_ram[address as usize - 0x2400],
+            0x2800..=0x2BFF => self.name_table_ram[address as usize - 0x2400],
+            0x2C00..=0x2FFF => self.name_table_ram[address as usize - 0x2800],
+            0x3000..=0x33FF => self.name_table_ram[address as usize - 0x3000],
+            0x3400..=0x37FF => self.name_table_ram[address as usize - 0x3400],
+            0x3800..=0x3BFF => self.name_table_ram[address as usize - 0x3400],
+            0x3C00..=0x3EFF => self.name_table_ram[address as usize - 0x3800],
+            0x3F00..=0x3F1F => self.palette_ram[address as usize - 0x3F00],
+            0x3F20..=0x3FFF => self.palette_ram[(address as usize - 0x3F20) % 0x20],
+            _ => unreachable!(),
+        }
     }
     fn pattern_table(&self, choice: PatternTableChoice) -> &[u8] {
         let base_address = choice.base_address() as usize;
@@ -123,6 +139,9 @@ impl PpuMemory for NesPpuMemory {
 
 impl Memory for NesDevices {
     fn read_u8(&mut self, address: Address) -> u8 {
+        if address == 0x0200 + (0x24 * 4) {
+            println!("reading turtle1 y position");
+        }
         match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
             0x2000..=0x3FFF => match address % 8 {
@@ -144,6 +163,12 @@ impl Memory for NesDevices {
         }
     }
     fn write_u8(&mut self, address: Address, data: u8) {
+        if address >= 0x200 && address < 0x300 && address % 4 == 0 && data != 244 {
+            println!(">>>>> {:X} y position = {}", (address - 0x200) / 4, data);
+        }
+        if address == 0x368 {
+            println!("!!!!!!!!! writing {:X} to t1 y position", data);
+        }
         match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES] = data,
             0x2000..=0x3FFF => match address % 8 {
@@ -169,6 +194,14 @@ impl Memory for NesDevicesWithOam {
     }
     fn write_u8(&mut self, address: Address, data: u8) {
         if address == 0x4014 {
+            println!("############# OAM DMA from {:X}", data);
+            for i in 0..64 {
+                let base = 0x200;
+                let x = self.devices.ram[base + i * 4 + 3];
+                let y = self.devices.ram[base + i * 4 + 0];
+                let index = self.devices.ram[base + i * 4 + 1];
+                println!("{:X}: {:X} @ ({}, {})", i, index, x, y);
+            }
             self.oam.dma(&mut self.devices, data);
         } else {
             self.devices.write_u8(address, data);
@@ -219,6 +252,19 @@ impl Nes {
         self.cpu
             .run_for_cycles(&mut self.devices, num_cycles)
             .unwrap();
+    }
+    fn run_for_cycles_debug(&mut self, num_cycles: usize) {
+        println!("$$$$$$$$$$$ t1 y = {:X}", self.devices.devices.ram[0x368]);
+        let mut count = 0;
+        while count < num_cycles {
+            let instruction_with_operand =
+                InstructionWithOperand::next(&self.cpu, &self.devices).unwrap();
+            let stdout = io::stdout();
+            let mut handle = stdout.lock();
+            let _ = writeln!(handle, "{}", instruction_with_operand);
+            //writeln!(handle, "{:X?}", self.cpu).unwrap();
+            count += self.cpu.step(&mut self.devices).unwrap() as usize;
+        }
     }
     fn nmi(&mut self) {
         self.cpu.nmi(&mut self.devices);
@@ -300,7 +346,7 @@ fn main() {
     let mut running = true;
     let mut frame_count = 0;
     loop {
-        println!("frame count: {}", frame_count);
+        //println!("frame count: {}", frame_count);
         if let Some(ref save_state_args) = args.save_state_args {
             if frame_count == save_state_args.frame {
                 let bytes = bincode::serialize(&nes).expect("Failed to serialize state");
@@ -328,9 +374,13 @@ fn main() {
                 pixels,
             )
         });
-        nes.run_for_cycles(25000);
+        nes.run_for_cycles_debug(30000);
         //println!("{:X?}", nes.devices.oam);
-        //print_vram(&nes.devices.devices.ppu_memory.name_table_ram);
+        /*
+        if frame_count == 100 {
+            nes.print_state();
+            panic!();
+        }*/
         nes.nmi();
         frontend.render();
         frame_count += 1;
