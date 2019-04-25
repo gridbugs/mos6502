@@ -241,11 +241,11 @@ impl Ppu {
                     } else {
                         7 - row_index
                     };
-                    pixels.set_pixel_colour(
-                        position_x as u16 + offset_x as u16,
-                        position_y as u16 + offset_y as u16,
-                        colour_code,
-                    );
+                    let x = position_x as u16 + offset_x as u16;
+                    let y = position_y as u16 + offset_y as u16;
+                    if x < 256 && y < 240 {
+                        pixels.set_pixel_colour(x, y, colour_code);
+                    }
                 }
             }
         }
