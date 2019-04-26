@@ -158,41 +158,47 @@ pub struct Frontend {
     renderer: GlutinRenderer,
     window: glutin::WindowedContext,
     events_loop: glutin::EventsLoop,
+    colour_table: colour::ColourTable,
 }
 
 pub struct Pixels<'a> {
+    colour_table: &'a colour::ColourTable,
     raw: &'a mut [[f32; 4]],
 }
 
 impl<'a> Pixels<'a> {
     pub fn set_pixel_colour(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.raw[(y * NES_SCREEN_WIDTH_PX + x) as usize] = colour::lookup(colour_index);
+        self.raw[(y * NES_SCREEN_WIDTH_PX + x) as usize] = self.colour_table.lookup(colour_index);
     }
     pub fn iter_mut(&mut self) -> PixelsIterMut {
         PixelsIterMut {
+            colour_table: self.colour_table,
             iter: self.raw.iter_mut(),
         }
     }
 }
 
 pub struct Pixel<'a> {
+    colour_table: &'a colour::ColourTable,
     raw: &'a mut [f32; 4],
 }
 
 impl<'a> Pixel<'a> {
     pub fn set_colour(&mut self, colour_index: u8) {
-        *self.raw = colour::lookup(colour_index);
+        *self.raw = self.colour_table.lookup(colour_index);
     }
 }
 
 pub struct PixelsIterMut<'a> {
+    colour_table: &'a colour::ColourTable,
     iter: slice::IterMut<'a, [f32; 4]>,
 }
 
 impl<'a> Iterator for PixelsIterMut<'a> {
     type Item = Pixel<'a>;
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|raw| Pixel { raw })
+        let colour_table = &self.colour_table;
+        self.iter.next().map(|raw| Pixel { colour_table, raw })
     }
 }
 
@@ -222,10 +228,12 @@ impl Frontend {
             gfx_window_glutin::init_existing::<ColourFormat, DepthFormat>(&window);
         let encoder = factory.create_command_buffer().into();
         let renderer = Renderer::new(encoder, factory, device, rtv, dsv);
+        let colour_table = colour::ColourTable::new();
         Self {
             events_loop,
             window,
             renderer,
+            colour_table,
         }
     }
     pub fn render(&mut self) {
@@ -236,6 +244,8 @@ impl Frontend {
         self.events_loop.poll_events(f)
     }
     pub fn with_pixels<F: FnMut(Pixels)>(&mut self, mut f: F) {
-        self.renderer.with_pixels(|raw| f(Pixels { raw }))
+        let colour_table = &self.colour_table;
+        self.renderer
+            .with_pixels(|raw| f(Pixels { colour_table, raw }))
     }
 }
