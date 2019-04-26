@@ -191,8 +191,12 @@ impl Memory for NesDevicesWithOam {
                 let base = 0x200;
                 let x = self.devices.ram[base + i * 4 + 3];
                 let y = self.devices.ram[base + i * 4 + 0];
+                let attributes = self.devices.ram[base + i * 4 + 2];
                 let index = self.devices.ram[base + i * 4 + 1];
-                println!("{:X}: {:X} @ ({}, {})", i, index, x, y);
+                println!(
+                    "{:02X}: {:02X} @ ({:03}, {:03}) (attr: {:02X} ",
+                    i, index, x, y, attributes
+                );
             }
             self.oam.dma(&mut self.devices, data);
         } else {
