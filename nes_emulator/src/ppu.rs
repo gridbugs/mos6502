@@ -215,7 +215,7 @@ impl Ppu {
                 [pattern_address as usize + 0x0..=pattern_address as usize + 0x7];
             let pattern_hi = &sprite_pattern_table
                 [pattern_address as usize + 0x8..=pattern_address as usize + 0xF];
-            let palette_base = (attributes & 0x3) * 4 + 4;
+            let palette_base = ((attributes & 0x3) + 4) * 4;
             let palette = &palette_ram[palette_base as usize..palette_base as usize + 4];
             for (row_index, (&pixel_row_lo, &pixel_row_hi)) in
                 pattern_lo.iter().zip(pattern_hi.iter()).enumerate()
