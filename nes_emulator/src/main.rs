@@ -139,9 +139,6 @@ impl PpuMemory for NesPpuMemory {
 
 impl Memory for NesDevices {
     fn read_u8(&mut self, address: Address) -> u8 {
-        if address == 0x0200 + (0x24 * 4) {
-            println!("reading turtle1 y position");
-        }
         let data = match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
             0x2000..=0x3FFF => match address % 8 {
@@ -161,36 +158,9 @@ impl Memory for NesDevices {
             }
             0x8000..=0xFFFF => self.rom[address as usize - 0x8000],
         };
-        if address == 0xB8 {
-            println!("4444444 reading {:X} from 0xB8", data);
-        }
-        if address == 0x368 {
-            println!("2222222 reading {:X} from t1 y position", data);
-        }
-        if address == 0x500 {
-            println!("88888888888  {:X} <- {:X}", data, address);
-        }
         data
     }
     fn write_u8(&mut self, address: Address, data: u8) {
-        if address == 0x0213 {
-            println!("mario1 x coord {}", data);
-        }
-        if address == 0x0217 {
-            println!("mario2 x coord {}", data);
-        }
-        if address == 0x500 {
-            println!("999999999999  {:X} -> {:X}", data, address);
-        }
-        if address >= 0x200 && address < 0x300 && address % 4 == 0 && data != 244 {
-            println!(">>>>> {:X} y position = {}", (address - 0x200) / 4, data);
-        }
-        if address == 0xB8 {
-            println!("333333 writing {:X} to 0xB8", data);
-        }
-        if address == 0x368 {
-            println!("1111111 writing {:X} to t1 y position", data);
-        }
         match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES] = data,
             0x2000..=0x3FFF => match address % 8 {
@@ -276,7 +246,6 @@ impl Nes {
             .unwrap();
     }
     fn run_for_cycles_debug(&mut self, num_cycles: usize) {
-        println!("$$$$$$$$$$$ t1 y = {:X}", self.devices.devices.ram[0x368]);
         let mut count = 0;
         while count < num_cycles {
             let instruction_with_operand =
@@ -396,7 +365,7 @@ fn main() {
                 pixels,
             )
         });
-        nes.run_for_cycles_debug(30000);
+        nes.run_for_cycles(30000);
         //println!("{:X?}", nes.devices.oam);
         /*
         if frame_count == 100 {

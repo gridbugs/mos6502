@@ -162,13 +162,9 @@ impl IndirectYIndexed {
             .wrapping_add(cpu.y as Address)
     }
     fn address_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (Address, bool) {
-        println!("{:X?}", cpu);
         let indirect_address = memory.read_u8(cpu.pc.wrapping_add(1)) as Address;
-        println!("indirect_address {:X}", indirect_address);
         let base_address = memory.read_u16_le(indirect_address);
-        println!("base_address {:X}", base_address);
         let indexed_address = base_address.wrapping_add(cpu.y as Address);
-        println!("indexed_address {:X}", base_address);
         (
             indexed_address,
             address::on_different_pages(base_address, indexed_address),
@@ -176,7 +172,6 @@ impl IndirectYIndexed {
     }
     pub fn read_data_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (u8, bool) {
         let (address, cross_page_boundary) = Self::address_check_cross_page_boundary(cpu, memory);
-        println!("IndirectYIndexed address {:X}", address);
         (memory.read_u8(address), cross_page_boundary)
     }
 }
@@ -189,7 +184,6 @@ impl ReadData for IndirectYIndexed {
 impl WriteData for IndirectYIndexed {
     fn write_data<M: Memory>(cpu: &Cpu, memory: &mut M, data: u8) {
         let address = Self::address(cpu, memory);
-        println!("IndirectYIndexed address {:X}", address);
         memory.write_u8(address, data)
     }
 }
@@ -254,7 +248,6 @@ impl ReadData for ZeroPageXIndexed {
     fn read_data<M: Memory>(cpu: &Cpu, memory: &mut M) -> u8 {
         let base_address_lo = memory.read_u8(cpu.pc.wrapping_add(1));
         let address_lo = base_address_lo.wrapping_add(cpu.x);
-        println!("ZeroPageXIndexed address = {:X}", address_lo);
         memory.read_u8(address_lo as Address)
     }
 }

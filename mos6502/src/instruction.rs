@@ -150,17 +150,10 @@ pub mod adc {
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
-        println!("ADC adding {:X} (acc = {:X})", data, cpu.acc);
         if cpu.status.is_decimal() {
             panic!("decimal addition not implemented");
         } else {
             adc_common(cpu, data);
-        }
-        if data == 0x2C {
-            println!("HHHHHHHHHHHH");
-        }
-        if cpu.acc == 0x2C {
-            println!("FFFFFFFFFFF");
         }
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
         cycles
@@ -621,7 +614,6 @@ pub mod bit {
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let data = A::read_data(cpu, memory);
-        println!("acc = {:X}, mem = {:X}", cpu.acc, data);
         let value = cpu.acc & data;
         cpu.status.set_zero_from_value(value);
         cpu.status.set_negative_from_value(data);
@@ -826,13 +818,6 @@ pub mod cmp {
         cpu.status.set_negative_from_value(diff);
         cpu.status.set_carry_to(!borrow);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
-        if cpu.acc == 0x2C {
-            println!("AAAAAAAAAAA {:?}", cpu.status);
-        }
-        if data == 0x2C {
-            println!("BBBBBBBBBBB");
-        }
-
         cycles
     }
 }
@@ -879,13 +864,6 @@ pub mod cpx {
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let data = A::read_data(cpu, memory);
         let (diff, borrow) = cpu.x.overflowing_sub(data);
-        if cpu.x == 0x2C {
-            println!("CCCCCCCCCCC");
-        }
-        if data == 0x2C {
-            println!("DDDDDDDDDDD");
-        }
-
         cpu.status.set_zero_from_value(diff);
         cpu.status.set_negative_from_value(diff);
         cpu.status.set_carry_to(!borrow);
@@ -936,13 +914,6 @@ pub mod cpy {
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let data = A::read_data(cpu, memory);
         let (diff, borrow) = cpu.y.overflowing_sub(data);
-        if cpu.y == 0x2C {
-            println!("CCCCCCCCCCC");
-        }
-        if data == 0x2C {
-            println!("DDDDDDDDDDD");
-        }
-
         cpu.status.set_zero_from_value(diff);
         cpu.status.set_negative_from_value(diff);
         cpu.status.set_carry_to(!borrow);
@@ -1173,18 +1144,10 @@ pub mod eor {
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
-        println!(
-            "before eor with {:X} acc = {:X} ({:?})",
-            data, cpu.acc, cpu.status
-        );
         cpu.acc ^= data;
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
-        println!(
-            "after eor with {:X} acc = {:X} ({:?})",
-            data, cpu.acc, cpu.status
-        );
         cycles
     }
 }
@@ -1465,7 +1428,6 @@ pub mod lda {
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
-        println!("LDA data {:X}", data);
         cpu.acc = data;
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
@@ -2301,25 +2263,12 @@ pub mod sbc {
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
-        if cpu.acc == 0x2C {
-            println!("GGGGGGGGGG {:X} - {:X} ({:X?})", cpu.acc, data, cpu.status);
-        }
         let original_acc = cpu.acc;
         if cpu.status.is_decimal() {
             panic!("decimal subtraction not implemented");
         } else {
             adc_common(cpu, !data);
         }
-        if data == 0x2C {
-            println!(
-                "IIIIIIIIIII {:X} - {:X} == {:X} ({:X?})",
-                original_acc, data, cpu.acc, cpu.status
-            );
-        }
-        println!(
-            "{:X} - {:X} == {:X} ({:X?})",
-            original_acc, data, cpu.acc, cpu.status
-        );
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
         cycles
     }
@@ -2457,7 +2406,6 @@ pub mod sta {
         }
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
-        println!("Storing {:X}", cpu.acc);
         A::write_data(cpu, memory, cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
         A::num_cycles()
