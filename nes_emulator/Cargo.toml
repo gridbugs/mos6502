@@ -8,6 +8,7 @@ edition = "2018"
 simon = "0.2"
 mos6502 = { path = "../mos6502" }
 ines = { path = "../ines" }
+analyser = { path = "../analyser" }
 glutin_frontend = { path = "../glutin_frontend" }
 serde = { version = "1.0", features = ["serde_derive"] }
 bincode = "1.1"

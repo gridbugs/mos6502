@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate simon;
+extern crate analyser;
 extern crate bincode;
 extern crate glutin_frontend;
 extern crate ines;
@@ -90,6 +91,9 @@ struct NesPpuMemory {
 impl PpuMemory for NesPpuMemory {
     fn write_u8(&mut self, address: PpuAddress, data: u8) {
         let address = address % 0x4000;
+        if address == 0x22A0 + 19 {
+            println!(">>>>>>>>>>>> {:X}", data);
+        }
         match address {
             0x0000..=0x0FFF => println!("unimplemented pattern table write"),
             0x1000..=0x1FFF => println!("unimplemented pattern table write"),
@@ -186,6 +190,7 @@ impl Memory for NesDevicesWithOam {
     }
     fn write_u8(&mut self, address: Address, data: u8) {
         if address == 0x4014 {
+            /*
             println!("############# OAM DMA from {:X}", data);
             for i in 0..64 {
                 let base = 0x200;
@@ -197,7 +202,7 @@ impl Memory for NesDevicesWithOam {
                     "{:02X}: {:02X} @ ({:03}, {:03}) (attr: {:02X} ",
                     i, index, x, y, attributes
                 );
-            }
+            }*/
             self.oam.dma(&mut self.devices, data);
         } else {
             self.devices.write_u8(address, data);
@@ -208,7 +213,7 @@ impl Memory for NesDevicesWithOam {
 impl MemoryReadOnly for NesDevices {
     fn read_u8_read_only(&self, address: Address) -> u8 {
         match address {
-            0..=0x7FFF => panic!("unimplemented read from {:x}", address),
+            0..=0x7FFF => 0,
             0x8000..=0xFFFF => self.rom[(address as usize - 0x8000) % 0x4000],
         }
     }
@@ -281,6 +286,31 @@ impl Nes {
     }
 }
 
+struct NesMemoryMap;
+impl analyser::MemoryMap for NesMemoryMap {
+    fn normalize_function_call<M: MemoryReadOnly>(
+        &self,
+        jsr_opcode_address: Address,
+        memory: &M,
+    ) -> Option<Address> {
+        if jsr_opcode_address >= 0x8000 {
+            let function_definition_address =
+                memory.read_u16_le_read_only(jsr_opcode_address.wrapping_add(1));
+            if function_definition_address >= 0x8000 {
+                if function_definition_address < 0xC000 {
+                    Some(function_definition_address + 0x4000)
+                } else {
+                    Some(function_definition_address)
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+}
+
 fn main() {
     let args = Args::arg().with_help_default().parse_env_default_or_exit();
     let mut frontend = Frontend::new();
@@ -340,6 +370,7 @@ fn main() {
     };
     let mut running = true;
     let mut frame_count = 0;
+    nes.print_state();
     loop {
         //println!("frame count: {}", frame_count);
         if let Some(ref save_state_args) = args.save_state_args {
@@ -371,13 +402,15 @@ fn main() {
         });
         nes.run_for_cycles(30000);
         //println!("{:X?}", nes.devices.oam);
-        /*
-        if frame_count == 100 {
-            nes.print_state();
-            panic!();
-        }*/
+        if frame_count == 200 {
+            //nes.print_state();
+            //panic!();
+        }
         nes.nmi();
         frontend.render();
+        if frame_count >= 200 {
+            return;
+        }
         frame_count += 1;
     }
 }
