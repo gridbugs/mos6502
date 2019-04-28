@@ -110,6 +110,9 @@ impl Instruction {
             addressing_mode,
         }
     }
+    pub fn size(&self) -> usize {
+        self.addressing_mode.operand_bytes() + 1
+    }
     pub fn from_opcode(opcode: u8) -> Result<Self, UnknownOpcode> {
         use crate::opcode;
         use AddressingMode::*;
@@ -273,27 +276,44 @@ impl Instruction {
     pub fn instruction_type(&self) -> InstructionType {
         self.instruction_type
     }
+    pub fn addressing_mode(&self) -> AddressingMode {
+        self.addressing_mode
+    }
 }
+#[derive(Debug, Clone)]
 pub struct InstructionWithOperand {
     address: Address,
     instruction: Instruction,
     operand: Vec<u8>,
 }
 impl InstructionWithOperand {
-    pub fn next<M: MemoryReadOnly>(cpu: &Cpu, memory: &M) -> Result<Self, UnknownOpcode> {
-        let opcode = memory.read_u8_read_only(cpu.pc);
+    pub fn decode<M: MemoryReadOnly>(address: Address, memory: &M) -> Result<Self, UnknownOpcode> {
+        let opcode = memory.read_u8_read_only(address);
         let instruction = Instruction::from_opcode(opcode)?;
         let operand_bytes = instruction.addressing_mode.operand_bytes();
         let mut operand = Vec::new();
         for i in 0..operand_bytes {
             operand
-                .push(memory.read_u8_read_only(cpu.pc.wrapping_add(i as Address).wrapping_add(1)));
+                .push(memory.read_u8_read_only(address.wrapping_add(i as Address).wrapping_add(1)));
         }
         Ok(Self {
-            address: cpu.pc,
+            address,
             instruction,
             operand,
         })
+    }
+    pub fn next<M: MemoryReadOnly>(cpu: &Cpu, memory: &M) -> Result<Self, UnknownOpcode> {
+        Self::decode(cpu.pc, memory)
+    }
+    pub fn instruction(&self) -> Instruction {
+        self.instruction
+    }
+    pub fn operand_u16_le(&self) -> Option<u16> {
+        match self.operand.as_slice() {
+            &[x] => None,
+            &[x0, x1] => Some((x1 as u16) << 8 | x0 as u16),
+            _ => None,
+        }
     }
 }
 impl fmt::Display for InstructionWithOperand {

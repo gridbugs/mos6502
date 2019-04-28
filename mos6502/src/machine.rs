@@ -230,6 +230,11 @@ pub trait Memory {
 /// View of memory which never changed by reading, for use in debugging and testing
 pub trait MemoryReadOnly {
     fn read_u8_read_only(&self, address: Address) -> u8;
+    fn read_u16_le_read_only(&self, address: Address) -> u16 {
+        let lo = self.read_u8_read_only(address);
+        let hi = self.read_u8_read_only(address + 1);
+        ((hi as u16) << 8) | lo as u16
+    }
 }
 
 pub use status::Register as StatusRegister;
