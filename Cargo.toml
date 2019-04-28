@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "analyser",
     "assembler",
     "glutin_frontend",
     "ines",
