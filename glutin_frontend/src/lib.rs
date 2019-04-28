@@ -156,7 +156,7 @@ type GlutinRenderer = Renderer<
 
 pub struct Frontend {
     renderer: GlutinRenderer,
-    window: glutin::WindowedContext,
+    windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
     events_loop: glutin::EventsLoop,
     colour_table: colour::ColourTable,
 }
@@ -214,31 +214,31 @@ impl Frontend {
             .with_max_dimensions(window_size)
             .with_min_dimensions(window_size);
         let context_builder = glutin::ContextBuilder::new();
-        let window = context_builder
+        let windowed_context = context_builder
             .build_windowed(window_builder, &events_loop)
             .expect("Failed to create window");
-        let hidpi = window.get_hidpi_factor();
+        let hidpi = windowed_context.window().get_hidpi_factor();
         let window_size = glutin::dpi::PhysicalSize::new(
             (NES_SCREEN_WIDTH_PX * SCALE) as f64,
             (NES_SCREEN_HEIGHT_PX * SCALE) as f64,
         )
         .to_logical(hidpi);
-        window.set_inner_size(window_size);
-        let (device, mut factory, rtv, dsv) =
-            gfx_window_glutin::init_existing::<ColourFormat, DepthFormat>(&window);
+        windowed_context.window().set_inner_size(window_size);
+        let (windowed_context, device, mut factory, rtv, dsv) =
+            gfx_window_glutin::init_existing::<ColourFormat, DepthFormat>(windowed_context);
         let encoder = factory.create_command_buffer().into();
         let renderer = Renderer::new(encoder, factory, device, rtv, dsv);
         let colour_table = colour::ColourTable::new();
         Self {
             events_loop,
-            window,
+            windowed_context,
             renderer,
             colour_table,
         }
     }
     pub fn render(&mut self) {
         self.renderer.render();
-        self.window.swap_buffers().unwrap();
+        self.windowed_context.swap_buffers().unwrap();
     }
     pub fn poll_glutin_events<F: FnMut(glutin::Event)>(&mut self, f: F) {
         self.events_loop.poll_events(f)

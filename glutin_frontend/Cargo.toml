@@ -5,8 +5,8 @@ authors = ["Stephen Sherratt <stephen@sherra.tt>"]
 edition = "2018"
 
 [dependencies]
-glutin = "0.20"
-gfx_window_glutin = "0.30"
+glutin = "0.21"
+gfx_window_glutin = "0.31"
 gfx_device_gl = "0.16"
 gfx = "0.18"
 
