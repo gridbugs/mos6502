@@ -72,7 +72,7 @@ impl fmt::Display for FunctionStep {
                 relative_target,
             } => write!(
                 f,
-                "{} (relative: {}, absolute: {:X})",
+                "{} (relative: {:X}, absolute: {:X})",
                 instruction_with_operand, relative_target, absolute_target
             ),
             FunctionStep::InvalidOpcode { address, opcode } => {
@@ -158,7 +158,7 @@ fn trace_function_definition<M: MemoryReadOnly>(
                     }
                     _ => panic!("Invalid addressing mode"),
                 },
-                InstructionType::Rti => (),
+                InstructionType::Rts => (),
                 InstructionType::Bcc
                 | InstructionType::Beq
                 | InstructionType::Bmi
