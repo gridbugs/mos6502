@@ -48,6 +48,11 @@ enum FunctionStep {
         instruction_with_operand: InstructionWithOperand,
         callee: Address,
     },
+    Branch {
+        instruction_with_operand: InstructionWithOperand,
+        absolute_target: Address,
+        relative_target: i8,
+    },
 }
 
 impl fmt::Display for FunctionStep {
@@ -61,6 +66,15 @@ impl fmt::Display for FunctionStep {
             FunctionStep::JumpIndirect(instruction_with_operand) => {
                 write!(f, "{} <--- END", instruction_with_operand)
             }
+            FunctionStep::Branch {
+                instruction_with_operand,
+                absolute_target,
+                relative_target,
+            } => write!(
+                f,
+                "{} (relative: {}, absolute: {:X})",
+                instruction_with_operand, relative_target, absolute_target
+            ),
             FunctionStep::InvalidOpcode { address, opcode } => {
                 write!(f, "{:04X}  ???????? ({:02X})", address, opcode)
             }
@@ -68,8 +82,26 @@ impl fmt::Display for FunctionStep {
     }
 }
 
+impl FunctionStep {
+    fn address(&self) -> Address {
+        match self {
+            FunctionStep::InvalidOpcode { address, .. } => *address,
+            FunctionStep::JumpIndirect(instruction_with_operand)
+            | FunctionStep::TracedInstruction(instruction_with_operand)
+            | FunctionStep::FunctionCall {
+                instruction_with_operand,
+                ..
+            }
+            | FunctionStep::Branch {
+                instruction_with_operand,
+                ..
+            } => instruction_with_operand.address(),
+        }
+    }
+}
+
 #[derive(Debug)]
-struct FunctionTrace {
+pub struct FunctionTrace {
     steps: Vec<FunctionStep>,
 }
 
@@ -87,6 +119,14 @@ impl FunctionTrace {
     }
     fn len(&self) -> usize {
         self.steps.len()
+    }
+    fn contains_address(&self, address: Address) -> bool {
+        for step in self.steps.iter() {
+            if step.address() == address {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -126,11 +166,18 @@ fn trace_function_definition<M: MemoryReadOnly>(
                 | InstructionType::Bpl
                 | InstructionType::Bvc
                 | InstructionType::Bvs => {
-                    let offset = memory.read_u8_read_only(visited_address.wrapping_add(1));
-                    let next_address = ((visited_address + instruction.size() as Address) as i16
+                    let offset = memory.read_u8_read_only(visited_address.wrapping_add(1)) as i8;
+                    let absolute_target = ((visited_address + instruction.size() as Address) as i16
                         + offset as i16) as Address;
+                    to_visit.push(absolute_target);
+                    let next_address = visited_address.wrapping_add(instruction.size() as Address);
                     to_visit.push(next_address);
-                    to_visit.push(visited_address.wrapping_add(instruction.size() as Address));
+                    steps.push(FunctionStep::Branch {
+                        instruction_with_operand,
+                        absolute_target,
+                        relative_target: offset,
+                    });
+                    continue;
                 }
                 other => {
                     let next_address = visited_address.wrapping_add(instruction.size() as Address);
@@ -204,5 +251,22 @@ impl Analysis {
             call_graph,
             function_traces_by_definition_address,
         }
+    }
+    pub fn function_trace(&self, address: Address) -> Option<&FunctionTrace> {
+        self.function_traces_by_definition_address.get(&address)
+    }
+    pub fn functions_containing_address<'a>(
+        &'a self,
+        address: Address,
+    ) -> impl 'a + Iterator<Item = Address> {
+        self.function_traces_by_definition_address
+            .iter()
+            .filter_map(move |(definition_address, trace)| {
+                if trace.contains_address(address) {
+                    Some(*definition_address)
+                } else {
+                    None
+                }
+            })
     }
 }
