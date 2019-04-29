@@ -382,6 +382,7 @@ fn main() {
                 let mut file =
                     File::create(&save_state_args.filename).expect("Failed to create state file");
                 file.write_all(&bytes).expect("Failed to write state file");
+                println!("Wrote state file");
             }
         }
         frontend.poll_glutin_events(|event| match event {
@@ -418,7 +419,8 @@ fn main() {
     }
     println!("\nanalysis\n");
     let analysis = analyser::Analysis::analyse(&nes.devices, &NesMemoryMap);
-    println!("{}", analysis.function_trace(0xCE49).unwrap());
+    println!("CE49\n{}", analysis.function_trace(0xCE49).unwrap());
+    println!("CEA1\n{}", analysis.function_trace(0xCEA1).unwrap());
     /*
     let a = analysis
         .functions_containing_address(0xCE7D)
