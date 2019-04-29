@@ -11,6 +11,7 @@ pub struct Cpu {
     pub x: u8,
     pub y: u8,
     pub status: StatusRegister,
+    pub debug_call_stack: Vec<Address>,
 }
 
 impl Cpu {
@@ -22,6 +23,7 @@ impl Cpu {
             x: 0,
             y: 0,
             status: StatusRegister::new(),
+            debug_call_stack: Vec::new(),
         }
     }
     pub fn nmi<M: Memory>(&mut self, memory: &mut M) {

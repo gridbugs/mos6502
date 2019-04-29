@@ -1298,6 +1298,7 @@ pub mod jsr {
         cpu.push_stack_u8(memory, address::hi(return_address));
         cpu.push_stack_u8(memory, address::lo(return_address));
         cpu.pc = A::read_jump_target(cpu, memory);
+        cpu.debug_call_stack.push(cpu.pc);
         6
     }
 }
@@ -2133,6 +2134,14 @@ pub mod rts {
         let return_address_lo = cpu.pop_stack_u8(memory);
         let return_address_hi = cpu.pop_stack_u8(memory);
         cpu.pc = address::from_u8_lo_hi(return_address_lo, return_address_hi).wrapping_add(1);
+        if let Some(address) = cpu.debug_call_stack.pop() {
+            println!("RETURNING FROM {:X}", address);
+            println!("NOW INSIDE {:X?}", cpu.debug_call_stack.last());
+        } else {
+            println!("RETURNING FROM NOTHING");
+        }
+        //println!("CALL STACK:\n{:#X?}", cpu.debug_call_stack);
+        //println!("POST RETURN STACK POINTER: {:X}", cpu.sp);*/
         6
     }
 }

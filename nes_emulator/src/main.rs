@@ -165,6 +165,9 @@ impl Memory for NesDevices {
         data
     }
     fn write_u8(&mut self, address: Address, data: u8) {
+        if address == 0x59B {
+            println!("AAAAAAAAAAA writing {:X} to {:X}", data, address);
+        }
         match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES] = data,
             0x2000..=0x3FFF => match address % 8 {
@@ -400,7 +403,7 @@ fn main() {
                 pixels,
             )
         });
-        nes.run_for_cycles(30000);
+        nes.run_for_cycles_debug(30000);
         //println!("{:X?}", nes.devices.oam);
         if frame_count == 200 {
             //nes.print_state();
@@ -409,10 +412,18 @@ fn main() {
         nes.nmi();
         frontend.render();
         if frame_count >= 200 {
-            return;
+            break;
         }
         frame_count += 1;
     }
+    println!("\nanalysis\n");
+    let analysis = analyser::Analysis::analyse(&nes.devices, &NesMemoryMap);
+    println!("{}", analysis.function_trace(0xCE49).unwrap());
+    /*
+    let a = analysis
+        .functions_containing_address(0xCE7D)
+        .collect::<Vec<_>>();
+    println!("{:#X?}", a); */
 }
 
 pub fn print_bytes_hex(data: &[u8], address_offset: u16, line_width: usize) {

@@ -315,6 +315,9 @@ impl InstructionWithOperand {
             _ => None,
         }
     }
+    pub fn address(&self) -> Address {
+        self.address
+    }
 }
 impl fmt::Display for InstructionWithOperand {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -172,6 +172,8 @@ impl IndirectYIndexed {
     }
     pub fn read_data_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (u8, bool) {
         let (address, cross_page_boundary) = Self::address_check_cross_page_boundary(cpu, memory);
+        let data = memory.read_u8(address);
+        println!("IndirectYIndex loading {:X} from {:X}", data, address);
         (memory.read_u8(address), cross_page_boundary)
     }
 }
