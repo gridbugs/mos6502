@@ -974,6 +974,7 @@ pub mod dec {
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let data = A::read_data(cpu, memory).wrapping_sub(1);
+        println!("dec decremented to {:X}", data);
         A::write_data(cpu, memory, data);
         cpu.status.set_negative_from_value(data);
         cpu.status.set_zero_from_value(data);
@@ -1429,6 +1430,7 @@ pub mod lda {
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
+        println!("lda data {:X}", data);
         cpu.acc = data;
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
@@ -2416,6 +2418,7 @@ pub mod sta {
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         A::write_data(cpu, memory, cpu.acc);
+        println!("sta data {:X}", cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
         A::num_cycles()
     }

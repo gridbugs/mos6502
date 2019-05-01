@@ -159,6 +159,7 @@ fn trace_function_definition<M: MemoryReadOnly>(
                     _ => panic!("Invalid addressing mode"),
                 },
                 InstructionType::Rts => (),
+                InstructionType::Rti => (),
                 InstructionType::Bcc
                 | InstructionType::Beq
                 | InstructionType::Bmi
@@ -215,6 +216,10 @@ impl CallGraph {
             by_callee: BTreeMap::new(),
         }
     }
+    fn insert_empty(&mut self, address: Address) {
+        self.by_caller.insert(address, BTreeSet::new());
+        self.by_callee.insert(address, BTreeSet::new());
+    }
     fn insert(&mut self, caller: Address, callee: Address) {
         self.by_caller
             .entry(caller)
@@ -233,13 +238,21 @@ pub struct Analysis {
 }
 
 impl Analysis {
-    pub fn analyse<MRO: MemoryReadOnly, MM: MemoryMap>(memory: &MRO, memory_map: &MM) -> Self {
-        let function_definition_addresses =
+    pub fn analyse<MRO: MemoryReadOnly, MM: MemoryMap, I: IntoIterator<Item = Address>>(
+        memory: &MRO,
+        memory_map: &MM,
+        extra_function_definition_addresses: I,
+    ) -> Self {
+        let mut function_definition_addresses =
             enumerate_function_definition_addresses(memory, memory_map);
+        for address in extra_function_definition_addresses {
+            function_definition_addresses.push(address);
+        }
         let mut function_traces_by_definition_address = BTreeMap::new();
         let mut call_graph = CallGraph::new();
         for &function_definition_address in function_definition_addresses.iter() {
             let trace = trace_function_definition(function_definition_address, memory);
+            call_graph.insert_empty(function_definition_address);
             for step in trace.steps() {
                 if let FunctionStep::FunctionCall { callee, .. } = step {
                     call_graph.insert(function_definition_address, *callee);
@@ -268,5 +281,14 @@ impl Analysis {
                     None
                 }
             })
+    }
+    pub fn callers_of_function<'a>(
+        &'a self,
+        function_definition_address: Address,
+    ) -> Option<impl 'a + Iterator<Item = Address>> {
+        self.call_graph
+            .by_callee
+            .get(&function_definition_address)
+            .map(|s| s.iter().cloned())
     }
 }

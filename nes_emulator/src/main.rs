@@ -143,6 +143,9 @@ impl PpuMemory for NesPpuMemory {
 
 impl Memory for NesDevices {
     fn read_u8(&mut self, address: Address) -> u8 {
+        if address == 0xD21f {
+            //eprintln!("BBBBBBBBBBB");
+        }
         let data = match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
             0x2000..=0x3FFF => match address % 8 {
@@ -375,7 +378,8 @@ fn main() {
     let mut frame_count = 0;
     nes.print_state();
     loop {
-        //println!("frame count: {}", frame_count);
+        //eprintln!("{}", frame_count);
+        println!("frame count: {}", frame_count);
         if let Some(ref save_state_args) = args.save_state_args {
             if frame_count == save_state_args.frame {
                 let bytes = bincode::serialize(&nes).expect("Failed to serialize state");
@@ -418,9 +422,41 @@ fn main() {
         frame_count += 1;
     }
     println!("\nanalysis\n");
-    let analysis = analyser::Analysis::analyse(&nes.devices, &NesMemoryMap);
+    let start = nes
+        .devices
+        .read_u16_le_read_only(mos6502::interrupt_vector::START_LO);
+    let nmi = nes
+        .devices
+        .read_u16_le_read_only(mos6502::interrupt_vector::NMI_LO);
+    let irq = nes
+        .devices
+        .read_u16_le_read_only(mos6502::interrupt_vector::IRQ_LO);
+    let indirect_jump_target_frame_start = 0xD4CC;
+    let analysis = analyser::Analysis::analyse(
+        &nes.devices,
+        &NesMemoryMap,
+        vec![start, nmi, irq, indirect_jump_target_frame_start],
+    );
     println!("CE49\n{}", analysis.function_trace(0xCE49).unwrap());
     println!("CEA1\n{}", analysis.function_trace(0xCEA1).unwrap());
+    println!(
+        "callers of CE49:\n{:#X?}",
+        analysis
+            .callers_of_function(0xCE49)
+            .unwrap()
+            .collect::<Vec<_>>()
+    );
+    println!("D21F\n{}", analysis.function_trace(0xD21F).unwrap());
+    println!(
+        "callers of D21F:\n{:#X?}",
+        analysis
+            .callers_of_function(0xD21F)
+            .unwrap()
+            .collect::<Vec<_>>()
+    );
+    println!("irq {:X}:\n{}", irq, analysis.function_trace(irq).unwrap());
+    println!("CDBB\n{}", analysis.function_trace(0xCDBB).unwrap());
+    println!("D4CC\n{}", analysis.function_trace(0xD4CC).unwrap());
     /*
     let a = analysis
         .functions_containing_address(0xCE7D)
