@@ -143,8 +143,11 @@ impl PpuMemory for NesPpuMemory {
 
 impl Memory for NesDevices {
     fn read_u8(&mut self, address: Address) -> u8 {
-        if address == 0xD21f {
-            //eprintln!("BBBBBBBBBBB");
+        if address == 0xCE49 {
+            eprintln!("BBBBBBBBBBB");
+        }
+        if address == 0xD235 {
+            eprintln!("CCCCCCCCCCCCCCC");
         }
         let data = match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
@@ -170,6 +173,12 @@ impl Memory for NesDevices {
     fn write_u8(&mut self, address: Address, data: u8) {
         if address == 0x59B {
             println!("AAAAAAAAAAA writing {:X} to {:X}", data, address);
+        }
+        if address == 0x007A {
+            println!("DDDDDDDDDDDD writing {:X} to {:X}", data, address);
+            if data == 3 {
+                panic!();
+            }
         }
         match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES] = data,
