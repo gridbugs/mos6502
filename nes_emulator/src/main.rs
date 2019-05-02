@@ -144,10 +144,10 @@ impl PpuMemory for NesPpuMemory {
 impl Memory for NesDevices {
     fn read_u8(&mut self, address: Address) -> u8 {
         if address == 0xCE49 {
-            eprintln!("BBBBBBBBBBB");
+            //eprintln!("BBBBBBBBBBB");
         }
         if address == 0xD235 {
-            eprintln!("CCCCCCCCCCCCCCC");
+            //eprintln!("CCCCCCCCCCCCCCC");
         }
         let data = match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
@@ -171,13 +171,16 @@ impl Memory for NesDevices {
         data
     }
     fn write_u8(&mut self, address: Address, data: u8) {
+        if address == 0x0 {
+            println!("GGGGGGGGGG writing {:X} to {:X}", data, address);
+        }
         if address == 0x59B {
             println!("AAAAAAAAAAA writing {:X} to {:X}", data, address);
         }
         if address == 0x007A {
             println!("DDDDDDDDDDDD writing {:X} to {:X}", data, address);
             if data == 3 {
-                panic!();
+                println!("EEEEEEEEEEEEE");
             }
         }
         match address {
@@ -228,7 +231,8 @@ impl Memory for NesDevicesWithOam {
 impl MemoryReadOnly for NesDevices {
     fn read_u8_read_only(&self, address: Address) -> u8 {
         match address {
-            0..=0x7FFF => 0,
+            0..=0x7FF => self.ram[address as usize],
+            0x800..=0x7FFF => 0,
             0x8000..=0xFFFF => self.rom[(address as usize - 0x8000) % 0x4000],
         }
     }
@@ -387,6 +391,11 @@ fn main() {
     let mut frame_count = 0;
     nes.print_state();
     loop {
+        //print_bytes_hex(&nes.devices.devices.ram[0x200..0x400], 0x200, 16);
+        //eprintln!("");
+        let luigi_x = nes.devices.read_u8_read_only(0x329);
+        let luigi_y = nes.devices.read_u8_read_only(0x328);
+        eprintln!("{}, {}", luigi_x, luigi_y);
         //eprintln!("{}", frame_count);
         println!("frame count: {}", frame_count);
         if let Some(ref save_state_args) = args.save_state_args {
@@ -464,8 +473,25 @@ fn main() {
             .collect::<Vec<_>>()
     );
     println!("irq {:X}:\n{}", irq, analysis.function_trace(irq).unwrap());
-    println!("CDBB\n{}", analysis.function_trace(0xCDBB).unwrap());
-    println!("D4CC\n{}", analysis.function_trace(0xD4CC).unwrap());
+    println!("CDBB\n{}\n\n", analysis.function_trace(0xCDBB).unwrap());
+    println!("D4CC\n{}\n\n", analysis.function_trace(0xD4CC).unwrap());
+    println!("CF84\n{}\n\n", analysis.function_trace(0xCF84).unwrap());
+    println!(
+        "callers of CF84:\n{:#X?}",
+        analysis
+            .callers_of_function(0xCF84)
+            .unwrap()
+            .collect::<Vec<_>>()
+    );
+    println!("CAC1\n{}\n\n", analysis.function_trace(0xCAC1).unwrap());
+    println!(
+        "callers of CAC1:\n{:#X?}",
+        analysis
+            .callers_of_function(0xCAC1)
+            .unwrap()
+            .collect::<Vec<_>>()
+    );
+
     /*
     let a = analysis
         .functions_containing_address(0xCE7D)
@@ -474,7 +500,7 @@ fn main() {
 }
 
 pub fn print_bytes_hex(data: &[u8], address_offset: u16, line_width: usize) {
-    let stdout = io::stdout();
+    let stdout = io::stderr();
     let mut handle = stdout.lock();
     for (i, chunk) in data.chunks(line_width).enumerate() {
         let _ = write!(handle, "{:04X}: ", address_offset as usize + i * line_width);
