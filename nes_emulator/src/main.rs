@@ -73,6 +73,7 @@ struct NesDevices {
     rom: Vec<u8>,
     ppu: Ppu,
     ppu_memory: NesPpuMemory,
+    controller1: Controller,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -141,6 +142,111 @@ impl PpuMemory for NesPpuMemory {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct Controller {
+    current_state: u8,
+    shift_register: u8,
+    strobe: bool,
+}
+
+mod controller {
+    pub mod bit {
+        pub const A: u8 = 0;
+        pub const B: u8 = 1;
+        pub const SELECT: u8 = 2;
+        pub const START: u8 = 3;
+        pub const UP: u8 = 4;
+        pub const DOWN: u8 = 5;
+        pub const LEFT: u8 = 6;
+        pub const RIGHT: u8 = 7;
+    }
+    pub mod flag {
+        use super::bit;
+        pub const A: u8 = 1 << bit::A;
+        pub const B: u8 = 1 << bit::B;
+        pub const SELECT: u8 = 1 << bit::SELECT;
+        pub const START: u8 = 1 << bit::START;
+        pub const UP: u8 = 1 << bit::UP;
+        pub const DOWN: u8 = 1 << bit::DOWN;
+        pub const LEFT: u8 = 1 << bit::LEFT;
+        pub const RIGHT: u8 = 1 << bit::RIGHT;
+    }
+}
+
+impl Controller {
+    fn new() -> Self {
+        Self {
+            current_state: 0,
+            shift_register: 0,
+            strobe: false,
+        }
+    }
+    fn set_strobe(&mut self) {
+        self.shift_register = self.current_state;
+        eprintln!("STROBE {:?}", self);
+        self.strobe = true;
+    }
+    fn clear_strobe(&mut self) {
+        self.strobe = false;
+    }
+    fn is_strobe(&self) -> bool {
+        self.strobe
+    }
+    fn shift_read(&mut self) -> u8 {
+        let masked = self.shift_register & 1;
+        self.shift_register = self.shift_register.wrapping_shr(1);
+        masked
+    }
+    fn set_a(&mut self) {
+        self.current_state |= controller::flag::A;
+    }
+    fn set_b(&mut self) {
+        self.current_state |= controller::flag::B;
+    }
+    fn set_select(&mut self) {
+        self.current_state |= controller::flag::SELECT;
+    }
+    fn set_start(&mut self) {
+        self.current_state |= controller::flag::START;
+    }
+    fn set_left(&mut self) {
+        self.current_state |= controller::flag::LEFT;
+    }
+    fn set_right(&mut self) {
+        self.current_state |= controller::flag::RIGHT;
+    }
+    fn set_up(&mut self) {
+        self.current_state |= controller::flag::UP;
+    }
+    fn set_down(&mut self) {
+        self.current_state |= controller::flag::DOWN;
+    }
+    fn clear_a(&mut self) {
+        self.current_state &= !controller::flag::A;
+    }
+    fn clear_b(&mut self) {
+        self.current_state &= !controller::flag::B;
+    }
+    fn clear_select(&mut self) {
+        self.current_state &= !controller::flag::SELECT;
+    }
+    fn clear_start(&mut self) {
+        self.current_state &= !controller::flag::START;
+    }
+    fn clear_left(&mut self) {
+        self.current_state &= !controller::flag::LEFT;
+    }
+    fn clear_right(&mut self) {
+        self.current_state &= !controller::flag::RIGHT;
+    }
+    fn clear_up(&mut self) {
+        self.current_state &= !controller::flag::UP;
+    }
+    fn clear_down(&mut self) {
+        self.current_state &= !controller::flag::DOWN;
+    }
+}
+
 impl Memory for NesDevices {
     fn read_u8(&mut self, address: Address) -> u8 {
         if address == 0xCE49 {
@@ -148,6 +254,9 @@ impl Memory for NesDevices {
         }
         if address == 0xD235 {
             //eprintln!("CCCCCCCCCCCCCCC");
+        }
+        if address == 0x4016 {
+            println!("INPUT READ");
         }
         let data = match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
@@ -162,6 +271,7 @@ impl Memory for NesDevices {
                 7 => self.ppu.read_data(&self.ppu_memory),
                 _ => unreachable!(),
             },
+            0x4016 => self.controller1.shift_read(),
             0x4000..=0x7FFF => {
                 //println!("unimplemented read from {:x}", address);
                 0
@@ -183,6 +293,9 @@ impl Memory for NesDevices {
                 println!("EEEEEEEEEEEEE");
             }
         }
+        if address == 0x4016 {
+            println!("INPUT WRITE {:X}", data);
+        }
         match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES] = data,
             0x2000..=0x3FFF => match address % 8 {
@@ -196,6 +309,14 @@ impl Memory for NesDevices {
                 7 => self.ppu.write_data(&mut self.ppu_memory, data),
                 _ => unreachable!(),
             },
+            0x4016 => {
+                println!("{:X} {:X}", data, data & 1);
+                if data & 1 != 0 {
+                    self.controller1.set_strobe();
+                } else {
+                    self.controller1.clear_strobe();
+                }
+            }
             0x4000..=0x7FFF => (),
             0x8000..=0xFFFF => panic!("unimplemented write {:x} to {:x}", data, address),
         }
@@ -380,6 +501,7 @@ fn main() {
                         chr_rom: chr_rom.clone(),
                         palette_ram: [0; PALETTE_RAM_BYTES].to_vec(),
                     },
+                    controller1: Controller::new(),
                 },
                 oam: Oam::new(),
             },
@@ -407,15 +529,53 @@ fn main() {
                 println!("Wrote state file");
             }
         }
-        frontend.poll_glutin_events(|event| match event {
-            glutin::Event::WindowEvent { event, .. } => match event {
-                glutin::WindowEvent::CloseRequested => {
-                    running = false;
-                }
+        {
+            let controller1 = &mut nes.devices.devices.controller1;
+            frontend.poll_glutin_events(|event| match event {
+                glutin::Event::WindowEvent { event, .. } => match event {
+                    glutin::WindowEvent::CloseRequested => {
+                        running = false;
+                    }
+                    glutin::WindowEvent::KeyboardInput { input, .. } => match input.state {
+                        glutin::ElementState::Pressed => {
+                            if let Some(virtual_keycode) = input.virtual_keycode {
+                                match virtual_keycode {
+                                    glutin::VirtualKeyCode::Left => controller1.set_left(),
+                                    glutin::VirtualKeyCode::Right => controller1.set_right(),
+                                    glutin::VirtualKeyCode::Up => controller1.set_up(),
+                                    glutin::VirtualKeyCode::Down => controller1.set_down(),
+                                    glutin::VirtualKeyCode::Return => controller1.set_start(),
+                                    glutin::VirtualKeyCode::RShift => controller1.set_select(),
+                                    glutin::VirtualKeyCode::A => controller1.set_a(),
+                                    glutin::VirtualKeyCode::B => controller1.set_b(),
+                                    _ => (),
+                                }
+                            }
+                        }
+                        glutin::ElementState::Released => {
+                            if let Some(virtual_keycode) = input.virtual_keycode {
+                                eprintln!("released {:?}", virtual_keycode);
+                                match virtual_keycode {
+                                    glutin::VirtualKeyCode::Left => controller1.clear_left(),
+                                    glutin::VirtualKeyCode::Right => controller1.clear_right(),
+                                    glutin::VirtualKeyCode::Up => controller1.clear_up(),
+                                    glutin::VirtualKeyCode::Down => controller1.clear_down(),
+                                    glutin::VirtualKeyCode::Return => controller1.clear_start(),
+                                    glutin::VirtualKeyCode::RShift => controller1.clear_select(),
+                                    glutin::VirtualKeyCode::A => controller1.clear_a(),
+                                    glutin::VirtualKeyCode::B => controller1.clear_b(),
+                                    _ => (),
+                                }
+                            }
+                        }
+                        _ => (),
+                    },
+                    _ => (),
+                },
                 _ => (),
-            },
-            _ => (),
-        });
+            });
+            eprintln!("{:X?}", controller1);
+        }
         if !running {
             break;
         }
@@ -435,7 +595,7 @@ fn main() {
         nes.nmi();
         frontend.render();
         if frame_count >= 200 {
-            break;
+            //break;
         }
         frame_count += 1;
     }
