@@ -53,6 +53,7 @@ pub struct Ppu {
 pub type PpuAddress = u16;
 pub const PATTERN_TABLE_BYTES: usize = 0x1000;
 pub const NAME_TABLE_BYTES: usize = 0x400;
+pub const PALETTE_START: PpuAddress = 0x3F00;
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -150,10 +151,15 @@ impl Ppu {
         self.address = self.address.wrapping_add(self.address_increment as u16);
     }
     pub fn read_data<M: PpuMemory>(&mut self, memory: &M) -> u8 {
-        let data = self.read_buffer;
-        self.read_buffer = memory.read_u8(self.address);
+        let value_from_vram = memory.read_u8(self.address);
+        let value_for_cpu = if self.address < PALETTE_START {
+            self.read_buffer
+        } else {
+            value_from_vram
+        };
         self.address = self.address.wrapping_add(self.address_increment as u16);
-        data
+        self.read_buffer = value_from_vram;
+        value_for_cpu
     }
     pub fn render<M: PpuMemory>(&mut self, memory: &M, oam: &Oam, mut pixels: Pixels) {
         let name_table_and_attribute_table = memory.name_table(NameTableChoice::TopLeft);
