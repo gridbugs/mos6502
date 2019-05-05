@@ -47,6 +47,7 @@ pub struct Ppu {
     vblank_nmi: bool,
     sprite_pattern_table: PatternTableChoice,
     background_pattern_table: PatternTableChoice,
+    read_buffer: u8,
 }
 
 pub type PpuAddress = u16;
@@ -98,6 +99,7 @@ impl Ppu {
             vblank_nmi: false,
             sprite_pattern_table: PatternTableChoice::PatternTable0,
             background_pattern_table: PatternTableChoice::PatternTable0,
+            read_buffer: 0,
         }
     }
     pub fn write_control(&mut self, data: u8) {
@@ -148,7 +150,8 @@ impl Ppu {
         self.address = self.address.wrapping_add(self.address_increment as u16);
     }
     pub fn read_data<M: PpuMemory>(&mut self, memory: &M) -> u8 {
-        let data = memory.read_u8(self.address);
+        let data = self.read_buffer;
+        self.read_buffer = memory.read_u8(self.address);
         self.address = self.address.wrapping_add(self.address_increment as u16);
         data
     }
