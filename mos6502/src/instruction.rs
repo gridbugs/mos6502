@@ -377,7 +377,6 @@ pub mod asl {
         let carry = cpu.acc & (1 << 7) != 0;
         let orig_acc = cpu.acc;
         cpu.acc = cpu.acc.wrapping_shl(1);
-        println!("asl acc {:X} = {:X}", orig_acc, cpu.acc);
         cpu.status.set_carry_to(carry);
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
@@ -976,7 +975,6 @@ pub mod dec {
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let data = A::read_data(cpu, memory).wrapping_sub(1);
-        println!("dec decremented to {:X}", data);
         A::write_data(cpu, memory, data);
         cpu.status.set_negative_from_value(data);
         cpu.status.set_zero_from_value(data);
@@ -1226,7 +1224,6 @@ pub mod inx {
     }
     pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.x = cpu.x.wrapping_add(1);
-        println!("inx to {:X}", cpu.x);
         cpu.status.set_negative_from_value(cpu.x);
         cpu.status.set_zero_from_value(cpu.x);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
@@ -1302,7 +1299,6 @@ pub mod jsr {
         cpu.push_stack_u8(memory, address::hi(return_address));
         cpu.push_stack_u8(memory, address::lo(return_address));
         cpu.pc = A::read_jump_target(cpu, memory);
-        cpu.debug_call_stack.push(cpu.pc);
         6
     }
 }
@@ -1433,7 +1429,6 @@ pub mod lda {
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
-        println!("lda data {:X}", data);
         cpu.acc = data;
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
@@ -1852,7 +1847,6 @@ pub mod ora {
         let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
         let orig_acc = cpu.acc;
         cpu.acc |= data;
-        println!("{:X} | {:X} = {:X}", orig_acc, data, cpu.acc);
         cpu.status.set_zero_from_value(cpu.acc);
         cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
@@ -2141,14 +2135,6 @@ pub mod rts {
         let return_address_lo = cpu.pop_stack_u8(memory);
         let return_address_hi = cpu.pop_stack_u8(memory);
         cpu.pc = address::from_u8_lo_hi(return_address_lo, return_address_hi).wrapping_add(1);
-        if let Some(address) = cpu.debug_call_stack.pop() {
-            println!("RETURNING FROM {:X}", address);
-            println!("NOW INSIDE {:X?}", cpu.debug_call_stack.last());
-        } else {
-            println!("RETURNING FROM NOTHING");
-        }
-        //println!("CALL STACK:\n{:#X?}", cpu.debug_call_stack);
-        //println!("POST RETURN STACK POINTER: {:X}", cpu.sp);*/
         6
     }
 }
@@ -2285,7 +2271,6 @@ pub mod sbc {
         } else {
             let orig_acc = cpu.acc;
             adc_common(cpu, !data);
-            println!("{:X} - {:X} = {:X}", orig_acc, data, cpu.acc);
         }
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
         cycles
@@ -2425,7 +2410,6 @@ pub mod sta {
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         A::write_data(cpu, memory, cpu.acc);
-        println!("sta data {:X}", cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
         A::num_cycles()
     }
@@ -2472,7 +2456,6 @@ pub mod stx {
     }
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         A::write_data(cpu, memory, cpu.x);
-        println!("stx x = {:X}", cpu.x);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
         A::num_cycles()
     }

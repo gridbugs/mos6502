@@ -96,7 +96,6 @@ impl AbsoluteYIndexed {
     fn address_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (Address, bool) {
         let base_address = memory.read_u16_le(cpu.pc.wrapping_add(1));
         let indexed_address = base_address.wrapping_add(cpu.y as Address);
-        println!("address {:X}", indexed_address);
         (
             indexed_address,
             address::on_different_pages(base_address, indexed_address),
@@ -174,7 +173,6 @@ impl IndirectYIndexed {
     pub fn read_data_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (u8, bool) {
         let (address, cross_page_boundary) = Self::address_check_cross_page_boundary(cpu, memory);
         let data = memory.read_u8(address);
-        println!("IndirectYIndex loading {:X} from {:X}", data, address);
         (memory.read_u8(address), cross_page_boundary)
     }
 }

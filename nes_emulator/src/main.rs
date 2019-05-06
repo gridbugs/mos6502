@@ -92,9 +92,6 @@ struct NesPpuMemory {
 impl PpuMemory for NesPpuMemory {
     fn write_u8(&mut self, address: PpuAddress, data: u8) {
         let address = address % 0x4000;
-        if address == 0x22A0 + 19 {
-            println!(">>>>>>>>>>>> {:X}", data);
-        }
         match address {
             0x0000..=0x0FFF => println!("unimplemented pattern table write"),
             0x1000..=0x1FFF => println!("unimplemented pattern table write"),
@@ -183,7 +180,6 @@ impl Controller {
     }
     fn set_strobe(&mut self) {
         self.shift_register = self.current_state;
-        eprintln!("STROBE {:?}", self);
         self.strobe = true;
     }
     fn clear_strobe(&mut self) {
@@ -249,15 +245,6 @@ impl Controller {
 
 impl Memory for NesDevices {
     fn read_u8(&mut self, address: Address) -> u8 {
-        if address == 0xCE49 {
-            //eprintln!("BBBBBBBBBBB");
-        }
-        if address == 0xD235 {
-            //eprintln!("CCCCCCCCCCCCCCC");
-        }
-        if address == 0x4016 {
-            println!("INPUT READ");
-        }
         let data = match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
             0x2000..=0x3FFF => match address % 8 {
@@ -281,21 +268,6 @@ impl Memory for NesDevices {
         data
     }
     fn write_u8(&mut self, address: Address, data: u8) {
-        if address == 0x0 {
-            println!("GGGGGGGGGG writing {:X} to {:X}", data, address);
-        }
-        if address == 0x59B {
-            println!("AAAAAAAAAAA writing {:X} to {:X}", data, address);
-        }
-        if address == 0x007A {
-            println!("DDDDDDDDDDDD writing {:X} to {:X}", data, address);
-            if data == 3 {
-                println!("EEEEEEEEEEEEE");
-            }
-        }
-        if address == 0x4016 {
-            println!("INPUT WRITE {:X}", data);
-        }
         match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES] = data,
             0x2000..=0x3FFF => match address % 8 {
@@ -310,7 +282,6 @@ impl Memory for NesDevices {
                 _ => unreachable!(),
             },
             0x4016 => {
-                println!("{:X} {:X}", data, data & 1);
                 if data & 1 != 0 {
                     self.controller1.set_strobe();
                 } else {
@@ -323,25 +294,28 @@ impl Memory for NesDevices {
     }
 }
 
+impl NesDevicesWithOam {
+    fn print_oam(&self) {
+        for i in 0..64 {
+            let base = 0x200;
+            let x = self.devices.ram[base + i * 4 + 3];
+            let y = self.devices.ram[base + i * 4 + 0];
+            let attributes = self.devices.ram[base + i * 4 + 2];
+            let index = self.devices.ram[base + i * 4 + 1];
+            println!(
+                "{:02X}: {:02X} @ ({:03}, {:03}) (attr: {:02X} ",
+                i, index, x, y, attributes
+            );
+        }
+    }
+}
+
 impl Memory for NesDevicesWithOam {
     fn read_u8(&mut self, address: Address) -> u8 {
         self.devices.read_u8(address)
     }
     fn write_u8(&mut self, address: Address, data: u8) {
         if address == 0x4014 {
-            /*
-            println!("############# OAM DMA from {:X}", data);
-            for i in 0..64 {
-                let base = 0x200;
-                let x = self.devices.ram[base + i * 4 + 3];
-                let y = self.devices.ram[base + i * 4 + 0];
-                let attributes = self.devices.ram[base + i * 4 + 2];
-                let index = self.devices.ram[base + i * 4 + 1];
-                println!(
-                    "{:02X}: {:02X} @ ({:03}, {:03}) (attr: {:02X} ",
-                    i, index, x, y, attributes
-                );
-            }*/
             self.oam.dma(&mut self.devices, data);
         } else {
             self.devices.write_u8(address, data);
@@ -423,6 +397,23 @@ impl Nes {
         print_vram(&self.devices.devices.ppu_memory.name_table_ram);
         let _ = writeln!(handle, "PPU");
         let _ = writeln!(handle, "{:X?}", self.devices.devices.ppu);
+    }
+    fn analyse(&self) -> analyser::Analysis {
+        let start = self
+            .devices
+            .read_u16_le_read_only(mos6502::interrupt_vector::START_LO);
+        let nmi = self
+            .devices
+            .read_u16_le_read_only(mos6502::interrupt_vector::NMI_LO);
+        let irq = self
+            .devices
+            .read_u16_le_read_only(mos6502::interrupt_vector::IRQ_LO);
+        let indirect_jump_target_frame_start = 0xD4CC;
+        analyser::Analysis::analyse(
+            &self.devices,
+            &NesMemoryMap,
+            vec![start, nmi, irq, indirect_jump_target_frame_start],
+        )
     }
 }
 
@@ -513,13 +504,6 @@ fn main() {
     let mut frame_count = 0;
     nes.print_state();
     loop {
-        //print_bytes_hex(&nes.devices.devices.ram[0x200..0x400], 0x200, 16);
-        //eprintln!("");
-        let luigi_x = nes.devices.read_u8_read_only(0x329);
-        let luigi_y = nes.devices.read_u8_read_only(0x328);
-        eprintln!("{}, {}", luigi_x, luigi_y);
-        //eprintln!("{}", frame_count);
-        println!("frame count: {}", frame_count);
         if let Some(ref save_state_args) = args.save_state_args {
             if frame_count == save_state_args.frame {
                 let bytes = bincode::serialize(&nes).expect("Failed to serialize state");
@@ -554,7 +538,6 @@ fn main() {
                         }
                         glutin::ElementState::Released => {
                             if let Some(virtual_keycode) = input.virtual_keycode {
-                                eprintln!("released {:?}", virtual_keycode);
                                 match virtual_keycode {
                                     glutin::VirtualKeyCode::Left => controller1.clear_left(),
                                     glutin::VirtualKeyCode::Right => controller1.clear_right(),
@@ -574,7 +557,6 @@ fn main() {
                 },
                 _ => (),
             });
-            eprintln!("{:X?}", controller1);
         }
         if !running {
             break;
@@ -586,80 +568,14 @@ fn main() {
                 pixels,
             )
         });
-        nes.run_for_cycles_debug(30000);
-        //println!("{:X?}", nes.devices.oam);
-        if frame_count == 200 {
-            //nes.print_state();
-            //panic!();
-        }
+        nes.run_for_cycles(30000);
         nes.nmi();
         frontend.render();
-        if frame_count >= 200 {
-            //break;
-        }
         frame_count += 1;
     }
-    println!("\nanalysis\n");
-    let start = nes
-        .devices
-        .read_u16_le_read_only(mos6502::interrupt_vector::START_LO);
-    let nmi = nes
-        .devices
-        .read_u16_le_read_only(mos6502::interrupt_vector::NMI_LO);
-    let irq = nes
-        .devices
-        .read_u16_le_read_only(mos6502::interrupt_vector::IRQ_LO);
-    let indirect_jump_target_frame_start = 0xD4CC;
-    let analysis = analyser::Analysis::analyse(
-        &nes.devices,
-        &NesMemoryMap,
-        vec![start, nmi, irq, indirect_jump_target_frame_start],
-    );
-    println!("CE49\n{}", analysis.function_trace(0xCE49).unwrap());
-    println!("CEA1\n{}", analysis.function_trace(0xCEA1).unwrap());
-    println!(
-        "callers of CE49:\n{:#X?}",
-        analysis
-            .callers_of_function(0xCE49)
-            .unwrap()
-            .collect::<Vec<_>>()
-    );
-    println!("D21F\n{}", analysis.function_trace(0xD21F).unwrap());
-    println!(
-        "callers of D21F:\n{:#X?}",
-        analysis
-            .callers_of_function(0xD21F)
-            .unwrap()
-            .collect::<Vec<_>>()
-    );
-    println!("irq {:X}:\n{}", irq, analysis.function_trace(irq).unwrap());
-    println!("CDBB\n{}\n\n", analysis.function_trace(0xCDBB).unwrap());
-    println!("D4CC\n{}\n\n", analysis.function_trace(0xD4CC).unwrap());
-    println!("CF84\n{}\n\n", analysis.function_trace(0xCF84).unwrap());
-    println!(
-        "callers of CF84:\n{:#X?}",
-        analysis
-            .callers_of_function(0xCF84)
-            .unwrap()
-            .collect::<Vec<_>>()
-    );
-    println!("CAC1\n{}\n\n", analysis.function_trace(0xCAC1).unwrap());
-    println!(
-        "callers of CAC1:\n{:#X?}",
-        analysis
-            .callers_of_function(0xCAC1)
-            .unwrap()
-            .collect::<Vec<_>>()
-    );
-
-    /*
-    let a = analysis
-        .functions_containing_address(0xCE7D)
-        .collect::<Vec<_>>();
-    println!("{:#X?}", a); */
 }
 
-pub fn print_bytes_hex(data: &[u8], address_offset: u16, line_width: usize) {
+fn print_bytes_hex(data: &[u8], address_offset: u16, line_width: usize) {
     let stdout = io::stderr();
     let mut handle = stdout.lock();
     for (i, chunk) in data.chunks(line_width).enumerate() {
