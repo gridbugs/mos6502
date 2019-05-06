@@ -3,6 +3,7 @@
 members = [
     "analyser",
     "assembler",
+    "gif_renderer",
     "glutin_frontend",
     "ines",
     "mos6502",

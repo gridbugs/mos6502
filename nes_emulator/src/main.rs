@@ -2,6 +2,7 @@
 extern crate simon;
 extern crate analyser;
 extern crate bincode;
+extern crate gif_renderer;
 extern crate glutin_frontend;
 extern crate ines;
 extern crate mos6502;
@@ -502,6 +503,7 @@ fn main() {
     };
     let mut running = true;
     let mut frame_count = 0;
+    let mut gif_renderer = gif_renderer::Renderer::new();
     nes.print_state();
     loop {
         if let Some(ref save_state_args) = args.save_state_args {
@@ -562,17 +564,21 @@ fn main() {
             break;
         }
         frontend.with_pixels(|pixels| {
+            let mut frame = gif_renderer::Frame::new();
             nes.devices.devices.ppu.render(
                 &nes.devices.devices.ppu_memory,
                 &nes.devices.oam,
                 pixels,
-            )
+            );
+            gif_renderer.add(frame);
         });
         nes.run_for_cycles(30000);
         nes.nmi();
         frontend.render();
         frame_count += 1;
     }
+    let mut output_gif_file = File::create("/tmp/a.gif").unwrap();
+    gif_renderer.encode(output_gif_file);
 }
 
 fn print_bytes_hex(data: &[u8], address_offset: u16, line_width: usize) {

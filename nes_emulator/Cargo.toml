@@ -10,5 +10,6 @@ mos6502 = { path = "../mos6502" }
 ines = { path = "../ines" }
 analyser = { path = "../analyser" }
 glutin_frontend = { path = "../glutin_frontend" }
+gif_renderer = { path = "../gif_renderer" }
 serde = { version = "1.0", features = ["serde_derive"] }
 bincode = "1.1"
