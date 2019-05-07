@@ -146,6 +146,7 @@ mod colour;
 
 pub use dimensions::NES_SCREEN_HEIGHT_PX as HEIGHT_PX;
 pub use dimensions::NES_SCREEN_WIDTH_PX as WIDTH_PX;
+const NUM_PIXELS: usize = (WIDTH_PX * HEIGHT_PX) as usize;
 
 type GlutinRenderer = Renderer<
     gfx_device_gl::Resources,
@@ -159,16 +160,43 @@ pub struct Frontend {
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
     events_loop: glutin::EventsLoop,
     colour_table: colour::ColourTable,
+    depths: [u8; NUM_PIXELS],
+}
+
+mod depth {
+    pub const EMPTY: u8 = 0;
+    pub const UNIVERSAL_BACKGROUND: u8 = 1;
+    pub const SPRITE_BACK: u8 = 2;
+    pub const BACKGROUND: u8 = 3;
+    pub const SPRITE_FRONT: u8 = 4;
 }
 
 pub struct Pixels<'a> {
     colour_table: &'a colour::ColourTable,
     raw: &'a mut [[f32; 4]],
+    depths: &'a mut [u8; NUM_PIXELS],
 }
 
 impl<'a> Pixels<'a> {
-    pub fn set_pixel_colour(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.raw[(y * NES_SCREEN_WIDTH_PX + x) as usize] = self.colour_table.lookup(colour_index);
+    fn set_pixel_colour(&mut self, x: u16, y: u16, colour_index: u8, depth: u8) {
+        let offset = (y * NES_SCREEN_WIDTH_PX + x) as usize;
+        let current_depth = &mut self.depths[offset];
+        if depth > *current_depth {
+            *current_depth = depth;
+            self.raw[offset] = self.colour_table.lookup(colour_index);
+        }
+    }
+    pub fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour(x, y, colour_index, depth::SPRITE_BACK);
+    }
+    pub fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour(x, y, colour_index, depth::SPRITE_FRONT);
+    }
+    pub fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour(x, y, colour_index, depth::BACKGROUND);
+    }
+    pub fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour(x, y, colour_index, depth::UNIVERSAL_BACKGROUND);
     }
     pub fn iter_mut(&mut self) -> PixelsIterMut {
         PixelsIterMut {
@@ -234,18 +262,26 @@ impl Frontend {
             windowed_context,
             renderer,
             colour_table,
+            depths: [depth::EMPTY; NUM_PIXELS],
         }
     }
     pub fn render(&mut self) {
         self.renderer.render();
         self.windowed_context.swap_buffers().unwrap();
+        self.depths = [0; NUM_PIXELS];
     }
     pub fn poll_glutin_events<F: FnMut(glutin::Event)>(&mut self, f: F) {
         self.events_loop.poll_events(f)
     }
     pub fn with_pixels<F: FnMut(Pixels)>(&mut self, mut f: F) {
         let colour_table = &self.colour_table;
-        self.renderer
-            .with_pixels(|raw| f(Pixels { colour_table, raw }))
+        let depths = &mut self.depths;
+        self.renderer.with_pixels(|raw| {
+            f(Pixels {
+                colour_table,
+                raw,
+                depths,
+            })
+        })
     }
 }
