@@ -91,6 +91,10 @@ pub trait PpuMemory {
     fn palette_ram(&self) -> &[u8];
 }
 
+pub trait RenderOutput {
+    fn set_pixel_colour(&mut self, x: u16, y: u16, colour_index: u8);
+}
+
 impl Ppu {
     pub fn new() -> Self {
         Self {
@@ -161,7 +165,12 @@ impl Ppu {
         self.read_buffer = value_from_vram;
         value_for_cpu
     }
-    pub fn render<M: PpuMemory>(&mut self, memory: &M, oam: &Oam, mut pixels: Pixels) {
+    pub fn render<M: PpuMemory, O: RenderOutput>(
+        &mut self,
+        memory: &M,
+        oam: &Oam,
+        mut pixels: &mut O,
+    ) {
         let name_table_and_attribute_table = memory.name_table(NameTableChoice::TopLeft);
         let name_table = &name_table_and_attribute_table[0x0..=0x3BF];
         let attribute_table = &name_table_and_attribute_table[0x3C0..=0x3FF];
