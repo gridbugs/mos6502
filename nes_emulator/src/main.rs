@@ -449,9 +449,25 @@ struct NesRenderOutput<'a> {
 }
 
 impl<'a> RenderOutput for NesRenderOutput<'a> {
-    fn set_pixel_colour(&mut self, x: u16, y: u16, colour_index: u8) {
+    fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
         self.glutin_pixels.set_pixel_colour(x, y, colour_index);
-        self.gif_frame.set_pixel_colour(x, y, colour_index);
+        self.gif_frame
+            .set_pixel_colour_sprite_back(x, y, colour_index);
+    }
+    fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.glutin_pixels.set_pixel_colour(x, y, colour_index);
+        self.gif_frame
+            .set_pixel_colour_sprite_front(x, y, colour_index);
+    }
+    fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.glutin_pixels.set_pixel_colour(x, y, colour_index);
+        self.gif_frame
+            .set_pixel_colour_background(x, y, colour_index);
+    }
+    fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.glutin_pixels.set_pixel_colour(x, y, colour_index);
+        self.gif_frame
+            .set_pixel_colour_universal_background(x, y, colour_index);
     }
 }
 

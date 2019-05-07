@@ -92,7 +92,10 @@ pub trait PpuMemory {
 }
 
 pub trait RenderOutput {
-    fn set_pixel_colour(&mut self, x: u16, y: u16, colour_index: u8);
+    fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8);
+    fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8);
+    fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8);
+    fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8);
 }
 
 impl Ppu {
@@ -205,15 +208,23 @@ impl Ppu {
                     let palette_index_hi = pixel_row_hi & 128u8.wrapping_shr(i) != 0;
                     let palette_index =
                         palette_index_lo as u8 | (palette_index_hi as u8).wrapping_shl(1);
-                    let colour_code = match palette_index {
-                        0 => universal_background_colour,
-                        _ => palette[palette_index as usize],
-                    };
-                    pixels.set_pixel_colour(
-                        x as u16 * 8 + i as u16,
-                        y as u16 * 8 + row_index as u16,
-                        colour_code,
-                    );
+                    match palette_index {
+                        0 => {
+                            pixels.set_pixel_colour_universal_background(
+                                x as u16 * 8 + i as u16,
+                                y as u16 * 8 + row_index as u16,
+                                universal_background_colour,
+                            );
+                        }
+                        non_zero => {
+                            let colour_code = palette[non_zero as usize];
+                            pixels.set_pixel_colour_background(
+                                x as u16 * 8 + i as u16,
+                                y as u16 * 8 + row_index as u16,
+                                colour_code,
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -262,7 +273,11 @@ impl Ppu {
                     let x = position_x as u16 + offset_x as u16;
                     let y = position_y as u16 + offset_y as u16;
                     if x < 256 && y < 240 {
-                        pixels.set_pixel_colour(x, y, colour_code);
+                        if attributes & oam_attribute::flag::PRIORITY == 0 {
+                            pixels.set_pixel_colour_sprite_front(x, y, colour_code);
+                        } else {
+                            pixels.set_pixel_colour_sprite_back(x, y, colour_code);
+                        }
                     }
                 }
             }
@@ -300,10 +315,12 @@ pub mod oam_attribute {
     pub mod bit {
         pub const FLIP_SPRITE_VERTICALLY: u8 = 7;
         pub const FLIP_SPRITE_HORIZONTALLY: u8 = 6;
+        pub const PRIORITY: u8 = 5;
     }
     pub mod flag {
         use super::bit;
         pub const FLIP_SPRITE_VERTICALLY: u8 = 1 << bit::FLIP_SPRITE_VERTICALLY;
         pub const FLIP_SPRITE_HORIZONTALLY: u8 = 1 << bit::FLIP_SPRITE_HORIZONTALLY;
+        pub const PRIORITY: u8 = 1 << bit::PRIORITY;
     }
 }
