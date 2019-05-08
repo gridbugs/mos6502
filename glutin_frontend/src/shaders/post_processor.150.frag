@@ -5,5 +5,7 @@ in vec2 v_Coord;
 out vec4 Target0;
 
 void main() {
-    Target0 = texture(t_InColour, v_Coord);
+    // cancel-out gamma correction
+    float gamma = 2.2;
+    Target0 = pow(texture(t_InColour, v_Coord), vec4(gamma));
 }
