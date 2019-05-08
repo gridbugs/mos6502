@@ -537,7 +537,7 @@ fn main() {
     let mut frame_count = 0;
     let mut output_gif_file = File::create("/tmp/a.gif").unwrap();
     let mut gif_renderer = gif_renderer::Renderer::new(output_gif_file);
-    nes.print_state();
+    //nes.print_state();
     loop {
         if let Some(ref save_state_args) = args.save_state_args {
             if frame_count == save_state_args.frame {

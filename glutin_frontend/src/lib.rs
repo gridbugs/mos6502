@@ -12,28 +12,37 @@ mod dimensions {
 }
 
 mod formats {
-    pub type ColourFormat = gfx::format::Rgba8;
+    pub type ColourFormat = gfx::format::Srgba8;
     pub type DepthFormat = gfx::format::DepthStencil;
+}
+
+mod quad {
+    pub const QUAD_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
+    pub const QUAD_COORDS: [[f32; 2]; 4] = [[0.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0]];
 }
 
 mod renderer {
     use super::dimensions::*;
     use super::formats::*;
+    use super::quad::*;
     use gfx;
-
-    const QUAD_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
-    const QUAD_COORDS: [[f32; 2]; 4] = [[0.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0]];
 
     gfx_vertex_struct!(QuadCorner {
         corner_zero_to_one: [f32; 2] = "a_CornerZeroToOne",
     });
 
-    gfx_pipeline!(pipe {
+    gfx_pipeline!(ppu_pixel_pipe {
         quad_corners: gfx::VertexBuffer<QuadCorner> = (),
         pixel_colours: gfx::ShaderResource<[f32; 4]> = "t_PixelColours",
+        out_colour: gfx::BlendTarget<gfx::format::Rgba8> =
+            ("Target0", gfx::state::ColorMask::all(), gfx::preset::blend::ALPHA),
+    });
+
+    gfx_pipeline!(post_processor_pipe {
+        quad_corners: gfx::VertexBuffer<QuadCorner> = (),
+        in_colour: gfx::TextureSampler<<ColourFormat as gfx::format::Formatted>::View> = "t_InColour",
         out_colour: gfx::BlendTarget<ColourFormat> =
             ("Target0", gfx::state::ColorMask::all(), gfx::preset::blend::ALPHA),
-        out_depth: gfx::DepthTarget<DepthFormat> = gfx::preset::depth::LESS_EQUAL_WRITE,
     });
 
     pub struct Renderer<R, C, F, D>
@@ -48,7 +57,8 @@ mod renderer {
         device: D,
         pixel_colour_upload_buffer: gfx::handle::Buffer<R, [f32; 4]>,
         pixel_colour_buffer: gfx::handle::Buffer<R, [f32; 4]>,
-        bundle: gfx::Bundle<R, pipe::Data<R>>,
+        ppu_pixel_bundle: gfx::Bundle<R, ppu_pixel_pipe::Data<R>>,
+        post_processor_bundle: gfx::Bundle<R, post_processor_pipe::Data<R>>,
     }
 
     impl<R, C, F, D> Renderer<R, C, F, D>
@@ -63,23 +73,7 @@ mod renderer {
             mut factory: F,
             device: D,
             rtv: gfx::handle::RenderTargetView<R, ColourFormat>,
-            dsv: gfx::handle::DepthStencilView<R, DepthFormat>,
         ) -> Self {
-            let pso = factory
-                .create_pipeline_simple(
-                    include_bytes!("shaders/shader.150.vert"),
-                    include_bytes!("shaders/shader.150.frag"),
-                    pipe::new(),
-                )
-                .expect("Failed to create pipeline");
-            let quad_corners_data = QUAD_COORDS
-                .iter()
-                .map(|v| QuadCorner {
-                    corner_zero_to_one: *v,
-                })
-                .collect::<Vec<_>>();
-            let (quad_corners_buf, slice) =
-                factory.create_vertex_buffer_with_slice(&quad_corners_data, &QUAD_INDICES[..]);
             let pixel_colour_buffer = factory
                 .create_buffer::<[f32; 4]>(
                     PIXEL_BUFFER_SIZE,
@@ -88,26 +82,67 @@ mod renderer {
                     gfx::memory::Bind::TRANSFER_DST,
                 )
                 .expect("Failed to create buffer");
-            let pixel_colour_srv = factory
-                .view_buffer_as_shader_resource(&pixel_colour_buffer)
-                .expect("Failed to view buffer as srv");
             let pixel_colour_upload_buffer = factory
                 .create_upload_buffer::<[f32; 4]>(PIXEL_BUFFER_SIZE)
                 .expect("Failed to create buffer");
-            let data = pipe::Data {
-                quad_corners: quad_corners_buf,
-                pixel_colours: pixel_colour_srv,
-                out_colour: rtv,
-                out_depth: dsv,
+            let quad_corners_data = QUAD_COORDS
+                .iter()
+                .map(|v| QuadCorner {
+                    corner_zero_to_one: *v,
+                })
+                .collect::<Vec<_>>();
+            let (_, post_processor_in, ppu_pixel_out) = factory
+                .create_render_target(NES_SCREEN_WIDTH_PX, NES_SCREEN_HEIGHT_PX)
+                .expect("Failed to create render target");
+            let ppu_pixel_bundle = {
+                let pso = factory
+                    .create_pipeline_simple(
+                        include_bytes!("shaders/ppu_pixel.150.vert"),
+                        include_bytes!("shaders/ppu_pixel.150.frag"),
+                        ppu_pixel_pipe::new(),
+                    )
+                    .expect("Failed to create pipeline");
+                let (quad_corners_buf, slice) =
+                    factory.create_vertex_buffer_with_slice(&quad_corners_data, &QUAD_INDICES[..]);
+                let pixel_colour_srv = factory
+                    .view_buffer_as_shader_resource(&pixel_colour_buffer)
+                    .expect("Failed to view buffer as srv");
+                let data = ppu_pixel_pipe::Data {
+                    quad_corners: quad_corners_buf,
+                    pixel_colours: pixel_colour_srv,
+                    out_colour: ppu_pixel_out,
+                };
+                gfx::pso::bundle::Bundle::new(slice, pso, data)
             };
-            let bundle = gfx::pso::bundle::Bundle::new(slice, pso, data);
+            let post_processor_bundle = {
+                let pso = factory
+                    .create_pipeline_simple(
+                        include_bytes!("shaders/post_processor.150.vert"),
+                        include_bytes!("shaders/post_processor.150.frag"),
+                        post_processor_pipe::new(),
+                    )
+                    .expect("Failed to create pipeline");
+                let (quad_corners_buf, slice) =
+                    factory.create_vertex_buffer_with_slice(&quad_corners_data, &QUAD_INDICES[..]);
+                let sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
+                    gfx::texture::FilterMethod::Scale,
+                    gfx::texture::WrapMode::Border,
+                ));
+                let data = post_processor_pipe::Data {
+                    quad_corners: quad_corners_buf,
+                    in_colour: (post_processor_in, sampler),
+                    out_colour: rtv,
+                };
+                gfx::pso::bundle::Bundle::new(slice, pso, data)
+            };
             Self {
                 encoder,
                 factory,
                 device,
-                bundle,
                 pixel_colour_upload_buffer,
                 pixel_colour_buffer,
+                ppu_pixel_bundle,
+                post_processor_bundle,
             }
         }
         pub fn with_pixels<G: FnMut(&mut [[f32; 4]])>(&mut self, mut g: G) {
@@ -128,9 +163,9 @@ mod renderer {
                 )
                 .expect("Failed to copy pixel colour buffer");
             self.encoder
-                .clear(&self.bundle.data.out_colour, [0.0, 0.0, 0.0, 1.0]);
-            self.encoder.clear_depth(&self.bundle.data.out_depth, 1.0);
-            self.bundle.encode(&mut self.encoder);
+                .clear(&self.ppu_pixel_bundle.data.out_colour, [0.0, 0.0, 0.0, 1.0]);
+            self.ppu_pixel_bundle.encode(&mut self.encoder);
+            self.post_processor_bundle.encode(&mut self.encoder);
             self.encoder.flush(&mut self.device);
             self.device.cleanup();
         }
@@ -241,7 +276,9 @@ impl Frontend {
             .with_dimensions(window_size)
             .with_max_dimensions(window_size)
             .with_min_dimensions(window_size);
-        let context_builder = glutin::ContextBuilder::new();
+        let context_builder = glutin::ContextBuilder::new()
+            .with_srgb(true)
+            .with_gl(glutin::GlRequest::Latest);
         let windowed_context = context_builder
             .build_windowed(window_builder, &events_loop)
             .expect("Failed to create window");
@@ -252,10 +289,10 @@ impl Frontend {
         )
         .to_logical(hidpi);
         windowed_context.window().set_inner_size(window_size);
-        let (windowed_context, device, mut factory, rtv, dsv) =
+        let (windowed_context, device, mut factory, rtv, _dsv) =
             gfx_window_glutin::init_existing::<ColourFormat, DepthFormat>(windowed_context);
         let encoder = factory.create_command_buffer().into();
-        let renderer = Renderer::new(encoder, factory, device, rtv, dsv);
+        let renderer = Renderer::new(encoder, factory, device, rtv);
         let colour_table = colour::ColourTable::new();
         Self {
             events_loop,
