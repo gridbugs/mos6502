@@ -478,7 +478,7 @@ impl<'a> RenderOutput for NesRenderOutput<'a> {
 fn main() {
     let args = Args::arg().with_help_default().parse_env_default_or_exit();
     let mut frontend = Frontend::new();
-    let buffer = match args.rom_filename {
+    let buffer = match args.rom_filename.as_ref() {
         Some(rom_filename) => {
             let mut buffer = Vec::new();
             let mut rom_file = File::open(rom_filename).expect("Failed to open rom file");
@@ -539,7 +539,7 @@ fn main() {
     let mut gif_renderer = gif_renderer::Renderer::new(output_gif_file);
     //nes.print_state();
     loop {
-        if let Some(ref save_state_args) = args.save_state_args {
+        if let Some(save_state_args) = args.save_state_args.as_ref() {
             if frame_count == save_state_args.frame {
                 let bytes = bincode::serialize(&nes).expect("Failed to serialize state");
                 let mut file =
@@ -549,7 +549,6 @@ fn main() {
             }
         }
         {
-            let controller1 = &mut nes.devices.devices.controller1;
             frontend.poll_glutin_events(|event| match event {
                 glutin::Event::WindowEvent { event, .. } => match event {
                     glutin::WindowEvent::CloseRequested => {
@@ -559,14 +558,42 @@ fn main() {
                         glutin::ElementState::Pressed => {
                             if let Some(virtual_keycode) = input.virtual_keycode {
                                 match virtual_keycode {
-                                    glutin::VirtualKeyCode::Left => controller1.set_left(),
-                                    glutin::VirtualKeyCode::Right => controller1.set_right(),
-                                    glutin::VirtualKeyCode::Up => controller1.set_up(),
-                                    glutin::VirtualKeyCode::Down => controller1.set_down(),
-                                    glutin::VirtualKeyCode::Return => controller1.set_start(),
-                                    glutin::VirtualKeyCode::RShift => controller1.set_select(),
-                                    glutin::VirtualKeyCode::A => controller1.set_a(),
-                                    glutin::VirtualKeyCode::B => controller1.set_b(),
+                                    glutin::VirtualKeyCode::Left => {
+                                        nes.devices.devices.controller1.set_left()
+                                    }
+                                    glutin::VirtualKeyCode::Right => {
+                                        nes.devices.devices.controller1.set_right()
+                                    }
+                                    glutin::VirtualKeyCode::Up => {
+                                        nes.devices.devices.controller1.set_up()
+                                    }
+                                    glutin::VirtualKeyCode::Down => {
+                                        nes.devices.devices.controller1.set_down()
+                                    }
+                                    glutin::VirtualKeyCode::Return => {
+                                        nes.devices.devices.controller1.set_start()
+                                    }
+                                    glutin::VirtualKeyCode::RShift => {
+                                        nes.devices.devices.controller1.set_select()
+                                    }
+                                    glutin::VirtualKeyCode::A => {
+                                        nes.devices.devices.controller1.set_a()
+                                    }
+                                    glutin::VirtualKeyCode::B => {
+                                        nes.devices.devices.controller1.set_b()
+                                    }
+                                    glutin::VirtualKeyCode::S => {
+                                        if let Some(save_state_args) = args.save_state_args.as_ref()
+                                        {
+                                            let bytes = bincode::serialize(&nes)
+                                                .expect("Failed to serialize state");
+                                            let mut file = File::create(&save_state_args.filename)
+                                                .expect("Failed to create state file");
+                                            file.write_all(&bytes)
+                                                .expect("Failed to write state file");
+                                            println!("Wrote state file");
+                                        }
+                                    }
                                     _ => (),
                                 }
                             }
@@ -574,14 +601,30 @@ fn main() {
                         glutin::ElementState::Released => {
                             if let Some(virtual_keycode) = input.virtual_keycode {
                                 match virtual_keycode {
-                                    glutin::VirtualKeyCode::Left => controller1.clear_left(),
-                                    glutin::VirtualKeyCode::Right => controller1.clear_right(),
-                                    glutin::VirtualKeyCode::Up => controller1.clear_up(),
-                                    glutin::VirtualKeyCode::Down => controller1.clear_down(),
-                                    glutin::VirtualKeyCode::Return => controller1.clear_start(),
-                                    glutin::VirtualKeyCode::RShift => controller1.clear_select(),
-                                    glutin::VirtualKeyCode::A => controller1.clear_a(),
-                                    glutin::VirtualKeyCode::B => controller1.clear_b(),
+                                    glutin::VirtualKeyCode::Left => {
+                                        nes.devices.devices.controller1.clear_left()
+                                    }
+                                    glutin::VirtualKeyCode::Right => {
+                                        nes.devices.devices.controller1.clear_right()
+                                    }
+                                    glutin::VirtualKeyCode::Up => {
+                                        nes.devices.devices.controller1.clear_up()
+                                    }
+                                    glutin::VirtualKeyCode::Down => {
+                                        nes.devices.devices.controller1.clear_down()
+                                    }
+                                    glutin::VirtualKeyCode::Return => {
+                                        nes.devices.devices.controller1.clear_start()
+                                    }
+                                    glutin::VirtualKeyCode::RShift => {
+                                        nes.devices.devices.controller1.clear_select()
+                                    }
+                                    glutin::VirtualKeyCode::A => {
+                                        nes.devices.devices.controller1.clear_a()
+                                    }
+                                    glutin::VirtualKeyCode::B => {
+                                        nes.devices.devices.controller1.clear_b()
+                                    }
                                     _ => (),
                                 }
                             }
