@@ -166,7 +166,7 @@ impl Ppu {
         };
         self.address = self.address.wrapping_add(self.address_increment as u16);
         self.read_buffer = value_from_vram;
-        value_for_cpu
+        value_from_vram
     }
     pub fn render<M: PpuMemory, O: RenderOutput>(
         &mut self,
