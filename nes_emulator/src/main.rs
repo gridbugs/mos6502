@@ -652,7 +652,7 @@ fn main() {
             );
             gif_renderer.add(gif_frame);
         });
-        nes.run_for_cycles_debug(30000);
+        nes.run_for_cycles(30000);
         nes.nmi();
         frontend.render();
         frame_count += 1;
