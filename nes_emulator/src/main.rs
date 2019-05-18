@@ -20,6 +20,9 @@ use std::io::{self, Read, Write};
 mod ppu;
 use ppu::*;
 
+mod apu;
+use apu::*;
+
 #[derive(Debug)]
 struct SaveStateArgs {
     frame: u64,
@@ -74,6 +77,7 @@ struct NesDevices {
     rom: Vec<u8>,
     ppu: Ppu,
     ppu_memory: NesPpuMemory,
+    apu: Apu,
     controller1: Controller,
 }
 
@@ -288,6 +292,9 @@ impl Memory for NesDevices {
                 } else {
                     self.controller1.clear_strobe();
                 }
+            }
+            0x4000..=0x4017 => {
+                println!("{:X} <- {:X}", address, data);
             }
             0x4000..=0x7FFF => (),
             0x8000..=0xFFFF => panic!("unimplemented write {:x} to {:x}", data, address),
@@ -525,6 +532,7 @@ fn main() {
                         chr_rom: chr_rom.clone(),
                         palette_ram: [0; PALETTE_RAM_BYTES].to_vec(),
                     },
+                    apu: Apu::new(),
                     controller1: Controller::new(),
                 },
                 oam: Oam::new(),
