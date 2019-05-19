@@ -31,12 +31,22 @@ pub mod alr {
         pub const IMMEDIATE: u8 = 0x4B;
     }
 }
+pub mod arr {
+    pub mod unofficial0 {
+        pub const IMMEDIATE: u8 = 0x6B;
+    }
+}
 pub mod asl {
     pub const ABSOLUTE: u8 = 0x0E;
     pub const ABSOLUTE_X_INDEXED: u8 = 0x1E;
     pub const ACCUMULATOR: u8 = 0x0A;
     pub const ZERO_PAGE: u8 = 0x06;
     pub const ZERO_PAGE_X_INDEXED: u8 = 0x16;
+}
+pub mod axs {
+    pub mod unofficial0 {
+        pub const IMMEDIATE: u8 = 0xCB;
+    }
 }
 pub mod bcc {
     pub const RELATIVE: u8 = 0x90;
@@ -141,6 +151,17 @@ pub mod jmp {
 }
 pub mod jsr {
     pub const ABSOLUTE: u8 = 0x20;
+}
+pub mod lax {
+    pub mod unofficial0 {
+        pub const ABSOLUTE: u8 = 0xAF;
+        pub const ABSOLUTE_Y_INDEXED: u8 = 0xBF;
+        pub const IMMEDIATE: u8 = 0xAB;
+        pub const X_INDEXED_INDIRECT: u8 = 0xA3;
+        pub const INDIRECT_Y_INDEXED: u8 = 0xB3;
+        pub const ZERO_PAGE: u8 = 0xA7;
+        pub const ZERO_PAGE_Y_INDEXED: u8 = 0xB7;
+    }
 }
 pub mod lda {
     pub const ABSOLUTE: u8 = 0xAD;

@@ -69,6 +69,7 @@ impl Cpu {
             opcode::adc::ZERO_PAGE => adc::interpret(ZeroPage, self, memory),
             opcode::adc::ZERO_PAGE_X_INDEXED => adc::interpret(ZeroPageXIndexed, self, memory),
             opcode::alr::unofficial0::IMMEDIATE => alr::interpret(self, memory),
+            opcode::arr::unofficial0::IMMEDIATE => arr::interpret(self, memory),
             opcode::anc::unofficial0::IMMEDIATE => anc::interpret(self, memory),
             opcode::anc::unofficial1::IMMEDIATE => anc::interpret(self, memory),
             opcode::and::ABSOLUTE => and::interpret(Absolute, self, memory),
@@ -84,6 +85,7 @@ impl Cpu {
             opcode::asl::ACCUMULATOR => asl::interpret_acc(self),
             opcode::asl::ZERO_PAGE => asl::interpret(ZeroPage, self, memory),
             opcode::asl::ZERO_PAGE_X_INDEXED => asl::interpret(ZeroPageXIndexed, self, memory),
+            opcode::axs::unofficial0::IMMEDIATE => axs::interpret(self, memory),
             opcode::bcc::RELATIVE => bcc::interpret(self, memory),
             opcode::bcs::RELATIVE => bcs::interpret(self, memory),
             opcode::beq::RELATIVE => beq::interpret(self, memory),
@@ -136,6 +138,21 @@ impl Cpu {
             opcode::jmp::ABSOLUTE => jmp::interpret(Absolute, self, memory),
             opcode::jmp::INDIRECT => jmp::interpret(Indirect, self, memory),
             opcode::jsr::ABSOLUTE => jsr::interpret(Absolute, self, memory),
+            opcode::lax::unofficial0::ABSOLUTE => lax::interpret(Absolute, self, memory),
+            opcode::lax::unofficial0::ABSOLUTE_Y_INDEXED => {
+                lax::interpret(AbsoluteYIndexed, self, memory)
+            }
+            opcode::lax::unofficial0::IMMEDIATE => lax::interpret(Immediate, self, memory),
+            opcode::lax::unofficial0::X_INDEXED_INDIRECT => {
+                lax::interpret(XIndexedIndirect, self, memory)
+            }
+            opcode::lax::unofficial0::INDIRECT_Y_INDEXED => {
+                lax::interpret(IndirectYIndexed, self, memory)
+            }
+            opcode::lax::unofficial0::ZERO_PAGE => lax::interpret(ZeroPage, self, memory),
+            opcode::lax::unofficial0::ZERO_PAGE_Y_INDEXED => {
+                lax::interpret(ZeroPageYIndexed, self, memory)
+            }
             opcode::lda::ABSOLUTE => lda::interpret(Absolute, self, memory),
             opcode::lda::ABSOLUTE_X_INDEXED => lda::interpret(AbsoluteXIndexed, self, memory),
             opcode::lda::ABSOLUTE_Y_INDEXED => lda::interpret(AbsoluteYIndexed, self, memory),

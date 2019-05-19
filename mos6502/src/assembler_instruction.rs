@@ -10,6 +10,7 @@ pub use adc::Inst as Adc;
 pub use alr::Inst as Alr;
 pub use anc::Inst as Anc;
 pub use and::Inst as And;
+pub use arr::Inst as Arr;
 pub use asl::Inst as Asl;
 pub use bcc::Inst as Bcc;
 pub use bcs::Inst as Bcs;
