@@ -133,6 +133,36 @@ pub mod eor {
     pub const ZERO_PAGE: u8 = 0x45;
     pub const ZERO_PAGE_X_INDEXED: u8 = 0x55;
 }
+pub mod ign {
+    pub mod unofficial0 {
+        pub const ABSOLUTE: u8 = 0x0C;
+        pub const ABSOLUTE_X_INDEXED: u8 = 0x1C;
+        pub const ZERO_PAGE: u8 = 0x04;
+        pub const ZERO_PAGE_X_INDEXED: u8 = 0x14;
+    }
+    pub mod unofficial1 {
+        pub const ABSOLUTE_X_INDEXED: u8 = 0x3C;
+        pub const ZERO_PAGE: u8 = 0x44;
+        pub const ZERO_PAGE_X_INDEXED: u8 = 0x34;
+    }
+    pub mod unofficial2 {
+        pub const ABSOLUTE_X_INDEXED: u8 = 0x5C;
+        pub const ZERO_PAGE: u8 = 0x64;
+        pub const ZERO_PAGE_X_INDEXED: u8 = 0x54;
+    }
+    pub mod unofficial3 {
+        pub const ABSOLUTE_X_INDEXED: u8 = 0x7C;
+        pub const ZERO_PAGE_X_INDEXED: u8 = 0x74;
+    }
+    pub mod unofficial4 {
+        pub const ABSOLUTE_X_INDEXED: u8 = 0xDC;
+        pub const ZERO_PAGE_X_INDEXED: u8 = 0xD4;
+    }
+    pub mod unofficial5 {
+        pub const ABSOLUTE_X_INDEXED: u8 = 0xFC;
+        pub const ZERO_PAGE_X_INDEXED: u8 = 0xF4;
+    }
+}
 pub mod inc {
     pub const ABSOLUTE: u8 = 0xEE;
     pub const ABSOLUTE_X_INDEXED: u8 = 0xFE;

@@ -1247,6 +1247,77 @@ pub mod eor {
         cycles
     }
 }
+pub mod ign {
+    use super::*;
+    use opcode::ign::*;
+    pub trait AddressingMode: ReadData {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles;
+    }
+    impl AddressingMode for Absolute {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
+    impl AddressingMode for AbsoluteXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            let (data, page_boundary_cross) =
+                Self::read_data_check_cross_page_boundary(cpu, memory);
+            DataWithCycles {
+                data,
+                cycles: 4u8 + page_boundary_cross as u8,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPage {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 3,
+            }
+        }
+    }
+    impl AddressingMode for ZeroPageXIndexed {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 4,
+            }
+        }
+    }
+    pub struct Inst<A: AddressingMode>(pub A);
+    impl AssemblerInstruction for Inst<Absolute> {
+        type AddressingMode = Absolute;
+        fn opcode() -> u8 {
+            unofficial0::ABSOLUTE
+        }
+    }
+    impl AssemblerInstruction for Inst<AbsoluteXIndexed> {
+        type AddressingMode = AbsoluteXIndexed;
+        fn opcode() -> u8 {
+            unofficial0::ABSOLUTE_X_INDEXED
+        }
+    }
+    impl AssemblerInstruction for Inst<ZeroPage> {
+        type AddressingMode = ZeroPage;
+        fn opcode() -> u8 {
+            unofficial0::ZERO_PAGE
+        }
+    }
+    impl AssemblerInstruction for Inst<ZeroPageXIndexed> {
+        type AddressingMode = ZeroPageXIndexed;
+        fn opcode() -> u8 {
+            unofficial0::ZERO_PAGE_X_INDEXED
+        }
+    }
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let DataWithCycles { data: _, cycles } = A::read_data_with_cycles(cpu, memory);
+        cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        cycles
+    }
+}
 pub mod inc {
     use super::*;
     use opcode::inc::*;

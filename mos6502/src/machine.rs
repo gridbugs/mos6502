@@ -129,6 +129,46 @@ impl Cpu {
             opcode::eor::X_INDEXED_INDIRECT => eor::interpret(XIndexedIndirect, self, memory),
             opcode::eor::ZERO_PAGE => eor::interpret(ZeroPage, self, memory),
             opcode::eor::ZERO_PAGE_X_INDEXED => eor::interpret(ZeroPageXIndexed, self, memory),
+            opcode::ign::unofficial0::ABSOLUTE => ign::interpret(Absolute, self, memory),
+            opcode::ign::unofficial0::ABSOLUTE_X_INDEXED => {
+                ign::interpret(AbsoluteXIndexed, self, memory)
+            }
+            opcode::ign::unofficial0::ZERO_PAGE => ign::interpret(ZeroPage, self, memory),
+            opcode::ign::unofficial0::ZERO_PAGE_X_INDEXED => {
+                ign::interpret(ZeroPageXIndexed, self, memory)
+            }
+            opcode::ign::unofficial1::ABSOLUTE_X_INDEXED => {
+                ign::interpret(AbsoluteXIndexed, self, memory)
+            }
+            opcode::ign::unofficial1::ZERO_PAGE => ign::interpret(ZeroPage, self, memory),
+            opcode::ign::unofficial1::ZERO_PAGE_X_INDEXED => {
+                ign::interpret(ZeroPageXIndexed, self, memory)
+            }
+            opcode::ign::unofficial2::ABSOLUTE_X_INDEXED => {
+                ign::interpret(AbsoluteXIndexed, self, memory)
+            }
+            opcode::ign::unofficial2::ZERO_PAGE => ign::interpret(ZeroPage, self, memory),
+            opcode::ign::unofficial2::ZERO_PAGE_X_INDEXED => {
+                ign::interpret(ZeroPageXIndexed, self, memory)
+            }
+            opcode::ign::unofficial3::ABSOLUTE_X_INDEXED => {
+                ign::interpret(AbsoluteXIndexed, self, memory)
+            }
+            opcode::ign::unofficial3::ZERO_PAGE_X_INDEXED => {
+                ign::interpret(ZeroPageXIndexed, self, memory)
+            }
+            opcode::ign::unofficial4::ABSOLUTE_X_INDEXED => {
+                ign::interpret(AbsoluteXIndexed, self, memory)
+            }
+            opcode::ign::unofficial4::ZERO_PAGE_X_INDEXED => {
+                ign::interpret(ZeroPageXIndexed, self, memory)
+            }
+            opcode::ign::unofficial5::ABSOLUTE_X_INDEXED => {
+                ign::interpret(AbsoluteXIndexed, self, memory)
+            }
+            opcode::ign::unofficial5::ZERO_PAGE_X_INDEXED => {
+                ign::interpret(ZeroPageXIndexed, self, memory)
+            }
             opcode::inc::ABSOLUTE => inc::interpret(Absolute, self, memory),
             opcode::inc::ABSOLUTE_X_INDEXED => inc::interpret(AbsoluteXIndexed, self, memory),
             opcode::inc::ZERO_PAGE => inc::interpret(ZeroPage, self, memory),
