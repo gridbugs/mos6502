@@ -8,6 +8,14 @@ pub mod adc {
     pub const ZERO_PAGE: u8 = 0x65;
     pub const ZERO_PAGE_X_INDEXED: u8 = 0x75;
 }
+pub mod anc {
+    pub mod unofficial0 {
+        pub const IMMEDIATE: u8 = 0x0B;
+    }
+    pub mod unofficial1 {
+        pub const IMMEDIATE: u8 = 0x2B;
+    }
+}
 pub mod and {
     pub const ABSOLUTE: u8 = 0x2D;
     pub const ABSOLUTE_X_INDEXED: u8 = 0x3D;
@@ -17,6 +25,11 @@ pub mod and {
     pub const X_INDEXED_INDIRECT: u8 = 0x21;
     pub const ZERO_PAGE: u8 = 0x25;
     pub const ZERO_PAGE_X_INDEXED: u8 = 0x35;
+}
+pub mod alr {
+    pub mod unofficial0 {
+        pub const IMMEDIATE: u8 = 0x4B;
+    }
 }
 pub mod asl {
     pub const ABSOLUTE: u8 = 0x0E;
@@ -162,6 +175,24 @@ pub mod lsr {
 }
 pub mod nop {
     pub const IMPLIED: u8 = 0xEA;
+    pub mod unofficial0 {
+        pub const IMPLIED: u8 = 0x1A;
+    }
+    pub mod unofficial1 {
+        pub const IMPLIED: u8 = 0x3A;
+    }
+    pub mod unofficial2 {
+        pub const IMPLIED: u8 = 0x5A;
+    }
+    pub mod unofficial3 {
+        pub const IMPLIED: u8 = 0x7A;
+    }
+    pub mod unofficial4 {
+        pub const IMPLIED: u8 = 0xDA;
+    }
+    pub mod unofficial5 {
+        pub const IMPLIED: u8 = 0xFA;
+    }
 }
 pub mod ora {
     pub const ABSOLUTE: u8 = 0x0D;
@@ -214,6 +245,9 @@ pub mod sbc {
     pub const X_INDEXED_INDIRECT: u8 = 0xE1;
     pub const ZERO_PAGE: u8 = 0xE5;
     pub const ZERO_PAGE_X_INDEXED: u8 = 0xF5;
+    pub mod unofficial0 {
+        pub const IMMEDIATE: u8 = 0xEB;
+    }
 }
 pub mod sec {
     pub const IMPLIED: u8 = 0x38;
@@ -223,6 +257,23 @@ pub mod sed {
 }
 pub mod sei {
     pub const IMPLIED: u8 = 0x78;
+}
+pub mod skb {
+    pub mod unofficial0 {
+        pub const IMMEDIATE: u8 = 0x80;
+    }
+    pub mod unofficial1 {
+        pub const IMMEDIATE: u8 = 0x82;
+    }
+    pub mod unofficial2 {
+        pub const IMMEDIATE: u8 = 0x89;
+    }
+    pub mod unofficial3 {
+        pub const IMMEDIATE: u8 = 0xC2;
+    }
+    pub mod unofficial4 {
+        pub const IMMEDIATE: u8 = 0xE2;
+    }
 }
 pub mod sta {
     pub const ABSOLUTE: u8 = 0x8D;

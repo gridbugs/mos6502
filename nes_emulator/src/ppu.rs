@@ -48,6 +48,10 @@ pub struct Ppu {
     sprite_pattern_table: PatternTableChoice,
     background_pattern_table: PatternTableChoice,
     read_buffer: u8,
+    oam_address: u8,
+    next_scroll_write_is_x: bool,
+    scroll_x: u8,
+    scroll_y: u8,
 }
 
 pub type PpuAddress = u16;
@@ -108,7 +112,14 @@ impl Ppu {
             sprite_pattern_table: PatternTableChoice::PatternTable0,
             background_pattern_table: PatternTableChoice::PatternTable0,
             read_buffer: 0,
+            oam_address: 0,
+            next_scroll_write_is_x: true,
+            scroll_x: 0,
+            scroll_y: 0,
         }
+    }
+    pub fn vblank_nmi(&self) -> bool {
+        self.vblank_nmi
     }
     pub fn write_control(&mut self, data: u8) {
         self.address_increment = if data & control::flag::ADDRESS_INCREMENT != 0 {
@@ -132,20 +143,27 @@ impl Ppu {
     pub fn read_status(&mut self) -> u8 {
         self.address = 0;
         self.next_address_write_is_hi_byte = true;
+        self.next_scroll_write_is_x = true;
         status::flag::VBLANK
     }
     pub fn write_oam_address(&mut self, data: u8) {
-        //println!("write oam address {}", data);
+        self.oam_address = data;
     }
-    pub fn write_oam_data(&mut self, data: u8) {
-        println!("write oam data {}", data);
+    pub fn write_oam_data(&mut self, data: u8, oam: &mut Oam) {
+        oam.ram[self.oam_address as usize] = data;
+        self.oam_address = self.oam_address.wrapping_add(1);
     }
-    pub fn read_oam_data(&mut self) -> u8 {
-        println!("read oam data");
-        0
+    pub fn read_oam_data(&mut self, oam: &Oam) -> u8 {
+        let data = oam.ram[self.oam_address as usize];
+        self.oam_address = self.oam_address.wrapping_add(1);
+        data
     }
     pub fn write_scroll(&mut self, data: u8) {
-        //println!("WRITE SCROLL {:X}", data);
+        if self.next_scroll_write_is_x {
+            self.scroll_x = data;
+        } else {
+            self.scroll_y = data;
+        }
     }
     pub fn write_address(&mut self, data: u8) {
         let shift = self.next_address_write_is_hi_byte as u32 * 8;

@@ -30,11 +30,8 @@ impl Register {
             raw: flag::INTERRUPT_DISABLE,
         }
     }
-    pub fn masked(&self) -> u8 {
-        self.raw
-    }
-    pub fn masked_with_brk(&self) -> u8 {
-        self.raw | flag::BRK
+    pub fn masked_with_brk_and_expansion(&self) -> u8 {
+        self.raw | flag::BRK | flag::EXPANSION
     }
     pub fn set(&mut self, value: u8) {
         self.raw = value & MASK;

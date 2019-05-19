@@ -27,7 +27,7 @@ impl Cpu {
     pub fn nmi<M: Memory>(&mut self, memory: &mut M) {
         self.push_stack_u8(memory, address::hi(self.pc));
         self.push_stack_u8(memory, address::lo(self.pc));
-        self.push_stack_u8(memory, self.status.masked());
+        self.push_stack_u8(memory, self.status.masked_with_brk_and_expansion());
         self.pc = memory.read_u16_le(crate::interrupt_vector::NMI_LO);
     }
     pub fn sp_address(&self) -> Address {
@@ -68,6 +68,9 @@ impl Cpu {
             opcode::adc::X_INDEXED_INDIRECT => adc::interpret(XIndexedIndirect, self, memory),
             opcode::adc::ZERO_PAGE => adc::interpret(ZeroPage, self, memory),
             opcode::adc::ZERO_PAGE_X_INDEXED => adc::interpret(ZeroPageXIndexed, self, memory),
+            opcode::alr::unofficial0::IMMEDIATE => alr::interpret(self, memory),
+            opcode::anc::unofficial0::IMMEDIATE => anc::interpret(self, memory),
+            opcode::anc::unofficial1::IMMEDIATE => anc::interpret(self, memory),
             opcode::and::ABSOLUTE => and::interpret(Absolute, self, memory),
             opcode::and::ABSOLUTE_X_INDEXED => and::interpret(AbsoluteXIndexed, self, memory),
             opcode::and::ABSOLUTE_Y_INDEXED => and::interpret(AbsoluteYIndexed, self, memory),
@@ -157,6 +160,12 @@ impl Cpu {
             opcode::lsr::ZERO_PAGE => lsr::interpret(ZeroPage, self, memory),
             opcode::lsr::ZERO_PAGE_X_INDEXED => lsr::interpret(ZeroPageXIndexed, self, memory),
             opcode::nop::IMPLIED => nop::interpret(self),
+            opcode::nop::unofficial0::IMPLIED => nop::interpret(self),
+            opcode::nop::unofficial1::IMPLIED => nop::interpret(self),
+            opcode::nop::unofficial2::IMPLIED => nop::interpret(self),
+            opcode::nop::unofficial3::IMPLIED => nop::interpret(self),
+            opcode::nop::unofficial4::IMPLIED => nop::interpret(self),
+            opcode::nop::unofficial5::IMPLIED => nop::interpret(self),
             opcode::ora::ABSOLUTE => ora::interpret(Absolute, self, memory),
             opcode::ora::ABSOLUTE_X_INDEXED => ora::interpret(AbsoluteXIndexed, self, memory),
             opcode::ora::ABSOLUTE_Y_INDEXED => ora::interpret(AbsoluteYIndexed, self, memory),
@@ -189,9 +198,15 @@ impl Cpu {
             opcode::sbc::X_INDEXED_INDIRECT => sbc::interpret(XIndexedIndirect, self, memory),
             opcode::sbc::ZERO_PAGE => sbc::interpret(ZeroPage, self, memory),
             opcode::sbc::ZERO_PAGE_X_INDEXED => sbc::interpret(ZeroPageXIndexed, self, memory),
+            opcode::sbc::unofficial0::IMMEDIATE => sbc::interpret(Immediate, self, memory),
             opcode::sec::IMPLIED => sec::interpret(self),
             opcode::sed::IMPLIED => sed::interpret(self),
             opcode::sei::IMPLIED => sei::interpret(self),
+            opcode::skb::unofficial0::IMMEDIATE => skb::interpret(self, memory),
+            opcode::skb::unofficial1::IMMEDIATE => skb::interpret(self, memory),
+            opcode::skb::unofficial2::IMMEDIATE => skb::interpret(self, memory),
+            opcode::skb::unofficial3::IMMEDIATE => skb::interpret(self, memory),
+            opcode::skb::unofficial4::IMMEDIATE => skb::interpret(self, memory),
             opcode::sta::ABSOLUTE => sta::interpret(Absolute, self, memory),
             opcode::sta::ABSOLUTE_X_INDEXED => sta::interpret(AbsoluteXIndexed, self, memory),
             opcode::sta::ABSOLUTE_Y_INDEXED => sta::interpret(AbsoluteYIndexed, self, memory),

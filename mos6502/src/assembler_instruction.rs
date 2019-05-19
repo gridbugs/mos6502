@@ -7,6 +7,8 @@ pub trait Trait {
 }
 
 pub use adc::Inst as Adc;
+pub use alr::Inst as Alr;
+pub use anc::Inst as Anc;
 pub use and::Inst as And;
 pub use asl::Inst as Asl;
 pub use bcc::Inst as Bcc;
@@ -53,6 +55,7 @@ pub use sbc::Inst as Sbc;
 pub use sec::Inst as Sec;
 pub use sed::Inst as Sed;
 pub use sei::Inst as Sei;
+pub use skb::Inst as Skb;
 pub use sta::Inst as Sta;
 pub use stx::Inst as Stx;
 pub use sty::Inst as Sty;

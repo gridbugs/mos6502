@@ -257,7 +257,6 @@ impl Memory for NesDevices {
                 1 => 0,
                 2 => self.ppu.read_status(),
                 3 => 0,
-                4 => self.ppu.read_oam_data(),
                 5 => 0,
                 6 => 0,
                 7 => self.ppu.read_data(&self.ppu_memory),
@@ -280,7 +279,6 @@ impl Memory for NesDevices {
                 1 => self.ppu.write_mask(data),
                 2 => (),
                 3 => self.ppu.write_oam_address(data),
-                4 => self.ppu.write_oam_data(data),
                 5 => self.ppu.write_scroll(data),
                 6 => self.ppu.write_address(data),
                 7 => self.ppu.write_data(&mut self.ppu_memory, data),
@@ -294,7 +292,7 @@ impl Memory for NesDevices {
                 }
             }
             0x4000..=0x4017 => {
-                println!("{:X} <- {:X}", address, data);
+                //println!("{:X} <- {:X}", address, data);
             }
             0x4000..=0x7FFF => (),
             0x8000..=0xFFFF => panic!("unimplemented write {:x} to {:x}", data, address),
@@ -320,24 +318,28 @@ impl NesDevicesWithOam {
 
 impl Memory for NesDevicesWithOam {
     fn read_u8(&mut self, address: Address) -> u8 {
-        self.devices.read_u8(address)
+        match address {
+            0x2004 => self.devices.ppu.read_oam_data(&self.oam),
+            other => self.devices.read_u8(other),
+        }
     }
     fn write_u8(&mut self, address: Address, data: u8) {
-        if address == 0x4014 {
-            self.oam.dma(&mut self.devices, data);
-        } else {
-            self.devices.write_u8(address, data);
+        match address {
+            0x4014 => self.oam.dma(&mut self.devices, data),
+            0x2004 => self.devices.ppu.write_oam_data(data, &mut self.oam),
+            other => self.devices.write_u8(address, data),
         }
     }
 }
 
 impl MemoryReadOnly for NesDevices {
     fn read_u8_read_only(&self, address: Address) -> u8 {
-        match address {
-            0..=0x7FF => self.ram[address as usize],
-            0x800..=0x7FFF => 0,
-            0x8000..=0xFFFF => self.rom[(address as usize - 0x8000) % 0x4000],
-        }
+        let data = match address {
+            0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
+            0x2000..=0x7FFF => 0,
+            0x8000..=0xFFFF => self.rom[address as usize - 0x8000],
+        };
+        data
     }
 }
 
@@ -379,17 +381,21 @@ impl Nes {
     fn run_for_cycles_debug(&mut self, num_cycles: usize) {
         let mut count = 0;
         while count < num_cycles {
-            let instruction_with_operand =
-                InstructionWithOperand::next(&self.cpu, &self.devices).unwrap();
-            let stdout = io::stdout();
-            let mut handle = stdout.lock();
-            let _ = writeln!(handle, "{}", instruction_with_operand);
-            //writeln!(handle, "{:X?}", self.cpu).unwrap();
+            if let Ok(instruction_with_operand) =
+                InstructionWithOperand::next(&self.cpu, &self.devices)
+            {
+                let stdout = io::stdout();
+                let mut handle = stdout.lock();
+                let _ = writeln!(handle, "{}", instruction_with_operand);
+                //writeln!(handle, "{:X?}", self.cpu).unwrap();
+            }
             count += self.cpu.step(&mut self.devices).unwrap() as usize;
         }
     }
     fn nmi(&mut self) {
-        self.cpu.nmi(&mut self.devices);
+        if self.devices.devices.ppu.vblank_nmi() {
+            self.cpu.nmi(&mut self.devices);
+        }
     }
     fn print_state(&self) {
         let stdout = io::stdout();
@@ -660,10 +666,13 @@ fn main() {
             );
             gif_renderer.add(gif_frame);
         });
-        nes.run_for_cycles(30000);
+        nes.run_for_cycles_debug(30000);
         nes.nmi();
         frontend.render();
         frame_count += 1;
+        if frame_count > 60 {
+            //break;
+        }
     }
 }
 

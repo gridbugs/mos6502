@@ -151,12 +151,68 @@ pub mod adc {
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
         if cpu.status.is_decimal() {
-            panic!("decimal addition not implemented");
-        } else {
-            adc_common(cpu, data);
+            eprintln!("decimal addition attempted");
         }
+        adc_common(cpu, data);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
         cycles
+    }
+}
+pub mod alr {
+    use super::*;
+    use opcode::alr::*;
+    pub trait AddressingMode: addressing_mode::Trait {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles;
+    }
+    impl AddressingMode for Immediate {
+        fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
+            DataWithCycles {
+                data: Self::read_data(cpu, memory),
+                cycles: 2,
+            }
+        }
+    }
+    pub struct Inst<A: AddressingMode>(pub A);
+    impl AssemblerInstruction for Inst<Immediate> {
+        type AddressingMode = Immediate;
+        fn opcode() -> u8 {
+            unofficial0::IMMEDIATE
+        }
+    }
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let data = Immediate::read_data(cpu, memory);
+        cpu.acc &= data;
+        let carry = cpu.acc & 1 != 0;
+        cpu.acc = cpu.acc.wrapping_shr(1);
+        cpu.status.set_carry_to(carry);
+        cpu.status.set_zero_from_value(cpu.acc);
+        cpu.status.clear_negative();
+
+        cpu.pc = cpu.pc.wrapping_add(Immediate::instruction_bytes());
+        2
+    }
+
+}
+pub mod anc {
+    use super::*;
+    use opcode::anc::*;
+    pub trait AddressingMode: addressing_mode::Trait {}
+    impl AddressingMode for Immediate {}
+    pub struct Inst<A: AddressingMode>(pub A);
+    impl AssemblerInstruction for Inst<Immediate> {
+        type AddressingMode = Immediate;
+        fn opcode() -> u8 {
+            unofficial0::IMMEDIATE
+        }
+    }
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let data = Immediate::read_data(cpu, memory);
+        cpu.acc &= data;
+        cpu.status.set_zero_from_value(cpu.acc);
+        cpu.status.set_negative_from_value(cpu.acc);
+        cpu.status.set_carry_to(cpu.status.is_negative());
+        cpu.pc = cpu.pc.wrapping_add(Immediate::instruction_bytes());
+        2
     }
 }
 pub mod and {
@@ -535,7 +591,7 @@ pub mod brk {
         let pc_to_save = cpu.pc.wrapping_add(2);
         cpu.push_stack_u8(memory, address::hi(pc_to_save));
         cpu.push_stack_u8(memory, address::lo(pc_to_save));
-        cpu.push_stack_u8(memory, cpu.status.masked_with_brk());
+        cpu.push_stack_u8(memory, cpu.status.masked_with_brk_and_expansion());
         cpu.pc = memory.read_u16_le(crate::interrupt_vector::IRQ_LO);
         7
     }
@@ -1880,7 +1936,7 @@ pub mod php {
         }
     }
     pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
-        cpu.push_stack_u8(memory, cpu.status.masked());
+        cpu.push_stack_u8(memory, cpu.status.masked_with_brk_and_expansion());
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
         3
     }
@@ -2267,11 +2323,10 @@ pub mod sbc {
         let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
         let original_acc = cpu.acc;
         if cpu.status.is_decimal() {
-            panic!("decimal subtraction not implemented");
-        } else {
-            let orig_acc = cpu.acc;
-            adc_common(cpu, !data);
+            eprintln!("decimal subtraction attempted");
         }
+        let orig_acc = cpu.acc;
+        adc_common(cpu, !data);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
         cycles
     }
@@ -2321,6 +2376,22 @@ pub mod sei {
     pub fn interpret(cpu: &mut Cpu) -> u8 {
         cpu.status.set_interrupt_disable();
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
+        2
+    }
+}
+pub mod skb {
+    use super::*;
+    use opcode::skb::*;
+    pub struct Inst;
+    impl AssemblerInstruction for Inst {
+        type AddressingMode = Immediate;
+        fn opcode() -> u8 {
+            unofficial0::IMMEDIATE
+        }
+    }
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let _ = Immediate::read_data(cpu, memory);
+        cpu.pc = cpu.pc.wrapping_add(Immediate::instruction_bytes());
         2
     }
 }
