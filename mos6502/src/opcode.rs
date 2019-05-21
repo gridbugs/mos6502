@@ -101,6 +101,17 @@ pub mod cmp {
     pub const ZERO_PAGE: u8 = 0xC5;
     pub const ZERO_PAGE_X_INDEXED: u8 = 0xD5;
 }
+pub mod dcp {
+    pub mod unofficial0 {
+        pub const X_INDEXED_INDIRECT: u8 = 0xC3;
+        pub const ZERO_PAGE: u8 = 0xC7;
+        pub const ABSOLUTE: u8 = 0xCF;
+        pub const INDIRECT_Y_INDEXED: u8 = 0xD3;
+        pub const ZERO_PAGE_X_INDEXED: u8 = 0xD7;
+        pub const ABSOLUTE_Y_INDEXED: u8 = 0xDB;
+        pub const ABSOLUTE_X_INDEXED: u8 = 0xDF;
+    }
+}
 pub mod dec {
     pub const ABSOLUTE: u8 = 0xCE;
     pub const ABSOLUTE_X_INDEXED: u8 = 0xDE;
@@ -174,6 +185,17 @@ pub mod inx {
 }
 pub mod iny {
     pub const IMPLIED: u8 = 0xC8;
+}
+pub mod isc {
+    pub mod unofficial0 {
+        pub const X_INDEXED_INDIRECT: u8 = 0xE3;
+        pub const ZERO_PAGE: u8 = 0xE7;
+        pub const ABSOLUTE: u8 = 0xEF;
+        pub const INDIRECT_Y_INDEXED: u8 = 0xF3;
+        pub const ZERO_PAGE_X_INDEXED: u8 = 0xF7;
+        pub const ABSOLUTE_Y_INDEXED: u8 = 0xFB;
+        pub const ABSOLUTE_X_INDEXED: u8 = 0xFF;
+    }
 }
 pub mod jmp {
     pub const ABSOLUTE: u8 = 0x4C;
@@ -267,6 +289,17 @@ pub mod pla {
 pub mod plp {
     pub const IMPLIED: u8 = 0x28;
 }
+pub mod rla {
+    pub mod unofficial0 {
+        pub const X_INDEXED_INDIRECT: u8 = 0x23;
+        pub const ZERO_PAGE: u8 = 0x27;
+        pub const ABSOLUTE: u8 = 0x2F;
+        pub const INDIRECT_Y_INDEXED: u8 = 0x33;
+        pub const ZERO_PAGE_X_INDEXED: u8 = 0x37;
+        pub const ABSOLUTE_Y_INDEXED: u8 = 0x3B;
+        pub const ABSOLUTE_X_INDEXED: u8 = 0x3F;
+    }
+}
 pub mod rol {
     pub const ABSOLUTE: u8 = 0x2E;
     pub const ABSOLUTE_X_INDEXED: u8 = 0x3E;
@@ -280,6 +313,17 @@ pub mod ror {
     pub const ACCUMULATOR: u8 = 0x6A;
     pub const ZERO_PAGE: u8 = 0x66;
     pub const ZERO_PAGE_X_INDEXED: u8 = 0x76;
+}
+pub mod rra {
+    pub mod unofficial0 {
+        pub const X_INDEXED_INDIRECT: u8 = 0x63;
+        pub const ZERO_PAGE: u8 = 0x67;
+        pub const ABSOLUTE: u8 = 0x6F;
+        pub const INDIRECT_Y_INDEXED: u8 = 0x73;
+        pub const ZERO_PAGE_X_INDEXED: u8 = 0x77;
+        pub const ABSOLUTE_Y_INDEXED: u8 = 0x7B;
+        pub const ABSOLUTE_X_INDEXED: u8 = 0x7F;
+    }
 }
 pub mod rti {
     pub const IMPLIED: u8 = 0x40;
@@ -324,6 +368,28 @@ pub mod skb {
     }
     pub mod unofficial4 {
         pub const IMMEDIATE: u8 = 0xE2;
+    }
+}
+pub mod slo {
+    pub mod unofficial0 {
+        pub const X_INDEXED_INDIRECT: u8 = 0x03;
+        pub const ZERO_PAGE: u8 = 0x07;
+        pub const ABSOLUTE: u8 = 0x0F;
+        pub const INDIRECT_Y_INDEXED: u8 = 0x13;
+        pub const ZERO_PAGE_X_INDEXED: u8 = 0x17;
+        pub const ABSOLUTE_Y_INDEXED: u8 = 0x1B;
+        pub const ABSOLUTE_X_INDEXED: u8 = 0x1F;
+    }
+}
+pub mod sre {
+    pub mod unofficial0 {
+        pub const X_INDEXED_INDIRECT: u8 = 0x43;
+        pub const ZERO_PAGE: u8 = 0x47;
+        pub const ABSOLUTE: u8 = 0x4F;
+        pub const INDIRECT_Y_INDEXED: u8 = 0x53;
+        pub const ZERO_PAGE_X_INDEXED: u8 = 0x57;
+        pub const ABSOLUTE_Y_INDEXED: u8 = 0x5B;
+        pub const ABSOLUTE_X_INDEXED: u8 = 0x5F;
     }
 }
 pub mod sta {
