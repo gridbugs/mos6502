@@ -40,13 +40,15 @@ impl Sample for StackStatusRegister {
         100
     }
     fn check_result<M: MemoryReadOnly>(_cpu: &Cpu, m: &M) {
-        assert_eq!(m.read_u8_read_only(0x01FF), 0x00);
-        assert_eq!(m.read_u8_read_only(0x01FE), 0x04);
-        assert_eq!(m.read_u8_read_only(0x01FD), 0x05);
-        assert_eq!(m.read_u8_read_only(0x01FC), 0x0D);
-        assert_eq!(m.read_u8_read_only(0x01FB), 0x0F);
-        assert_eq!(m.read_u8_read_only(0x01FA), 0x0E);
-        assert_eq!(m.read_u8_read_only(0x01F9), 0x8C);
-        assert_eq!(m.read_u8_read_only(0x01F8), 0xFF);
+        use status::flag::*;
+        let mask = EXPANSION | BRK;
+        assert_eq!(m.read_u8_read_only(0x01FF), 0x00 | mask);
+        assert_eq!(m.read_u8_read_only(0x01FE), 0x04 | mask);
+        assert_eq!(m.read_u8_read_only(0x01FD), 0x05 | mask);
+        assert_eq!(m.read_u8_read_only(0x01FC), 0x0D | mask);
+        assert_eq!(m.read_u8_read_only(0x01FB), 0x0F | mask);
+        assert_eq!(m.read_u8_read_only(0x01FA), 0x0E | mask);
+        assert_eq!(m.read_u8_read_only(0x01F9), 0x8C | mask);
+        assert_eq!(m.read_u8_read_only(0x01F8), 0xFF | mask);
     }
 }

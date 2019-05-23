@@ -126,7 +126,7 @@ impl Sample for Arithmetic {
                 assert_eq!(m.read_u8_read_only(self.offset), result);
                 assert_eq!(
                     m.read_u8_read_only(self.offset + 1),
-                    INTERRUPT_DISABLE | status
+                    INTERRUPT_DISABLE | EXPANSION | BRK | status
                 );
                 self.offset += 2;
             }

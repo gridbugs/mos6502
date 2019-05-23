@@ -27,7 +27,7 @@ fn main() {
             }
             for i in 0..HEIGHT_PX {
                 let x = (i + offset) % WIDTH_PX;
-                pixels.set_pixel_colour(x, i, PINK);
+                pixels.set_pixel_colour_background(x, i, PINK);
             }
             offset += 1;
         });
