@@ -3415,6 +3415,23 @@ pub mod tax {
         2
     }
 }
+pub mod sya {
+    use super::*;
+    use opcode::sya::*;
+    pub struct Inst;
+    impl AssemblerInstruction for Inst {
+        type AddressingMode = AbsoluteXIndexed;
+        fn opcode() -> u8 {
+            unofficial0::ABSOLUTE_X_INDEXED
+        }
+    }
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let target_address = AbsoluteXIndexed::address(cpu, memory);
+        let value = address::hi(target_address).wrapping_add(1);
+        memory.write_u8(target_address, value);
+        5
+    }
+}
 pub mod tay {
     use super::*;
     use opcode::tay::*;

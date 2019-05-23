@@ -419,6 +419,11 @@ pub mod sty {
     pub const ZERO_PAGE: u8 = 0x84;
     pub const ZERO_PAGE_X_INDEXED: u8 = 0x94;
 }
+pub mod sya {
+    pub mod unofficial0 {
+        pub const ABSOLUTE_X_INDEXED: u8 = 0x9C;
+    }
+}
 pub mod tax {
     pub const IMPLIED: u8 = 0xAA;
 }

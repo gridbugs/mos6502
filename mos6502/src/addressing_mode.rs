@@ -54,7 +54,7 @@ impl Trait for AbsoluteXIndexed {
     type Operand = operand::Address;
 }
 impl AbsoluteXIndexed {
-    fn address<M: Memory>(cpu: &Cpu, memory: &mut M) -> Address {
+    pub fn address<M: Memory>(cpu: &Cpu, memory: &mut M) -> Address {
         let base_address = memory.read_u16_le(cpu.pc.wrapping_add(1));
         base_address.wrapping_add(cpu.x as Address)
     }
