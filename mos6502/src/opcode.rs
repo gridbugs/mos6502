@@ -331,6 +331,14 @@ pub mod rti {
 pub mod rts {
     pub const IMPLIED: u8 = 0x60;
 }
+pub mod sax {
+    pub mod unofficial0 {
+        pub const X_INDEXED_INDIRECT: u8 = 0x83;
+        pub const ZERO_PAGE: u8 = 0x87;
+        pub const ABSOLUTE: u8 = 0x8F;
+        pub const ZERO_PAGE_Y_INDEXED: u8 = 0x97;
+    }
+}
 pub mod sbc {
     pub const ABSOLUTE: u8 = 0xED;
     pub const ABSOLUTE_X_INDEXED: u8 = 0xFD;

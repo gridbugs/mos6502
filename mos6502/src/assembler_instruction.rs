@@ -56,6 +56,7 @@ pub use ror::Inst as Ror;
 pub use rra::Inst as Rra;
 pub use rti::Inst as Rti;
 pub use rts::Inst as Rts;
+pub use sax::Inst as Sax;
 pub use sbc::Inst as Sbc;
 pub use sec::Inst as Sec;
 pub use sed::Inst as Sed;

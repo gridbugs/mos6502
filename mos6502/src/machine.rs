@@ -115,6 +115,23 @@ impl Cpu {
             opcode::cpy::ABSOLUTE => cpy::interpret(Absolute, self, memory),
             opcode::cpy::IMMEDIATE => cpy::interpret(Immediate, self, memory),
             opcode::cpy::ZERO_PAGE => cpy::interpret(ZeroPage, self, memory),
+            opcode::dcp::unofficial0::X_INDEXED_INDIRECT => {
+                dcp::interpret(XIndexedIndirect, self, memory)
+            }
+            opcode::dcp::unofficial0::ZERO_PAGE => dcp::interpret(ZeroPage, self, memory),
+            opcode::dcp::unofficial0::ABSOLUTE => dcp::interpret(Absolute, self, memory),
+            opcode::dcp::unofficial0::INDIRECT_Y_INDEXED => {
+                dcp::interpret(IndirectYIndexed, self, memory)
+            }
+            opcode::dcp::unofficial0::ZERO_PAGE_X_INDEXED => {
+                dcp::interpret(ZeroPageXIndexed, self, memory)
+            }
+            opcode::dcp::unofficial0::ABSOLUTE_X_INDEXED => {
+                dcp::interpret(AbsoluteXIndexed, self, memory)
+            }
+            opcode::dcp::unofficial0::ABSOLUTE_Y_INDEXED => {
+                dcp::interpret(AbsoluteYIndexed, self, memory)
+            }
             opcode::dec::ABSOLUTE => dec::interpret(Absolute, self, memory),
             opcode::dec::ABSOLUTE_X_INDEXED => dec::interpret(AbsoluteXIndexed, self, memory),
             opcode::dec::ZERO_PAGE => dec::interpret(ZeroPage, self, memory),
@@ -175,6 +192,23 @@ impl Cpu {
             opcode::inc::ZERO_PAGE_X_INDEXED => inc::interpret(ZeroPageXIndexed, self, memory),
             opcode::inx::IMPLIED => inx::interpret(self),
             opcode::iny::IMPLIED => iny::interpret(self),
+            opcode::isc::unofficial0::X_INDEXED_INDIRECT => {
+                isc::interpret(XIndexedIndirect, self, memory)
+            }
+            opcode::isc::unofficial0::ZERO_PAGE => isc::interpret(ZeroPage, self, memory),
+            opcode::isc::unofficial0::ABSOLUTE => isc::interpret(Absolute, self, memory),
+            opcode::isc::unofficial0::INDIRECT_Y_INDEXED => {
+                isc::interpret(IndirectYIndexed, self, memory)
+            }
+            opcode::isc::unofficial0::ZERO_PAGE_X_INDEXED => {
+                isc::interpret(ZeroPageXIndexed, self, memory)
+            }
+            opcode::isc::unofficial0::ABSOLUTE_X_INDEXED => {
+                isc::interpret(AbsoluteXIndexed, self, memory)
+            }
+            opcode::isc::unofficial0::ABSOLUTE_Y_INDEXED => {
+                isc::interpret(AbsoluteYIndexed, self, memory)
+            }
             opcode::jmp::ABSOLUTE => jmp::interpret(Absolute, self, memory),
             opcode::jmp::INDIRECT => jmp::interpret(Indirect, self, memory),
             opcode::jsr::ABSOLUTE => jsr::interpret(Absolute, self, memory),
@@ -235,6 +269,23 @@ impl Cpu {
             opcode::php::IMPLIED => php::interpret(self, memory),
             opcode::pla::IMPLIED => pla::interpret(self, memory),
             opcode::plp::IMPLIED => plp::interpret(self, memory),
+            opcode::rla::unofficial0::X_INDEXED_INDIRECT => {
+                rla::interpret(XIndexedIndirect, self, memory)
+            }
+            opcode::rla::unofficial0::ZERO_PAGE => rla::interpret(ZeroPage, self, memory),
+            opcode::rla::unofficial0::ABSOLUTE => rla::interpret(Absolute, self, memory),
+            opcode::rla::unofficial0::INDIRECT_Y_INDEXED => {
+                rla::interpret(IndirectYIndexed, self, memory)
+            }
+            opcode::rla::unofficial0::ZERO_PAGE_X_INDEXED => {
+                rla::interpret(ZeroPageXIndexed, self, memory)
+            }
+            opcode::rla::unofficial0::ABSOLUTE_X_INDEXED => {
+                rla::interpret(AbsoluteXIndexed, self, memory)
+            }
+            opcode::rla::unofficial0::ABSOLUTE_Y_INDEXED => {
+                rla::interpret(AbsoluteYIndexed, self, memory)
+            }
             opcode::rol::ABSOLUTE => rol::interpret(Absolute, self, memory),
             opcode::rol::ABSOLUTE_X_INDEXED => rol::interpret(AbsoluteXIndexed, self, memory),
             opcode::rol::ACCUMULATOR => rol::interpret_acc(self),
@@ -245,8 +296,33 @@ impl Cpu {
             opcode::ror::ACCUMULATOR => ror::interpret_acc(self),
             opcode::ror::ZERO_PAGE => ror::interpret(ZeroPage, self, memory),
             opcode::ror::ZERO_PAGE_X_INDEXED => ror::interpret(ZeroPageXIndexed, self, memory),
+            opcode::rra::unofficial0::X_INDEXED_INDIRECT => {
+                rra::interpret(XIndexedIndirect, self, memory)
+            }
+            opcode::rra::unofficial0::ZERO_PAGE => rra::interpret(ZeroPage, self, memory),
+            opcode::rra::unofficial0::ABSOLUTE => rra::interpret(Absolute, self, memory),
+            opcode::rra::unofficial0::INDIRECT_Y_INDEXED => {
+                rra::interpret(IndirectYIndexed, self, memory)
+            }
+            opcode::rra::unofficial0::ZERO_PAGE_X_INDEXED => {
+                rra::interpret(ZeroPageXIndexed, self, memory)
+            }
+            opcode::rra::unofficial0::ABSOLUTE_X_INDEXED => {
+                rra::interpret(AbsoluteXIndexed, self, memory)
+            }
+            opcode::rra::unofficial0::ABSOLUTE_Y_INDEXED => {
+                rra::interpret(AbsoluteYIndexed, self, memory)
+            }
             opcode::rti::IMPLIED => rti::interpret(self, memory),
             opcode::rts::IMPLIED => rts::interpret(self, memory),
+            opcode::sax::unofficial0::X_INDEXED_INDIRECT => {
+                sax::interpret(XIndexedIndirect, self, memory)
+            }
+            opcode::sax::unofficial0::ZERO_PAGE => sax::interpret(ZeroPage, self, memory),
+            opcode::sax::unofficial0::ABSOLUTE => sax::interpret(Absolute, self, memory),
+            opcode::sax::unofficial0::ZERO_PAGE_Y_INDEXED => {
+                sax::interpret(ZeroPageYIndexed, self, memory)
+            }
             opcode::sbc::ABSOLUTE => sbc::interpret(Absolute, self, memory),
             opcode::sbc::ABSOLUTE_X_INDEXED => sbc::interpret(AbsoluteXIndexed, self, memory),
             opcode::sbc::ABSOLUTE_Y_INDEXED => sbc::interpret(AbsoluteYIndexed, self, memory),
@@ -264,6 +340,40 @@ impl Cpu {
             opcode::skb::unofficial2::IMMEDIATE => skb::interpret(self, memory),
             opcode::skb::unofficial3::IMMEDIATE => skb::interpret(self, memory),
             opcode::skb::unofficial4::IMMEDIATE => skb::interpret(self, memory),
+            opcode::slo::unofficial0::X_INDEXED_INDIRECT => {
+                slo::interpret(XIndexedIndirect, self, memory)
+            }
+            opcode::slo::unofficial0::ZERO_PAGE => slo::interpret(ZeroPage, self, memory),
+            opcode::slo::unofficial0::ABSOLUTE => slo::interpret(Absolute, self, memory),
+            opcode::slo::unofficial0::INDIRECT_Y_INDEXED => {
+                slo::interpret(IndirectYIndexed, self, memory)
+            }
+            opcode::slo::unofficial0::ZERO_PAGE_X_INDEXED => {
+                slo::interpret(ZeroPageXIndexed, self, memory)
+            }
+            opcode::slo::unofficial0::ABSOLUTE_X_INDEXED => {
+                slo::interpret(AbsoluteXIndexed, self, memory)
+            }
+            opcode::slo::unofficial0::ABSOLUTE_Y_INDEXED => {
+                slo::interpret(AbsoluteYIndexed, self, memory)
+            }
+            opcode::sre::unofficial0::X_INDEXED_INDIRECT => {
+                sre::interpret(XIndexedIndirect, self, memory)
+            }
+            opcode::sre::unofficial0::ZERO_PAGE => sre::interpret(ZeroPage, self, memory),
+            opcode::sre::unofficial0::ABSOLUTE => sre::interpret(Absolute, self, memory),
+            opcode::sre::unofficial0::INDIRECT_Y_INDEXED => {
+                sre::interpret(IndirectYIndexed, self, memory)
+            }
+            opcode::sre::unofficial0::ZERO_PAGE_X_INDEXED => {
+                sre::interpret(ZeroPageXIndexed, self, memory)
+            }
+            opcode::sre::unofficial0::ABSOLUTE_X_INDEXED => {
+                sre::interpret(AbsoluteXIndexed, self, memory)
+            }
+            opcode::sre::unofficial0::ABSOLUTE_Y_INDEXED => {
+                sre::interpret(AbsoluteYIndexed, self, memory)
+            }
             opcode::sta::ABSOLUTE => sta::interpret(Absolute, self, memory),
             opcode::sta::ABSOLUTE_X_INDEXED => sta::interpret(AbsoluteXIndexed, self, memory),
             opcode::sta::ABSOLUTE_Y_INDEXED => sta::interpret(AbsoluteYIndexed, self, memory),
