@@ -630,6 +630,7 @@ pub mod brk {
         cpu.push_stack_u8(memory, address::hi(pc_to_save));
         cpu.push_stack_u8(memory, address::lo(pc_to_save));
         cpu.push_stack_u8(memory, cpu.status.masked_with_brk_and_expansion());
+        cpu.status.set_interrupt_disable();
         cpu.pc = memory.read_u16_le(crate::interrupt_vector::IRQ_LO);
         7
     }
