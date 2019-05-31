@@ -2355,6 +2355,8 @@ pub mod pla {
     }
     pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         cpu.acc = cpu.pop_stack_u8(memory);
+        cpu.status.set_zero_from_value(cpu.acc);
+        cpu.status.set_negative_from_value(cpu.acc);
         cpu.pc = cpu.pc.wrapping_add(Implied::instruction_bytes());
         4
     }
