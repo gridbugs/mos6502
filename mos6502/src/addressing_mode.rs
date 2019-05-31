@@ -146,7 +146,13 @@ impl Trait for Indirect {
 impl ReadJumpTarget for Indirect {
     fn read_jump_target<M: Memory>(cpu: &Cpu, memory: &mut M) -> Address {
         let address = memory.read_u16_le(cpu.pc.wrapping_add(1));
-        memory.read_u16_le(address)
+        if address::lo(address) != 0xFF {
+            memory.read_u16_le(address)
+        } else {
+            let lo = memory.read_u8(address);
+            let hi = memory.read_u8(address & 0xFF00);
+            address::from_u8_lo_hi(lo, hi)
+        }
     }
 }
 
