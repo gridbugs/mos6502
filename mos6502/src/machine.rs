@@ -405,7 +405,15 @@ pub trait Memory {
     fn read_u8(&mut self, address: Address) -> u8;
     fn read_u16_le(&mut self, address: Address) -> u16 {
         let lo = self.read_u8(address);
-        let hi = self.read_u8(address + 1);
+        let hi = self.read_u8(address.wrapping_add(1));
+        ((hi as u16) << 8) | lo as u16
+    }
+    fn read_u8_zero_page(&mut self, address: u8) -> u8 {
+        self.read_u8(address as Address)
+    }
+    fn read_u16_le_zero_page(&mut self, address: u8) -> u16 {
+        let lo = self.read_u8_zero_page(address);
+        let hi = self.read_u8_zero_page(address.wrapping_add(1));
         ((hi as u16) << 8) | lo as u16
     }
     fn write_u8(&mut self, address: Address, data: u8);

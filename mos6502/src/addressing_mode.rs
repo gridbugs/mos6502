@@ -207,7 +207,7 @@ impl Trait for XIndexedIndirect {
 impl XIndexedIndirect {
     fn address<M: Memory>(cpu: &Cpu, memory: &mut M) -> Address {
         let offset = memory.read_u8(cpu.pc.wrapping_add(1));
-        memory.read_u16_le(offset.wrapping_add(cpu.x) as Address)
+        memory.read_u16_le_zero_page(offset.wrapping_add(cpu.x))
     }
 }
 impl ReadData for XIndexedIndirect {
