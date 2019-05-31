@@ -156,14 +156,14 @@ impl Trait for IndirectYIndexed {
 }
 impl IndirectYIndexed {
     fn address<M: Memory>(cpu: &Cpu, memory: &mut M) -> Address {
-        let base_address = memory.read_u8(cpu.pc.wrapping_add(1)) as Address;
+        let base_address = memory.read_u8(cpu.pc.wrapping_add(1));
         memory
-            .read_u16_le(base_address)
+            .read_u16_le_zero_page(base_address)
             .wrapping_add(cpu.y as Address)
     }
     fn address_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (Address, bool) {
-        let indirect_address = memory.read_u8(cpu.pc.wrapping_add(1)) as Address;
-        let base_address = memory.read_u16_le(indirect_address);
+        let indirect_address = memory.read_u8(cpu.pc.wrapping_add(1));
+        let base_address = memory.read_u16_le_zero_page(indirect_address);
         let indexed_address = base_address.wrapping_add(cpu.y as Address);
         (
             indexed_address,
