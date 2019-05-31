@@ -3415,6 +3415,25 @@ pub mod tax {
         2
     }
 }
+pub mod sxa {
+    use super::*;
+    use opcode::sxa::*;
+    pub struct Inst;
+    impl AssemblerInstruction for Inst {
+        type AddressingMode = AbsoluteYIndexed;
+        fn opcode() -> u8 {
+            unofficial0::ABSOLUTE_Y_INDEXED
+        }
+    }
+    pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let target_address = AbsoluteYIndexed::address(cpu, memory);
+        let value = cpu.x & address::hi(target_address).wrapping_add(1);
+        let target_address = address::from_u8_lo_hi(address::lo(target_address), value);
+        memory.write_u8(target_address, value);
+        cpu.pc = cpu.pc.wrapping_add(AbsoluteYIndexed::instruction_bytes());
+        5
+    }
+}
 pub mod sya {
     use super::*;
     use opcode::sya::*;
@@ -3427,8 +3446,10 @@ pub mod sya {
     }
     pub fn interpret<M: Memory>(cpu: &mut Cpu, memory: &mut M) -> u8 {
         let target_address = AbsoluteXIndexed::address(cpu, memory);
-        let value = address::hi(target_address).wrapping_add(1);
+        let value = cpu.y & address::hi(target_address).wrapping_add(1);
+        let target_address = address::from_u8_lo_hi(address::lo(target_address), value);
         memory.write_u8(target_address, value);
+        cpu.pc = cpu.pc.wrapping_add(AbsoluteXIndexed::instruction_bytes());
         5
     }
 }

@@ -387,6 +387,8 @@ impl Cpu {
             opcode::sty::ABSOLUTE => sty::interpret(Absolute, self, memory),
             opcode::sty::ZERO_PAGE => sty::interpret(ZeroPage, self, memory),
             opcode::sty::ZERO_PAGE_X_INDEXED => sty::interpret(ZeroPageXIndexed, self, memory),
+            opcode::sxa::unofficial0::ABSOLUTE_Y_INDEXED => sxa::interpret(self, memory),
+            opcode::sya::unofficial0::ABSOLUTE_X_INDEXED => sya::interpret(self, memory),
             opcode::tax::IMPLIED => tax::interpret(self),
             opcode::tay::IMPLIED => tay::interpret(self),
             opcode::tsx::IMPLIED => tsx::interpret(self),

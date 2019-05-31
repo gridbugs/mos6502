@@ -67,6 +67,8 @@ pub use sre::Inst as Sre;
 pub use sta::Inst as Sta;
 pub use stx::Inst as Stx;
 pub use sty::Inst as Sty;
+pub use sxa::Inst as Sxa;
+pub use sya::Inst as Sya;
 pub use tax::Inst as Tax;
 pub use tay::Inst as Tay;
 pub use tsx::Inst as Tsx;

@@ -89,7 +89,7 @@ impl Trait for AbsoluteYIndexed {
     type Operand = operand::Address;
 }
 impl AbsoluteYIndexed {
-    fn address<M: Memory>(cpu: &Cpu, memory: &mut M) -> Address {
+    pub fn address<M: Memory>(cpu: &Cpu, memory: &mut M) -> Address {
         let base_address = memory.read_u16_le(cpu.pc.wrapping_add(1));
         base_address.wrapping_add(cpu.y as Address)
     }
