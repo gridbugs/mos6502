@@ -30,18 +30,13 @@ impl Cpu {
         self.push_stack_u8(memory, self.status.masked_with_brk_and_expansion());
         self.pc = memory.read_u16_le(crate::interrupt_vector::NMI_LO);
     }
-    pub fn sp_address(&self) -> Address {
-        (0x01 << 8) | (self.sp as Address)
-    }
     pub fn push_stack_u8<M: Memory>(&mut self, memory: &mut M, value: u8) {
-        let address = self.sp_address();
-        memory.write_u8(address, value);
+        memory.write_u8_stack(self.sp, value);
         self.sp = self.sp.wrapping_sub(1);
     }
     pub fn pop_stack_u8<M: Memory>(&mut self, memory: &mut M) -> u8 {
         self.sp = self.sp.wrapping_add(1);
-        let address = self.sp_address();
-        memory.read_u8(address)
+        memory.read_u8_stack(self.sp)
     }
     pub fn start<M: Memory>(&mut self, memory: &mut M) {
         self.pc = memory.read_u16_le(crate::interrupt_vector::START_LO);
@@ -401,6 +396,7 @@ impl Cpu {
     }
 }
 
+const STACK_ADDRESS_HI: u8 = 0x01;
 pub trait Memory {
     fn read_u8(&mut self, address: Address) -> u8;
     fn read_u16_le(&mut self, address: Address) -> u16 {
@@ -416,7 +412,19 @@ pub trait Memory {
         let hi = self.read_u8_zero_page(address.wrapping_add(1));
         ((hi as u16) << 8) | lo as u16
     }
+    fn read_u8_stack(&mut self, stack_pointer: u8) -> u8 {
+        self.read_u8(address::from_u8_lo_hi(stack_pointer, STACK_ADDRESS_HI))
+    }
     fn write_u8(&mut self, address: Address, data: u8);
+    fn write_u8_zero_page(&mut self, address: u8, data: u8) {
+        self.write_u8(address as Address, data);
+    }
+    fn write_u8_stack(&mut self, stack_pointer: u8, data: u8) {
+        self.write_u8(
+            address::from_u8_lo_hi(stack_pointer, STACK_ADDRESS_HI),
+            data,
+        );
+    }
 }
 
 /// View of memory which never changed by reading, for use in debugging and testing

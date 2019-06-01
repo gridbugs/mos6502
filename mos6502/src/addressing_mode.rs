@@ -235,14 +235,14 @@ impl Trait for ZeroPage {
 }
 impl ReadData for ZeroPage {
     fn read_data<M: Memory>(cpu: &Cpu, memory: &mut M) -> u8 {
-        let address = memory.read_u8(cpu.pc.wrapping_add(1)) as Address;
-        memory.read_u8(address)
+        let address = memory.read_u8(cpu.pc.wrapping_add(1));
+        memory.read_u8_zero_page(address)
     }
 }
 impl WriteData for ZeroPage {
     fn write_data<M: Memory>(cpu: &Cpu, memory: &mut M, data: u8) {
-        let address = memory.read_u8(cpu.pc.wrapping_add(1)) as Address;
-        memory.write_u8(address, data)
+        let address = memory.read_u8(cpu.pc.wrapping_add(1));
+        memory.write_u8_zero_page(address, data)
     }
 }
 
@@ -254,14 +254,14 @@ impl ReadData for ZeroPageXIndexed {
     fn read_data<M: Memory>(cpu: &Cpu, memory: &mut M) -> u8 {
         let base_address_lo = memory.read_u8(cpu.pc.wrapping_add(1));
         let address_lo = base_address_lo.wrapping_add(cpu.x);
-        memory.read_u8(address_lo as Address)
+        memory.read_u8_zero_page(address_lo)
     }
 }
 impl WriteData for ZeroPageXIndexed {
     fn write_data<M: Memory>(cpu: &Cpu, memory: &mut M, data: u8) {
         let base_address_lo = memory.read_u8(cpu.pc.wrapping_add(1));
         let address_lo = base_address_lo.wrapping_add(cpu.x);
-        memory.write_u8(address_lo as Address, data)
+        memory.write_u8_zero_page(address_lo, data)
     }
 }
 
@@ -273,13 +273,13 @@ impl ReadData for ZeroPageYIndexed {
     fn read_data<M: Memory>(cpu: &Cpu, memory: &mut M) -> u8 {
         let base_address_lo = memory.read_u8(cpu.pc.wrapping_add(1));
         let address_lo = base_address_lo.wrapping_add(cpu.y);
-        memory.read_u8(address_lo as Address)
+        memory.read_u8_zero_page(address_lo)
     }
 }
 impl WriteData for ZeroPageYIndexed {
     fn write_data<M: Memory>(cpu: &Cpu, memory: &mut M, data: u8) {
         let base_address_lo = memory.read_u8(cpu.pc.wrapping_add(1));
         let address_lo = base_address_lo.wrapping_add(cpu.y);
-        memory.write_u8(address_lo as Address, data)
+        memory.write_u8_zero_page(address_lo, data)
     }
 }

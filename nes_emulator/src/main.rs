@@ -271,6 +271,12 @@ impl Memory for NesDevices {
         };
         data
     }
+    fn read_u8_zero_page(&mut self, address: u8) -> u8 {
+        self.ram[address as usize]
+    }
+    fn read_u8_stack(&mut self, stack_pointer: u8) -> u8 {
+        self.ram[0x0100 | stack_pointer as usize]
+    }
     fn write_u8(&mut self, address: Address, data: u8) {
         match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES] = data,
@@ -297,6 +303,12 @@ impl Memory for NesDevices {
             0x4000..=0x7FFF => (),
             0x8000..=0xFFFF => panic!("unimplemented write {:x} to {:x}", data, address),
         }
+    }
+    fn write_u8_zero_page(&mut self, address: u8, data: u8) {
+        self.ram[address as usize] = data;
+    }
+    fn write_u8_stack(&mut self, stack_pointer: u8, data: u8) {
+        self.ram[0x0100 | stack_pointer as usize] = data;
     }
 }
 
