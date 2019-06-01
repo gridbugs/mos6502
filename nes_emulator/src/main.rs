@@ -516,7 +516,7 @@ fn main() {
     let prg_rom = match prg_rom.len() {
         0x8000 => prg_rom,
         0x4000 => prg_rom.iter().chain(prg_rom.iter()).cloned().collect(),
-        other => panic!("unexpected prg rom length {}", other),
+        other => panic!("unexpected prg rom length {:X}", other),
     };
     let mut nes = if let Some(ref state_filename) = args.state_filename {
         let mut state_file = File::open(state_filename).expect("Failed to open state file");
