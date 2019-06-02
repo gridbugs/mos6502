@@ -523,25 +523,12 @@ fn main() {
         }
     };
     let Ines {
-        prg_rom,
-        chr_rom,
-        header,
+        prg_rom, chr_rom, ..
     } = Ines::parse(&buffer);
-    println!("{:?}", header);
     let prg_rom = match prg_rom.len() {
-        2 => {
-            let mut v = prg_rom[0].rom.to_vec();
-            let mut tmp = (prg_rom[1].rom.to_vec());
-            v.append(&mut tmp);
-            v
-        }
-        1 => {
-            let mut v = prg_rom[0].rom.to_vec();
-            let mut tmp = (prg_rom[0].rom.to_vec());
-            v.append(&mut tmp);
-            v
-        }
-        other => panic!("unexpected prg rom size {} banks", other),
+        0x8000 => prg_rom,
+        0x4000 => prg_rom.iter().chain(prg_rom.iter()).cloned().collect(),
+        other => panic!("unexpected prg rom length {:X}", other),
     };
     let mut nes = if let Some(ref state_filename) = args.state_filename {
         let mut state_file = File::open(state_filename).expect("Failed to open state file");
@@ -560,7 +547,7 @@ fn main() {
                     ppu: Ppu::new(),
                     ppu_memory: NesPpuMemory {
                         name_table_ram: [0; NAME_TABLE_RAM_BYTES].to_vec(),
-                        chr_rom: chr_rom[0].rom.to_vec(),
+                        chr_rom: chr_rom.clone(),
                         palette_ram: [0; PALETTE_RAM_BYTES].to_vec(),
                     },
                     apu: Apu::new(),

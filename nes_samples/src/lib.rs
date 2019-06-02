@@ -19,23 +19,16 @@ pub mod single_block {
     pub const INTERRUPT_VECTOR_START_PC_OFFSET: Address = interrupt_vector::START_LO - PRG_START;
 
     pub fn assemble_ines_file_to_stdout(block: &Block) {
-        let mut prg_rom_vec = Vec::new();
+        let mut prg_rom = Vec::new();
         block
-            .assemble(
-                nrom::PRG_START_HI,
-                ines::PRG_ROM_BANK_BYTES,
-                &mut prg_rom_vec,
-            )
+            .assemble(nrom::PRG_START_HI, ines::PRG_ROM_BLOCK_BYTES, &mut prg_rom)
             .expect("Failed to assemble");
-        let mut prg_rom = [0; ines::PRG_ROM_BANK_BYTES];
-        prg_rom.copy_from_slice(&prg_rom_vec);
         let ines = Ines {
             header: Header {
-                num_prg_rom_banks: 1,
-                num_chr_rom_banks: 0,
-                mapper_number: 0,
+                num_prg_rom_blocks: 1,
+                num_chr_rom_blocks: 0,
             },
-            prg_rom: vec![PrgRomBank { rom: prg_rom }],
+            prg_rom,
             chr_rom: Vec::new(),
         };
         let mut output = Vec::new();
