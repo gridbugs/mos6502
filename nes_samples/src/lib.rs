@@ -27,7 +27,8 @@ pub mod single_block {
             header: Header {
                 num_prg_rom_blocks: 1,
                 num_chr_rom_blocks: 0,
-                mapper_number: 0,
+                mapper: Mapper::Nrom,
+                mirroring: Mirroring::Vertical,
             },
             prg_rom,
             chr_rom: Vec::new(),

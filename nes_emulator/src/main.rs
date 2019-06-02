@@ -12,7 +12,7 @@ extern crate serde;
 extern crate serde_big_array;
 
 use glutin_frontend::*;
-use ines::*;
+use ines::Ines;
 use mos6502::debug::*;
 use mos6502::machine::*;
 use mos6502::*;
@@ -477,9 +477,9 @@ fn main() {
             prg_rom,
             chr_rom,
             header,
-        } = Ines::parse(&buffer);
+        } = Ines::parse(&buffer).unwrap();
         println!("{:?}", header);
-        let mapper = mapper::nrom::Nrom::new(&prg_rom, &chr_rom).unwrap();
+        let mapper = mapper::nrom::Nrom::new(mirroring::Horizontal, &prg_rom, &chr_rom).unwrap();
         let mut nes = Nes {
             cpu: Cpu::new(),
             devices: NesDevicesWithOam {
@@ -618,9 +618,6 @@ fn main() {
         nes.nmi();
         frontend.render();
         frame_count += 1;
-        if frame_count > 60 {
-            //break;
-        }
     }
 }
 
