@@ -4,9 +4,11 @@ pub const PRG_ROM_BLOCK_BYTES: usize = 16 * K;
 pub const CHR_ROM_BLOCK_BYTES: usize = 8 * K;
 const HEADER_CHECKSUM: [u8; 4] = [78, 69, 83, 26];
 
+#[derive(Debug)]
 pub struct Header {
     pub num_prg_rom_blocks: u8,
     pub num_chr_rom_blocks: u8,
+    pub mapper_number: u8,
 }
 
 impl Header {
@@ -17,9 +19,11 @@ impl Header {
         }
         let num_prg_rom_blocks = buffer[4];
         let num_chr_rom_blocks = buffer[5];
+        let mapper_number = (buffer[7] & 0xF0) | (buffer[6] >> 4);
         Self {
             num_prg_rom_blocks,
             num_chr_rom_blocks,
+            mapper_number,
         }
     }
     fn prg_rom_bytes(&self) -> usize {
@@ -32,6 +36,8 @@ impl Header {
         (&mut buffer[0..HEADER_CHECKSUM.len()]).copy_from_slice(&HEADER_CHECKSUM);
         buffer[4] = self.num_prg_rom_blocks;
         buffer[5] = self.num_chr_rom_blocks;
+        buffer[6] = self.mapper_number << 4;
+        buffer[7] = self.mapper_number & 0xF0;
     }
 }
 
