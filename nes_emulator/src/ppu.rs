@@ -1,3 +1,4 @@
+use crate::mapper::{NameTableChoice, PatternTableChoice, PpuMapper};
 use glutin_frontend::Pixels;
 use mos6502::address;
 use mos6502::machine::{Address, Memory};
@@ -58,42 +59,6 @@ pub type PpuAddress = u16;
 pub const PATTERN_TABLE_BYTES: usize = 0x1000;
 pub const NAME_TABLE_BYTES: usize = 0x400;
 pub const PALETTE_START: PpuAddress = 0x3F00;
-
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum PatternTableChoice {
-    PatternTable0,
-    PatternTable1,
-}
-
-impl PatternTableChoice {
-    pub fn base_address(self) -> PpuAddress {
-        self as PpuAddress * (PATTERN_TABLE_BYTES as PpuAddress)
-    }
-}
-
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum NameTableChoice {
-    TopLeft,
-    TopRight,
-    BottomLeft,
-    BottomRight,
-}
-
-impl NameTableChoice {
-    pub fn address_offset_horizontal_mirror(self) -> PpuAddress {
-        (self as PpuAddress / 2) * (NAME_TABLE_BYTES as PpuAddress)
-    }
-}
-
-pub trait PpuMemory {
-    fn write_u8(&mut self, address: PpuAddress, data: u8);
-    fn read_u8(&self, address: PpuAddress) -> u8;
-    fn pattern_table(&self, choice: PatternTableChoice) -> &[u8];
-    fn name_table(&self, choice: NameTableChoice) -> &[u8];
-    fn palette_ram(&self) -> &[u8];
-}
 
 pub trait RenderOutput {
     fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8);
@@ -171,12 +136,12 @@ impl Ppu {
         self.address = (self.address & mask) | (data as u16).wrapping_shl(shift);
         self.next_address_write_is_hi_byte = !self.next_address_write_is_hi_byte;
     }
-    pub fn write_data<M: PpuMemory>(&mut self, memory: &mut M, data: u8) {
-        memory.write_u8(self.address, data);
+    pub fn write_data<M: PpuMapper>(&mut self, memory: &mut M, data: u8) {
+        memory.ppu_write_u8(self.address, data);
         self.address = self.address.wrapping_add(self.address_increment as u16);
     }
-    pub fn read_data<M: PpuMemory>(&mut self, memory: &M) -> u8 {
-        let value_from_vram = memory.read_u8(self.address);
+    pub fn read_data<M: PpuMapper>(&mut self, memory: &M) -> u8 {
+        let value_from_vram = memory.ppu_read_u8(self.address);
         let value_for_cpu = if self.address < PALETTE_START {
             self.read_buffer
         } else {
@@ -186,18 +151,18 @@ impl Ppu {
         self.read_buffer = value_from_vram;
         value_for_cpu
     }
-    pub fn render<M: PpuMemory, O: RenderOutput>(
+    pub fn render<M: PpuMapper, O: RenderOutput>(
         &mut self,
         memory: &M,
         oam: &Oam,
         mut pixels: &mut O,
     ) {
-        let name_table_and_attribute_table = memory.name_table(NameTableChoice::TopLeft);
+        let name_table_and_attribute_table = memory.ppu_name_table(NameTableChoice::TopLeft);
         let name_table = &name_table_and_attribute_table[0x0..=0x3BF];
         let attribute_table = &name_table_and_attribute_table[0x3C0..=0x3FF];
-        let palette_ram = memory.palette_ram();
+        let palette_ram = memory.ppu_palette_ram();
         let universal_background_colour = palette_ram[0];
-        let background_pattern_table = memory.pattern_table(self.background_pattern_table);
+        let background_pattern_table = memory.ppu_pattern_table(self.background_pattern_table);
         for (index, &name_table_entry) in name_table.iter().enumerate() {
             let x = index % 32;
             let y = index / 32;
@@ -246,7 +211,7 @@ impl Ppu {
                 }
             }
         }
-        let sprite_pattern_table = memory.pattern_table(self.sprite_pattern_table);
+        let sprite_pattern_table = memory.ppu_pattern_table(self.sprite_pattern_table);
         for i in 0..OAM_NUM_SPRITES {
             let oam_entry_index = i * OAM_SPRITE_BYTES;
             let oam_entry = &oam.ram[oam_entry_index..oam_entry_index + OAM_SPRITE_BYTES];

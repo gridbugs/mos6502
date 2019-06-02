@@ -8,6 +8,8 @@ extern crate ines;
 extern crate mos6502;
 #[macro_use]
 extern crate serde;
+#[macro_use]
+extern crate serde_big_array;
 
 use glutin_frontend::*;
 use ines::*;
@@ -22,6 +24,9 @@ use ppu::*;
 
 mod apu;
 use apu::*;
+
+mod mapper;
+use mapper::*;
 
 #[derive(Debug)]
 struct SaveStateArgs {
@@ -72,76 +77,18 @@ const PALETTE_RAM_BYTES: usize = 0x20;
 const NAME_TABLE_RAM_BYTES: usize = NAME_TABLE_BYTES * 2;
 
 #[derive(Serialize, Deserialize)]
-struct NesDevices {
+struct NesDevices<M: Mapper> {
     ram: Vec<u8>,
-    rom: Vec<u8>,
     ppu: Ppu,
-    ppu_memory: NesPpuMemory,
     apu: Apu,
     controller1: Controller,
+    mapper: M,
 }
 
 #[derive(Serialize, Deserialize)]
-struct NesDevicesWithOam {
-    devices: NesDevices,
+struct NesDevicesWithOam<M: Mapper> {
+    devices: NesDevices<M>,
     oam: Oam,
-}
-
-#[derive(Serialize, Deserialize)]
-struct NesPpuMemory {
-    name_table_ram: Vec<u8>,
-    chr_rom: Vec<u8>,
-    palette_ram: Vec<u8>,
-}
-
-impl PpuMemory for NesPpuMemory {
-    fn write_u8(&mut self, address: PpuAddress, data: u8) {
-        let address = address % 0x4000;
-        match address {
-            0x0000..=0x0FFF => println!("unimplemented pattern table write"),
-            0x1000..=0x1FFF => println!("unimplemented pattern table write"),
-            0x2000..=0x23FF => self.name_table_ram[address as usize - 0x2000] = data,
-            0x2400..=0x27FF => self.name_table_ram[address as usize - 0x2400] = data,
-            0x2800..=0x2BFF => self.name_table_ram[address as usize - 0x2400] = data,
-            0x2C00..=0x2FFF => self.name_table_ram[address as usize - 0x2800] = data,
-            0x3000..=0x33FF => self.name_table_ram[address as usize - 0x3000] = data,
-            0x3400..=0x37FF => self.name_table_ram[address as usize - 0x3400] = data,
-            0x3800..=0x3BFF => self.name_table_ram[address as usize - 0x3400] = data,
-            0x3C00..=0x3EFF => self.name_table_ram[address as usize - 0x3800] = data,
-            0x3F00..=0x3F1F => self.palette_ram[address as usize - 0x3F00] = data,
-            0x3F20..=0x3FFF => self.palette_ram[(address as usize - 0x3F20) % 0x20] = data,
-            _ => unreachable!(),
-        }
-    }
-    fn read_u8(&self, address: PpuAddress) -> u8 {
-        let address = address % 0x4000;
-        match address {
-            0x0000..=0x0FFF => self.chr_rom[address as usize],
-            0x1000..=0x1FFF => self.chr_rom[address as usize],
-            0x2000..=0x23FF => self.name_table_ram[address as usize - 0x2000],
-            0x2400..=0x27FF => self.name_table_ram[address as usize - 0x2400],
-            0x2800..=0x2BFF => self.name_table_ram[address as usize - 0x2400],
-            0x2C00..=0x2FFF => self.name_table_ram[address as usize - 0x2800],
-            0x3000..=0x33FF => self.name_table_ram[address as usize - 0x3000],
-            0x3400..=0x37FF => self.name_table_ram[address as usize - 0x3400],
-            0x3800..=0x3BFF => self.name_table_ram[address as usize - 0x3400],
-            0x3C00..=0x3EFF => self.name_table_ram[address as usize - 0x3800],
-            0x3F00..=0x3F1F => self.palette_ram[address as usize - 0x3F00],
-            0x3F20..=0x3FFF => self.palette_ram[(address as usize - 0x3F20) % 0x20],
-            _ => unreachable!(),
-        }
-    }
-    fn pattern_table(&self, choice: PatternTableChoice) -> &[u8] {
-        let base_address = choice.base_address() as usize;
-        &self.chr_rom[base_address..(base_address + PATTERN_TABLE_BYTES)]
-    }
-    fn name_table(&self, choice: NameTableChoice) -> &[u8] {
-        let address_offset = choice.address_offset_horizontal_mirror() as usize;
-        &self.name_table_ram[address_offset..(address_offset + NAME_TABLE_BYTES)]
-    }
-    fn palette_ram(&self) -> &[u8] {
-        &self.palette_ram
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -248,7 +195,7 @@ impl Controller {
     }
 }
 
-impl Memory for NesDevices {
+impl<M: Mapper> Memory for NesDevices<M> {
     fn read_u8(&mut self, address: Address) -> u8 {
         let data = match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
@@ -259,15 +206,12 @@ impl Memory for NesDevices {
                 3 => 0,
                 5 => 0,
                 6 => 0,
-                7 => self.ppu.read_data(&self.ppu_memory),
+                7 => self.ppu.read_data(&self.mapper),
                 _ => unreachable!(),
             },
             0x4016 => self.controller1.shift_read(),
-            0x4000..=0x7FFF => {
-                //println!("unimplemented read from {:x}", address);
-                0
-            }
-            0x8000..=0xFFFF => self.rom[address as usize - 0x8000],
+            0x4000..=0x401F => 0,
+            cartridge_address => self.mapper.cpu_read_u8(address),
         };
         data
     }
@@ -287,7 +231,7 @@ impl Memory for NesDevices {
                 3 => self.ppu.write_oam_address(data),
                 5 => self.ppu.write_scroll(data),
                 6 => self.ppu.write_address(data),
-                7 => self.ppu.write_data(&mut self.ppu_memory, data),
+                7 => self.ppu.write_data(&mut self.mapper, data),
                 _ => unreachable!(),
             },
             0x4016 => {
@@ -297,11 +241,8 @@ impl Memory for NesDevices {
                     self.controller1.clear_strobe();
                 }
             }
-            0x4000..=0x4017 => {
-                //println!("{:X} <- {:X}", address, data);
-            }
-            0x4000..=0x7FFF => (),
-            0x8000..=0xFFFF => panic!("unimplemented write {:x} to {:x}", data, address),
+            0x4000..=0x401F => {}
+            cartridge_address => self.mapper.cpu_write_u8(address, data),
         }
     }
     fn write_u8_zero_page(&mut self, address: u8, data: u8) {
@@ -312,7 +253,7 @@ impl Memory for NesDevices {
     }
 }
 
-impl NesDevicesWithOam {
+impl<M: Mapper> NesDevicesWithOam<M> {
     fn print_oam(&self) {
         for i in 0..64 {
             let base = 0x200;
@@ -328,7 +269,7 @@ impl NesDevicesWithOam {
     }
 }
 
-impl Memory for NesDevicesWithOam {
+impl<M: Mapper> Memory for NesDevicesWithOam<M> {
     fn read_u8(&mut self, address: Address) -> u8 {
         match address {
             0x2004 => self.devices.ppu.read_oam_data(&self.oam),
@@ -342,32 +283,44 @@ impl Memory for NesDevicesWithOam {
             other => self.devices.write_u8(address, data),
         }
     }
+    fn read_u8_zero_page(&mut self, address: u8) -> u8 {
+        self.devices.read_u8_zero_page(address)
+    }
+    fn read_u8_stack(&mut self, stack_pointer: u8) -> u8 {
+        self.devices.read_u8_stack(stack_pointer)
+    }
+    fn write_u8_zero_page(&mut self, address: u8, data: u8) {
+        self.devices.write_u8_zero_page(address, data);
+    }
+    fn write_u8_stack(&mut self, stack_pointer: u8, data: u8) {
+        self.devices.write_u8_stack(stack_pointer, data);
+    }
 }
 
-impl MemoryReadOnly for NesDevices {
+impl<M: Mapper> MemoryReadOnly for NesDevices<M> {
     fn read_u8_read_only(&self, address: Address) -> u8 {
         let data = match address {
             0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
-            0x2000..=0x7FFF => 0,
-            0x8000..=0xFFFF => self.rom[address as usize - 0x8000],
+            0x2000..=0x401F => 0,
+            cartridge_address => self.mapper.cpu_read_u8_read_only(cartridge_address),
         };
         data
     }
 }
 
-impl MemoryReadOnly for NesDevicesWithOam {
+impl<M: Mapper> MemoryReadOnly for NesDevicesWithOam<M> {
     fn read_u8_read_only(&self, address: Address) -> u8 {
         self.devices.read_u8_read_only(address)
     }
 }
 
 #[derive(Serialize, Deserialize)]
-struct Nes {
+struct Nes<M: Mapper> {
     cpu: Cpu,
-    devices: NesDevicesWithOam,
+    devices: NesDevicesWithOam<M>,
 }
 
-impl Nes {
+impl<M: Mapper> Nes<M> {
     fn start(&mut self) {
         self.cpu.start(&mut self.devices);
     }
@@ -380,7 +333,6 @@ impl Nes {
         match self.cpu.step(&mut self.devices) {
             Ok(_) => (),
             Err(UnknownOpcode(opcode)) => {
-                self.print_state();
                 panic!("Unknown opcode: {:x} ({:x?})", opcode, self.cpu);
             }
         }
@@ -408,21 +360,6 @@ impl Nes {
         if self.devices.devices.ppu.vblank_nmi() {
             self.cpu.nmi(&mut self.devices);
         }
-    }
-    fn print_state(&self) {
-        let stdout = io::stdout();
-        let mut handle = stdout.lock();
-        let _ = writeln!(handle, "CPU");
-        let _ = writeln!(handle, "{:X?}", self.cpu);
-        let _ = writeln!(handle, "\nROM");
-        print_bytes_hex(&self.devices.devices.rom, 0x8000, 16);
-        let _ = writeln!(handle, "\nRAM");
-        print_bytes_hex(&self.devices.devices.ram, 0, 16);
-        let _ = writeln!(handle, "\nVRAM");
-        print_bytes_hex(&self.devices.devices.ppu_memory.name_table_ram, 0, 32);
-        print_vram(&self.devices.devices.ppu_memory.name_table_ram);
-        let _ = writeln!(handle, "PPU");
-        let _ = writeln!(handle, "{:X?}", self.devices.devices.ppu);
     }
     fn analyse(&self) -> analyser::Analysis {
         let start = self
@@ -522,14 +459,12 @@ fn main() {
             buffer
         }
     };
-    let Ines {
-        prg_rom, chr_rom, ..
-    } = Ines::parse(&buffer);
+    /*
     let prg_rom = match prg_rom.len() {
         0x8000 => prg_rom,
         0x4000 => prg_rom.iter().chain(prg_rom.iter()).cloned().collect(),
         other => panic!("unexpected prg rom length {:X}", other),
-    };
+    }; */
     let mut nes = if let Some(ref state_filename) = args.state_filename {
         let mut state_file = File::open(state_filename).expect("Failed to open state file");
         let mut bytes = Vec::new();
@@ -538,20 +473,22 @@ fn main() {
             .expect("Failed to read state file");
         bincode::deserialize(&bytes).expect("Failed to parse state file")
     } else {
+        let Ines {
+            prg_rom,
+            chr_rom,
+            header,
+        } = Ines::parse(&buffer);
+        println!("{:?}", header);
+        let mapper = mapper::nrom::Nrom::new(&prg_rom, &chr_rom).unwrap();
         let mut nes = Nes {
             cpu: Cpu::new(),
             devices: NesDevicesWithOam {
                 devices: NesDevices {
                     ram: [0; RAM_BYTES].to_vec(),
-                    rom: prg_rom.clone(),
                     ppu: Ppu::new(),
-                    ppu_memory: NesPpuMemory {
-                        name_table_ram: [0; NAME_TABLE_RAM_BYTES].to_vec(),
-                        chr_rom: chr_rom.clone(),
-                        palette_ram: [0; PALETTE_RAM_BYTES].to_vec(),
-                    },
                     apu: Apu::new(),
                     controller1: Controller::new(),
+                    mapper,
                 },
                 oam: Oam::new(),
             },
@@ -563,7 +500,6 @@ fn main() {
     let mut frame_count = 0;
     let mut output_gif_file = File::create("/tmp/a.gif").unwrap();
     let mut gif_renderer = gif_renderer::Renderer::new(output_gif_file);
-    //nes.print_state();
     loop {
         if let Some(save_state_args) = args.save_state_args.as_ref() {
             if frame_count == save_state_args.frame {
@@ -672,7 +608,7 @@ fn main() {
                 gif_frame: &mut gif_frame,
             };
             nes.devices.devices.ppu.render(
-                &nes.devices.devices.ppu_memory,
+                &nes.devices.devices.mapper,
                 &nes.devices.oam,
                 &mut render_output,
             );
