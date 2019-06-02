@@ -1,0 +1,415 @@
+use crate::apu::Apu;
+use crate::mapper::Mapper;
+use crate::ppu::{Oam, Ppu, RenderOutput};
+use crate::DynamicNes;
+use mos6502::debug::InstructionWithOperand;
+use mos6502::machine::{Address, Cpu, Memory, MemoryReadOnly};
+use mos6502::UnknownOpcode;
+use std::io::{self, Read, Write};
+
+const RAM_BYTES: usize = 0x800;
+const PALETTE_RAM_BYTES: usize = 0x20;
+
+big_array! { BigArray; }
+
+#[derive(Clone, Serialize, Deserialize)]
+struct NesDevices<M: Mapper> {
+    #[serde(with = "BigArray")]
+    ram: [u8; RAM_BYTES],
+    ppu: Ppu,
+    apu: Apu,
+    controller1: Controller,
+    mapper: M,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct NesDevicesWithOam<M: Mapper> {
+    devices: NesDevices<M>,
+    oam: Oam,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct Controller {
+    current_state: u8,
+    shift_register: u8,
+    strobe: bool,
+}
+
+mod controller {
+    pub mod bit {
+        pub const A: u8 = 0;
+        pub const B: u8 = 1;
+        pub const SELECT: u8 = 2;
+        pub const START: u8 = 3;
+        pub const UP: u8 = 4;
+        pub const DOWN: u8 = 5;
+        pub const LEFT: u8 = 6;
+        pub const RIGHT: u8 = 7;
+    }
+    pub mod flag {
+        use super::bit;
+        pub const A: u8 = 1 << bit::A;
+        pub const B: u8 = 1 << bit::B;
+        pub const SELECT: u8 = 1 << bit::SELECT;
+        pub const START: u8 = 1 << bit::START;
+        pub const UP: u8 = 1 << bit::UP;
+        pub const DOWN: u8 = 1 << bit::DOWN;
+        pub const LEFT: u8 = 1 << bit::LEFT;
+        pub const RIGHT: u8 = 1 << bit::RIGHT;
+    }
+}
+
+impl Controller {
+    fn new() -> Self {
+        Self {
+            current_state: 0,
+            shift_register: 0,
+            strobe: false,
+        }
+    }
+    fn set_strobe(&mut self) {
+        self.shift_register = self.current_state;
+        self.strobe = true;
+    }
+    fn clear_strobe(&mut self) {
+        self.strobe = false;
+    }
+    fn is_strobe(&self) -> bool {
+        self.strobe
+    }
+    fn shift_read(&mut self) -> u8 {
+        let masked = self.shift_register & 1;
+        self.shift_register = self.shift_register.wrapping_shr(1);
+        masked
+    }
+    fn set_a(&mut self) {
+        self.current_state |= controller::flag::A;
+    }
+    fn set_b(&mut self) {
+        self.current_state |= controller::flag::B;
+    }
+    fn set_select(&mut self) {
+        self.current_state |= controller::flag::SELECT;
+    }
+    fn set_start(&mut self) {
+        self.current_state |= controller::flag::START;
+    }
+    fn set_left(&mut self) {
+        self.current_state |= controller::flag::LEFT;
+    }
+    fn set_right(&mut self) {
+        self.current_state |= controller::flag::RIGHT;
+    }
+    fn set_up(&mut self) {
+        self.current_state |= controller::flag::UP;
+    }
+    fn set_down(&mut self) {
+        self.current_state |= controller::flag::DOWN;
+    }
+    fn clear_a(&mut self) {
+        self.current_state &= !controller::flag::A;
+    }
+    fn clear_b(&mut self) {
+        self.current_state &= !controller::flag::B;
+    }
+    fn clear_select(&mut self) {
+        self.current_state &= !controller::flag::SELECT;
+    }
+    fn clear_start(&mut self) {
+        self.current_state &= !controller::flag::START;
+    }
+    fn clear_left(&mut self) {
+        self.current_state &= !controller::flag::LEFT;
+    }
+    fn clear_right(&mut self) {
+        self.current_state &= !controller::flag::RIGHT;
+    }
+    fn clear_up(&mut self) {
+        self.current_state &= !controller::flag::UP;
+    }
+    fn clear_down(&mut self) {
+        self.current_state &= !controller::flag::DOWN;
+    }
+}
+
+impl<M: Mapper> Memory for NesDevices<M> {
+    fn read_u8(&mut self, address: Address) -> u8 {
+        let data = match address {
+            0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
+            0x2000..=0x3FFF => match address % 8 {
+                0 => 0,
+                1 => 0,
+                2 => self.ppu.read_status(),
+                3 => 0,
+                5 => 0,
+                6 => 0,
+                7 => self.ppu.read_data(&self.mapper),
+                _ => unreachable!(),
+            },
+            0x4016 => self.controller1.shift_read(),
+            0x4000..=0x401F => 0,
+            cartridge_address => self.mapper.cpu_read_u8(address),
+        };
+        data
+    }
+    fn read_u8_zero_page(&mut self, address: u8) -> u8 {
+        self.ram[address as usize]
+    }
+    fn read_u8_stack(&mut self, stack_pointer: u8) -> u8 {
+        self.ram[0x0100 | stack_pointer as usize]
+    }
+    fn write_u8(&mut self, address: Address, data: u8) {
+        match address {
+            0..=0x1FFF => self.ram[address as usize % RAM_BYTES] = data,
+            0x2000..=0x3FFF => match address % 8 {
+                0 => self.ppu.write_control(data),
+                1 => self.ppu.write_mask(data),
+                2 => (),
+                3 => self.ppu.write_oam_address(data),
+                5 => self.ppu.write_scroll(data),
+                6 => self.ppu.write_address(data),
+                7 => self.ppu.write_data(&mut self.mapper, data),
+                _ => unreachable!(),
+            },
+            0x4016 => {
+                if data & 1 != 0 {
+                    self.controller1.set_strobe();
+                } else {
+                    self.controller1.clear_strobe();
+                }
+            }
+            0x4000..=0x401F => {}
+            cartridge_address => self.mapper.cpu_write_u8(address, data),
+        }
+    }
+    fn write_u8_zero_page(&mut self, address: u8, data: u8) {
+        self.ram[address as usize] = data;
+    }
+    fn write_u8_stack(&mut self, stack_pointer: u8, data: u8) {
+        self.ram[0x0100 | stack_pointer as usize] = data;
+    }
+}
+
+impl<M: Mapper> NesDevicesWithOam<M> {
+    fn print_oam(&self) {
+        for i in 0..64 {
+            let base = 0x200;
+            let x = self.devices.ram[base + i * 4 + 3];
+            let y = self.devices.ram[base + i * 4 + 0];
+            let attributes = self.devices.ram[base + i * 4 + 2];
+            let index = self.devices.ram[base + i * 4 + 1];
+            println!(
+                "{:02X}: {:02X} @ ({:03}, {:03}) (attr: {:02X} ",
+                i, index, x, y, attributes
+            );
+        }
+    }
+}
+
+impl<M: Mapper> Memory for NesDevicesWithOam<M> {
+    fn read_u8(&mut self, address: Address) -> u8 {
+        match address {
+            0x2004 => self.devices.ppu.read_oam_data(&self.oam),
+            other => self.devices.read_u8(other),
+        }
+    }
+    fn write_u8(&mut self, address: Address, data: u8) {
+        match address {
+            0x4014 => self.oam.dma(&mut self.devices, data),
+            0x2004 => self.devices.ppu.write_oam_data(data, &mut self.oam),
+            other => self.devices.write_u8(address, data),
+        }
+    }
+    fn read_u8_zero_page(&mut self, address: u8) -> u8 {
+        self.devices.read_u8_zero_page(address)
+    }
+    fn read_u8_stack(&mut self, stack_pointer: u8) -> u8 {
+        self.devices.read_u8_stack(stack_pointer)
+    }
+    fn write_u8_zero_page(&mut self, address: u8, data: u8) {
+        self.devices.write_u8_zero_page(address, data);
+    }
+    fn write_u8_stack(&mut self, stack_pointer: u8, data: u8) {
+        self.devices.write_u8_stack(stack_pointer, data);
+    }
+}
+
+impl<M: Mapper> MemoryReadOnly for NesDevices<M> {
+    fn read_u8_read_only(&self, address: Address) -> u8 {
+        let data = match address {
+            0..=0x1FFF => self.ram[address as usize % RAM_BYTES],
+            0x2000..=0x401F => 0,
+            cartridge_address => self.mapper.cpu_read_u8_read_only(cartridge_address),
+        };
+        data
+    }
+}
+
+impl<M: Mapper> MemoryReadOnly for NesDevicesWithOam<M> {
+    fn read_u8_read_only(&self, address: Address) -> u8 {
+        self.devices.read_u8_read_only(address)
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Nes<M: Mapper> {
+    cpu: Cpu,
+    devices: NesDevicesWithOam<M>,
+}
+
+impl<M: Mapper> Nes<M> {
+    fn start(&mut self) {
+        self.cpu.start(&mut self.devices);
+    }
+    fn step(&mut self) {
+        let instruction_with_operand =
+            InstructionWithOperand::next(&self.cpu, &self.devices).unwrap();
+        let stdout = io::stdout();
+        let mut handle = stdout.lock();
+        let _ = writeln!(handle, "{}", instruction_with_operand);
+        match self.cpu.step(&mut self.devices) {
+            Ok(_) => (),
+            Err(UnknownOpcode(opcode)) => {
+                panic!("Unknown opcode: {:x} ({:x?})", opcode, self.cpu);
+            }
+        }
+    }
+    fn run_for_cycles(&mut self, num_cycles: usize) {
+        self.cpu
+            .run_for_cycles(&mut self.devices, num_cycles)
+            .unwrap();
+    }
+    fn run_for_cycles_debug(&mut self, num_cycles: usize) {
+        let mut count = 0;
+        while count < num_cycles {
+            if let Ok(instruction_with_operand) =
+                InstructionWithOperand::next(&self.cpu, &self.devices)
+            {
+                let stdout = io::stdout();
+                let mut handle = stdout.lock();
+                let _ = writeln!(handle, "{}", instruction_with_operand);
+                //writeln!(handle, "{:X?}", self.cpu).unwrap();
+            }
+            count += self.cpu.step(&mut self.devices).unwrap() as usize;
+        }
+    }
+    fn nmi(&mut self) {
+        if self.devices.devices.ppu.vblank_nmi() {
+            self.cpu.nmi(&mut self.devices);
+        }
+    }
+    pub fn new(mapper: M) -> Self {
+        let mut nes = Nes {
+            cpu: Cpu::new(),
+            devices: NesDevicesWithOam {
+                devices: NesDevices {
+                    ram: [0; RAM_BYTES],
+                    ppu: Ppu::new(),
+                    apu: Apu::new(),
+                    controller1: Controller::new(),
+                    mapper,
+                },
+                oam: Oam::new(),
+            },
+        };
+        nes.start();
+        nes
+    }
+    pub fn render<R: RenderOutput>(&mut self, render_output: &mut R) {
+        self.devices.devices.ppu.render(
+            &self.devices.devices.mapper,
+            &self.devices.oam,
+            render_output,
+        );
+    }
+    pub fn run_for_frame(&mut self) {
+        self.run_for_cycles(30000);
+        self.nmi();
+    }
+    pub fn clone_dynamic_nes(&self) -> DynamicNes {
+        M::clone_dynamic_nes(self)
+    }
+}
+
+pub struct NesMemoryMap;
+impl analyser::MemoryMap for NesMemoryMap {
+    fn normalize_function_call<M: MemoryReadOnly>(
+        &self,
+        jsr_opcode_address: Address,
+        memory: &M,
+    ) -> Option<Address> {
+        if jsr_opcode_address >= 0x8000 {
+            let function_definition_address =
+                memory.read_u16_le_read_only(jsr_opcode_address.wrapping_add(1));
+            if function_definition_address >= 0x8000 {
+                if function_definition_address < 0xC000 {
+                    Some(function_definition_address + 0x4000)
+                } else {
+                    Some(function_definition_address)
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+}
+
+pub mod controller1 {
+    use super::*;
+    pub mod press {
+        use super::*;
+        pub fn left<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.set_left();
+        }
+        pub fn right<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.set_right();
+        }
+        pub fn up<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.set_up();
+        }
+        pub fn down<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.set_down();
+        }
+        pub fn start<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.set_start();
+        }
+        pub fn select<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.set_select();
+        }
+        pub fn a<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.set_a();
+        }
+        pub fn b<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.set_b();
+        }
+    }
+    pub mod release {
+        use super::*;
+        pub fn left<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.clear_left();
+        }
+        pub fn right<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.clear_right();
+        }
+        pub fn up<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.clear_up();
+        }
+        pub fn down<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.clear_down();
+        }
+        pub fn start<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.clear_start();
+        }
+        pub fn select<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.clear_select();
+        }
+        pub fn a<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.clear_a();
+        }
+        pub fn b<M: Mapper>(nes: &mut Nes<M>) {
+            nes.devices.devices.controller1.clear_b();
+        }
+    }
+}

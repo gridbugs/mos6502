@@ -2,7 +2,9 @@ use super::{
     mirroring, CpuMapper, Dynamic, Error, Mapper, NameTableChoice, PaletteRam, PatternTableChoice,
     PpuAddress, PpuMapper, NAME_TABLE_BYTES, PATTERN_TABLE_BYTES,
 };
-use mirroring::Mirroring;
+use crate::nes::Nes;
+use crate::DynamicNes;
+use mirroring::{CloneDynamicNes, Mirroring};
 use mos6502::Address;
 
 big_array! { BigArray; }
@@ -121,8 +123,8 @@ impl<M: Mirroring> CpuMapper for Nrom<M> {
     }
 }
 
-impl<M: mirroring::SpecificMapperDynamic> Mapper for Nrom<M> {
-    fn clone_dynamic(&self) -> Dynamic {
-        M::nrom(self.clone())
+impl<M: CloneDynamicNes> Mapper for Nrom<M> {
+    fn clone_dynamic_nes(nes: &Nes<Self>) -> DynamicNes {
+        M::nrom(nes)
     }
 }

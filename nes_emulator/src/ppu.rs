@@ -8,7 +8,7 @@ const OAM_SPRITE_BYTES: usize = 4;
 const OAM_NUM_SPRITES: usize = 64;
 const OAM_BYTES: usize = OAM_SPRITE_BYTES * OAM_NUM_SPRITES;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Oam {
     ram: Vec<u8>,
 }
@@ -40,7 +40,7 @@ impl fmt::Debug for Oam {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Ppu {
     next_address_write_is_hi_byte: bool,
     address: u16,

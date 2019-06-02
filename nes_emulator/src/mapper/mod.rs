@@ -1,3 +1,5 @@
+use crate::nes::Nes;
+use crate::DynamicNes;
 use ines;
 use mos6502::Address;
 
@@ -42,8 +44,8 @@ pub trait CpuMapper {
     fn cpu_read_u8_read_only(&self, address: Address) -> u8;
 }
 
-pub trait Mapper: CpuMapper + PpuMapper {
-    fn clone_dynamic(&self) -> Dynamic;
+pub trait Mapper: CpuMapper + PpuMapper + Sized {
+    fn clone_dynamic_nes(nes: &Nes<Self>) -> DynamicNes;
 }
 
 #[derive(Debug)]
@@ -98,7 +100,6 @@ impl Dynamic {
                     &chr_rom,
                 )?))
             }
-            _ => panic!(),
         }
     }
 }
@@ -106,6 +107,8 @@ impl Dynamic {
 pub mod mirroring {
     use super::nrom;
     use super::{Dynamic, NameTableChoice, PpuAddress, NAME_TABLE_BYTES};
+    use crate::nes::Nes;
+    use crate::DynamicNes;
 
     pub trait Mirroring: Clone + Copy {
         fn name_table_base_address(name_table: NameTableChoice) -> PpuAddress;
@@ -136,23 +139,23 @@ pub mod mirroring {
         }
     }
 
-    pub trait SpecificMapperDynamic: Mirroring {
-        fn nrom(nrom: nrom::Nrom<Self>) -> Dynamic;
+    pub trait CloneDynamicNes: Mirroring {
+        fn nrom(nrom: &Nes<nrom::Nrom<Self>>) -> DynamicNes;
     }
 
-    impl SpecificMapperDynamic for Horizontal {
-        fn nrom(nrom: nrom::Nrom<Self>) -> Dynamic {
-            Dynamic::NromHorizontal(nrom)
+    impl CloneDynamicNes for Horizontal {
+        fn nrom(nes: &Nes<nrom::Nrom<Self>>) -> DynamicNes {
+            DynamicNes::NromHorizontal(nes.clone())
         }
     }
-    impl SpecificMapperDynamic for Vertical {
-        fn nrom(nrom: nrom::Nrom<Self>) -> Dynamic {
-            Dynamic::NromVertical(nrom)
+    impl CloneDynamicNes for Vertical {
+        fn nrom(nes: &Nes<nrom::Nrom<Self>>) -> DynamicNes {
+            DynamicNes::NromVertical(nes.clone())
         }
     }
-    impl SpecificMapperDynamic for FourScreenVram {
-        fn nrom(nrom: nrom::Nrom<Self>) -> Dynamic {
-            Dynamic::NromFourScreenVram(nrom)
+    impl CloneDynamicNes for FourScreenVram {
+        fn nrom(nes: &Nes<nrom::Nrom<Self>>) -> DynamicNes {
+            DynamicNes::NromFourScreenVram(nes.clone())
         }
     }
 }
