@@ -40,6 +40,7 @@ impl<M: Mirroring> Nrom<M> {
             _ => return Err(Error::UnexpectedPrgRomSize),
         }
         match chr_rom_raw.len() {
+            0 => (),
             CHR_ROM_BYTES => (&mut chr_rom).copy_from_slice(chr_rom_raw),
             _ => return Err(Error::UnexpectedChrRomSize),
         }
