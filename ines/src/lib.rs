@@ -82,14 +82,14 @@ impl Header {
         buffer[7] = mapper_number & 0xF0;
         match self.mirroring {
             Mirroring::Horizontal => {
-                buffer[6] |= (1 << 0);
+                buffer[6] |= 1 << 0;
                 buffer[6] &= !(1 << 3);
             }
             Mirroring::Vertical => {
                 buffer[6] &= !(1 << 0);
                 buffer[6] &= !(1 << 3);
             }
-            Mirroring::FourScreenVram => buffer[6] |= (1 << 3),
+            Mirroring::FourScreenVram => buffer[6] |= 1 << 3,
         }
     }
 }
