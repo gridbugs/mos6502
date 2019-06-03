@@ -11,26 +11,20 @@ extern crate serde;
 #[macro_use]
 extern crate serde_big_array;
 
+mod apu;
+mod mapper;
+mod nes;
+mod ppu;
+
 use glutin_frontend::*;
 use ines::Ines;
-use mos6502::debug::*;
-use mos6502::machine::*;
-use mos6502::*;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::Path;
 
-mod ppu;
-use ppu::*;
-
-mod apu;
-use apu::*;
-
-mod mapper;
-use mapper::*;
-
-mod nes;
-use nes::*;
+use mapper::{mirroring, nrom, Mapper};
+use nes::Nes;
+use ppu::RenderOutput;
 
 #[derive(Debug)]
 struct SaveStateArgs {
@@ -190,7 +184,7 @@ fn run<M: Mapper + serde::Serialize>(mut nes: Nes<M>, save_state_args: Option<Sa
     let mut frontend = Frontend::new();
     let mut running = true;
     let mut frame_count = 0;
-    let mut output_gif_file = File::create("/tmp/a.gif").unwrap();
+    let output_gif_file = File::create("/tmp/a.gif").unwrap();
     let mut gif_renderer = gif_renderer::Renderer::new(output_gif_file);
     loop {
         if let Some(save_state_args) = save_state_args.as_ref() {
@@ -272,7 +266,6 @@ fn run<M: Mapper + serde::Serialize>(mut nes: Nes<M>, save_state_args: Option<Sa
                                 }
                             }
                         }
-                        _ => (),
                     },
                     _ => (),
                 },
@@ -303,33 +296,5 @@ fn main() {
         DynamicNes::NromHorizontal(nes) => run(nes, args.save_state_args),
         DynamicNes::NromVertical(nes) => run(nes, args.save_state_args),
         DynamicNes::NromFourScreenVram(nes) => run(nes, args.save_state_args),
-    }
-}
-
-fn print_bytes_hex(data: &[u8], address_offset: u16, line_width: usize) {
-    let stdout = io::stderr();
-    let mut handle = stdout.lock();
-    for (i, chunk) in data.chunks(line_width).enumerate() {
-        let _ = write!(handle, "{:04X}: ", address_offset as usize + i * line_width);
-        for x in chunk {
-            let _ = write!(handle, "{:02X}  ", x);
-        }
-        let _ = writeln!(handle, "");
-    }
-}
-
-pub fn print_vram(data: &[u8]) {
-    let stdout = io::stdout();
-    let mut handle = stdout.lock();
-    for (i, chunk) in data.chunks(32).enumerate() {
-        for x in chunk {
-            let c = match x {
-                0x24 => ' ',
-                0x62 => '#',
-                _ => '.',
-            };
-            let _ = write!(handle, "{}", c);
-        }
-        let _ = writeln!(handle, "");
     }
 }

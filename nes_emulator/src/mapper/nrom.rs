@@ -1,5 +1,5 @@
 use super::{
-    mirroring, CpuMapper, Dynamic, Error, Mapper, NameTableChoice, PaletteRam, PatternTableChoice,
+    mirroring, CpuMapper, Error, Mapper, NameTableChoice, PaletteRam, PatternTableChoice,
     PpuAddress, PpuMapper, NAME_TABLE_BYTES, PATTERN_TABLE_BYTES,
 };
 use crate::nes::Nes;

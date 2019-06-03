@@ -4,11 +4,9 @@ use crate::ppu::{Oam, Ppu, RenderOutput};
 use crate::DynamicNes;
 use mos6502::debug::InstructionWithOperand;
 use mos6502::machine::{Address, Cpu, Memory, MemoryReadOnly};
-use mos6502::UnknownOpcode;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 
 const RAM_BYTES: usize = 0x800;
-const PALETTE_RAM_BYTES: usize = 0x20;
 
 big_array! { BigArray; }
 
@@ -73,9 +71,6 @@ impl Controller {
     }
     fn clear_strobe(&mut self) {
         self.strobe = false;
-    }
-    fn is_strobe(&self) -> bool {
-        self.strobe
     }
     fn shift_read(&mut self) -> u8 {
         let masked = self.shift_register & 1;
@@ -148,7 +143,7 @@ impl<M: Mapper> Memory for NesDevices<M> {
             },
             0x4016 => self.controller1.shift_read(),
             0x4000..=0x401F => 0,
-            cartridge_address => self.mapper.cpu_read_u8(address),
+            cartridge_address => self.mapper.cpu_read_u8(cartridge_address),
         };
         data
     }
@@ -179,7 +174,7 @@ impl<M: Mapper> Memory for NesDevices<M> {
                 }
             }
             0x4000..=0x401F => {}
-            cartridge_address => self.mapper.cpu_write_u8(address, data),
+            cartridge_address => self.mapper.cpu_write_u8(cartridge_address, data),
         }
     }
     fn write_u8_zero_page(&mut self, address: u8, data: u8) {
@@ -187,22 +182,6 @@ impl<M: Mapper> Memory for NesDevices<M> {
     }
     fn write_u8_stack(&mut self, stack_pointer: u8, data: u8) {
         self.ram[0x0100 | stack_pointer as usize] = data;
-    }
-}
-
-impl<M: Mapper> NesDevicesWithOam<M> {
-    fn print_oam(&self) {
-        for i in 0..64 {
-            let base = 0x200;
-            let x = self.devices.ram[base + i * 4 + 3];
-            let y = self.devices.ram[base + i * 4 + 0];
-            let attributes = self.devices.ram[base + i * 4 + 2];
-            let index = self.devices.ram[base + i * 4 + 1];
-            println!(
-                "{:02X}: {:02X} @ ({:03}, {:03}) (attr: {:02X} ",
-                i, index, x, y, attributes
-            );
-        }
     }
 }
 
@@ -217,7 +196,7 @@ impl<M: Mapper> Memory for NesDevicesWithOam<M> {
         match address {
             0x4014 => self.oam.dma(&mut self.devices, data),
             0x2004 => self.devices.ppu.write_oam_data(data, &mut self.oam),
-            other => self.devices.write_u8(address, data),
+            other => self.devices.write_u8(other, data),
         }
     }
     fn read_u8_zero_page(&mut self, address: u8) -> u8 {
@@ -257,22 +236,11 @@ pub struct Nes<M: Mapper> {
     devices: NesDevicesWithOam<M>,
 }
 
+const CYCLES_PER_FRAME: usize = 30000;
+
 impl<M: Mapper> Nes<M> {
     fn start(&mut self) {
         self.cpu.start(&mut self.devices);
-    }
-    fn step(&mut self) {
-        let instruction_with_operand =
-            InstructionWithOperand::next(&self.cpu, &self.devices).unwrap();
-        let stdout = io::stdout();
-        let mut handle = stdout.lock();
-        let _ = writeln!(handle, "{}", instruction_with_operand);
-        match self.cpu.step(&mut self.devices) {
-            Ok(_) => (),
-            Err(UnknownOpcode(opcode)) => {
-                panic!("Unknown opcode: {:x} ({:x?})", opcode, self.cpu);
-            }
-        }
     }
     fn run_for_cycles(&mut self, num_cycles: usize) {
         self.cpu
@@ -323,36 +291,15 @@ impl<M: Mapper> Nes<M> {
         );
     }
     pub fn run_for_frame(&mut self) {
-        self.run_for_cycles(30000);
+        self.run_for_cycles(CYCLES_PER_FRAME);
+        self.nmi();
+    }
+    pub fn run_for_frame_debug(&mut self) {
+        self.run_for_cycles_debug(CYCLES_PER_FRAME);
         self.nmi();
     }
     pub fn clone_dynamic_nes(&self) -> DynamicNes {
         M::clone_dynamic_nes(self)
-    }
-}
-
-pub struct NesMemoryMap;
-impl analyser::MemoryMap for NesMemoryMap {
-    fn normalize_function_call<M: MemoryReadOnly>(
-        &self,
-        jsr_opcode_address: Address,
-        memory: &M,
-    ) -> Option<Address> {
-        if jsr_opcode_address >= 0x8000 {
-            let function_definition_address =
-                memory.read_u16_le_read_only(jsr_opcode_address.wrapping_add(1));
-            if function_definition_address >= 0x8000 {
-                if function_definition_address < 0xC000 {
-                    Some(function_definition_address + 0x4000)
-                } else {
-                    Some(function_definition_address)
-                }
-            } else {
-                None
-            }
-        } else {
-            None
-        }
     }
 }
 

@@ -1,6 +1,5 @@
 use crate::nes::Nes;
 use crate::DynamicNes;
-use ines;
 use mos6502::Address;
 
 pub type PpuAddress = u16;
@@ -71,42 +70,9 @@ impl PaletteRam {
 
 pub mod nrom;
 
-#[derive(Serialize, Deserialize)]
-pub enum Dynamic {
-    NromHorizontal(nrom::Nrom<mirroring::Horizontal>),
-    NromVertical(nrom::Nrom<mirroring::Vertical>),
-    NromFourScreenVram(nrom::Nrom<mirroring::FourScreenVram>),
-}
-
-impl Dynamic {
-    pub fn new(
-        ines::Ines {
-            header,
-            prg_rom,
-            chr_rom,
-        }: ines::Ines,
-    ) -> Result<Self, Error> {
-        match (header.mapper, header.mirroring) {
-            (ines::Mapper::Nrom, ines::Mirroring::Horizontal) => Ok(Dynamic::NromHorizontal(
-                nrom::Nrom::new(mirroring::Horizontal, &prg_rom, &chr_rom)?,
-            )),
-            (ines::Mapper::Nrom, ines::Mirroring::Vertical) => Ok(Dynamic::NromVertical(
-                nrom::Nrom::new(mirroring::Vertical, &prg_rom, &chr_rom)?,
-            )),
-            (ines::Mapper::Nrom, ines::Mirroring::FourScreenVram) => {
-                Ok(Dynamic::NromFourScreenVram(nrom::Nrom::new(
-                    mirroring::FourScreenVram,
-                    &prg_rom,
-                    &chr_rom,
-                )?))
-            }
-        }
-    }
-}
-
 pub mod mirroring {
     use super::nrom;
-    use super::{Dynamic, NameTableChoice, PpuAddress, NAME_TABLE_BYTES};
+    use super::{NameTableChoice, PpuAddress, NAME_TABLE_BYTES};
     use crate::nes::Nes;
     use crate::DynamicNes;
 

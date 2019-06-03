@@ -1,5 +1,4 @@
 use crate::mapper::{NameTableChoice, PatternTableChoice, PpuMapper};
-use glutin_frontend::Pixels;
 use mos6502::address;
 use mos6502::machine::{Address, Memory};
 use std::fmt;
@@ -56,8 +55,6 @@ pub struct Ppu {
 }
 
 pub type PpuAddress = u16;
-pub const PATTERN_TABLE_BYTES: usize = 0x1000;
-pub const NAME_TABLE_BYTES: usize = 0x400;
 pub const PALETTE_START: PpuAddress = 0x3F00;
 
 pub trait RenderOutput {
@@ -151,12 +148,7 @@ impl Ppu {
         self.read_buffer = value_from_vram;
         value_for_cpu
     }
-    pub fn render<M: PpuMapper, O: RenderOutput>(
-        &mut self,
-        memory: &M,
-        oam: &Oam,
-        mut pixels: &mut O,
-    ) {
+    pub fn render<M: PpuMapper, O: RenderOutput>(&mut self, memory: &M, oam: &Oam, pixels: &mut O) {
         let name_table_and_attribute_table = memory.ppu_name_table(NameTableChoice::TopLeft);
         let name_table = &name_table_and_attribute_table[0x0..=0x3BF];
         let attribute_table = &name_table_and_attribute_table[0x3C0..=0x3FF];
