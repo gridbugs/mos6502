@@ -192,86 +192,84 @@ fn run<M: Mapper + serde::Serialize>(mut nes: Nes<M>, save_state_args: Option<Sa
                 save(&nes, &save_state_args.filename);
             }
         }
-        {
-            frontend.poll_glutin_events(|event| match event {
-                glutin::Event::WindowEvent { event, .. } => match event {
-                    glutin::WindowEvent::CloseRequested => {
-                        running = false;
+        frontend.poll_glutin_events(|event| match event {
+            glutin::Event::WindowEvent { event, .. } => match event {
+                glutin::WindowEvent::CloseRequested => {
+                    running = false;
+                }
+                glutin::WindowEvent::KeyboardInput { input, .. } => match input.state {
+                    glutin::ElementState::Pressed => {
+                        if let Some(virtual_keycode) = input.virtual_keycode {
+                            match virtual_keycode {
+                                glutin::VirtualKeyCode::Left => {
+                                    nes::controller1::press::left(&mut nes);
+                                }
+                                glutin::VirtualKeyCode::Right => {
+                                    nes::controller1::press::right(&mut nes);
+                                }
+                                glutin::VirtualKeyCode::Up => {
+                                    nes::controller1::press::up(&mut nes);
+                                }
+                                glutin::VirtualKeyCode::Down => {
+                                    nes::controller1::press::down(&mut nes);
+                                }
+                                glutin::VirtualKeyCode::Return => {
+                                    nes::controller1::press::start(&mut nes);
+                                }
+                                glutin::VirtualKeyCode::RShift => {
+                                    nes::controller1::press::select(&mut nes);
+                                }
+                                glutin::VirtualKeyCode::A => {
+                                    nes::controller1::press::a(&mut nes);
+                                }
+                                glutin::VirtualKeyCode::B => {
+                                    nes::controller1::press::b(&mut nes);
+                                }
+                                glutin::VirtualKeyCode::S => {
+                                    if let Some(save_state_args) = save_state_args.as_ref() {
+                                        save(&nes, &save_state_args.filename);
+                                    }
+                                }
+                                _ => (),
+                            }
+                        }
                     }
-                    glutin::WindowEvent::KeyboardInput { input, .. } => match input.state {
-                        glutin::ElementState::Pressed => {
-                            if let Some(virtual_keycode) = input.virtual_keycode {
-                                match virtual_keycode {
-                                    glutin::VirtualKeyCode::Left => {
-                                        nes::controller1::press::left(&mut nes);
-                                    }
-                                    glutin::VirtualKeyCode::Right => {
-                                        nes::controller1::press::right(&mut nes);
-                                    }
-                                    glutin::VirtualKeyCode::Up => {
-                                        nes::controller1::press::up(&mut nes);
-                                    }
-                                    glutin::VirtualKeyCode::Down => {
-                                        nes::controller1::press::down(&mut nes);
-                                    }
-                                    glutin::VirtualKeyCode::Return => {
-                                        nes::controller1::press::start(&mut nes);
-                                    }
-                                    glutin::VirtualKeyCode::RShift => {
-                                        nes::controller1::press::select(&mut nes);
-                                    }
-                                    glutin::VirtualKeyCode::A => {
-                                        nes::controller1::press::a(&mut nes);
-                                    }
-                                    glutin::VirtualKeyCode::B => {
-                                        nes::controller1::press::b(&mut nes);
-                                    }
-                                    glutin::VirtualKeyCode::S => {
-                                        if let Some(save_state_args) = save_state_args.as_ref() {
-                                            save(&nes, &save_state_args.filename);
-                                        }
-                                    }
-                                    _ => (),
+                    glutin::ElementState::Released => {
+                        if let Some(virtual_keycode) = input.virtual_keycode {
+                            match virtual_keycode {
+                                glutin::VirtualKeyCode::Left => {
+                                    nes::controller1::release::left(&mut nes);
                                 }
+                                glutin::VirtualKeyCode::Right => {
+                                    nes::controller1::release::right(&mut nes);
+                                }
+                                glutin::VirtualKeyCode::Up => {
+                                    nes::controller1::release::up(&mut nes);
+                                }
+                                glutin::VirtualKeyCode::Down => {
+                                    nes::controller1::release::down(&mut nes);
+                                }
+                                glutin::VirtualKeyCode::Return => {
+                                    nes::controller1::release::start(&mut nes);
+                                }
+                                glutin::VirtualKeyCode::RShift => {
+                                    nes::controller1::release::select(&mut nes);
+                                }
+                                glutin::VirtualKeyCode::A => {
+                                    nes::controller1::release::a(&mut nes);
+                                }
+                                glutin::VirtualKeyCode::B => {
+                                    nes::controller1::release::b(&mut nes);
+                                }
+                                _ => (),
                             }
                         }
-                        glutin::ElementState::Released => {
-                            if let Some(virtual_keycode) = input.virtual_keycode {
-                                match virtual_keycode {
-                                    glutin::VirtualKeyCode::Left => {
-                                        nes::controller1::release::left(&mut nes);
-                                    }
-                                    glutin::VirtualKeyCode::Right => {
-                                        nes::controller1::release::right(&mut nes);
-                                    }
-                                    glutin::VirtualKeyCode::Up => {
-                                        nes::controller1::release::up(&mut nes);
-                                    }
-                                    glutin::VirtualKeyCode::Down => {
-                                        nes::controller1::release::down(&mut nes);
-                                    }
-                                    glutin::VirtualKeyCode::Return => {
-                                        nes::controller1::release::start(&mut nes);
-                                    }
-                                    glutin::VirtualKeyCode::RShift => {
-                                        nes::controller1::release::select(&mut nes);
-                                    }
-                                    glutin::VirtualKeyCode::A => {
-                                        nes::controller1::release::a(&mut nes);
-                                    }
-                                    glutin::VirtualKeyCode::B => {
-                                        nes::controller1::release::b(&mut nes);
-                                    }
-                                    _ => (),
-                                }
-                            }
-                        }
-                    },
-                    _ => (),
+                    }
                 },
                 _ => (),
-            });
-        }
+            },
+            _ => (),
+        });
         if !running {
             break;
         };
