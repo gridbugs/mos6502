@@ -14,3 +14,4 @@ gif_renderer = { path = "../gif_renderer" }
 serde = { version = "1.0", features = ["serde_derive"] }
 serde-big-array = "0.1"
 bincode = "1.1"
+nes_headless_frame = { path = "../nes_headless_frame" }

@@ -9,6 +9,7 @@ members = [
     "mos6502",
     "nes",
     "nes_emulator",
+    "nes_headless_frame",
     "nes_samples",
     "samples",
 ]

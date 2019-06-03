@@ -1,6 +1,6 @@
 extern crate mos6502;
 
-use mos6502::debug::{AddressingMode, Instruction, InstructionType, InstructionWithOperand};
+use mos6502::debug::{AddressingMode, InstructionType, InstructionWithOperand};
 use mos6502::machine::MemoryReadOnly;
 use mos6502::opcode;
 use mos6502::Address;
@@ -116,9 +116,6 @@ impl fmt::Display for FunctionTrace {
 impl FunctionTrace {
     fn steps(&self) -> &[FunctionStep] {
         &self.steps
-    }
-    fn len(&self) -> usize {
-        self.steps.len()
     }
     fn contains_address(&self, address: Address) -> bool {
         for step in self.steps.iter() {

@@ -1,9 +1,7 @@
 [package]
-name = "gif_renderer"
+name = "nes_headless_frame"
 version = "0.1.0"
 authors = ["Stephen Sherratt <stephen@sherra.tt>"]
 edition = "2018"
 
 [dependencies]
-nes_headless_frame = { path = "../nes_headless_frame" }
-gif = "0.10"

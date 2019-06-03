@@ -10,21 +10,42 @@ extern crate mos6502;
 extern crate serde;
 #[macro_use]
 extern crate serde_big_array;
+extern crate nes_headless_frame;
 
 mod apu;
 mod mapper;
 mod nes;
 mod ppu;
 
-use glutin_frontend::*;
+use glutin_frontend::glutin;
 use ines::Ines;
+use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
+use std::hash::{Hash, Hasher};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 use mapper::{mirroring, nrom, Mapper};
 use nes::Nes;
 use ppu::RenderOutput;
+
+enum Frontend {
+    Glutin(glutin_frontend::Frontend),
+    HeadlessPrintingFinalFrameHash { num_frames: u64 },
+}
+
+impl Frontend {
+    fn arg() -> simon::ArgExt<impl simon::Arg<Item = Self>> {
+        simon::opt(
+            "e",
+            "headless-num-frames",
+            "run with headless frontend, exiting after a specified number of frames",
+            "INT",
+        )
+        .option_map(|num_frames| Frontend::HeadlessPrintingFinalFrameHash { num_frames })
+        .with_default_lazy(|| Frontend::Glutin(glutin_frontend::Frontend::new()))
+    }
+}
 
 #[derive(Clone)]
 enum Input {
@@ -48,6 +69,7 @@ struct Args {
     autosave_after_frames: Option<u64>,
     save_state_filename: Option<String>,
     gif_filename: Option<String>,
+    frontend: Frontend,
 }
 
 impl Args {
@@ -58,24 +80,41 @@ impl Args {
                 autosave_after_frames = simon::opt("a", "autosave-after-frames", "save state after this many frames", "INT");
                 save_state_filename = simon::opt("s", "save-state-file", "state file to save", "PATH");
                 gif_filename = simon::opt("g", "gif", "gif file to record into", "PATH");
+                frontend = Frontend::arg();
             } in {
                 Self {
                     input,
                     autosave_after_frames,
                     save_state_filename,
                     gif_filename,
+                    frontend,
                 }
             }
         }
     }
 }
 
+impl RenderOutput for nes_headless_frame::Frame {
+    fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour_sprite_back(x, y, colour_index);
+    }
+    fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour_sprite_front(x, y, colour_index);
+    }
+    fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour_background(x, y, colour_index);
+    }
+    fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour_universal_background(x, y, colour_index);
+    }
+}
+
 struct NesRenderOutput<'a> {
-    glutin_pixels: Pixels<'a>,
+    glutin_pixels: glutin_frontend::Pixels<'a>,
     gif_frame: &'a mut gif_renderer::Frame,
 }
 
-impl<'a> RenderOutput for Pixels<'a> {
+impl<'a> RenderOutput for glutin_frontend::Pixels<'a> {
     fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
         self.set_pixel_colour_sprite_back(x, y, colour_index);
     }
@@ -259,7 +298,7 @@ fn load<P: AsRef<Path>>(path: P) -> Result<DynamicNes, bincode::Error> {
 }
 
 enum Stop {
-    WindowClosed,
+    Quit,
     Load(DynamicNes),
 }
 
@@ -271,7 +310,7 @@ fn handle_event<M: Mapper + serde::ser::Serialize, P: AsRef<Path> + Copy>(
     match event {
         glutin::Event::WindowEvent { event, .. } => match event {
             glutin::WindowEvent::CloseRequested => {
-                return Some(Stop::WindowClosed);
+                return Some(Stop::Quit);
             }
             glutin::WindowEvent::KeyboardInput { input, .. } => match input.state {
                 glutin::ElementState::Pressed => {
@@ -352,10 +391,10 @@ fn handle_event<M: Mapper + serde::ser::Serialize, P: AsRef<Path> + Copy>(
     None
 }
 
-fn run<M: Mapper + serde::ser::Serialize>(
+fn run_glutin<M: Mapper + serde::ser::Serialize>(
     mut nes: Nes<M>,
     config: &Config,
-    frontend: &mut Frontend,
+    frontend: &mut glutin_frontend::Frontend,
 ) -> Stop {
     let mut frame_count = 0;
     let mut gif_renderer = config
@@ -397,11 +436,37 @@ fn run<M: Mapper + serde::ser::Serialize>(
     }
 }
 
+fn run_headless_hashing_final_frame<M: Mapper>(mut nes: Nes<M>, num_frames: u64) -> u64 {
+    for _ in 0..num_frames {
+        nes.run_for_frame();
+    }
+    let mut frame = nes_headless_frame::Frame::new();
+    nes.render(&mut frame);
+    let mut hasher = DefaultHasher::new();
+    frame.hash(&mut hasher);
+    hasher.finish()
+}
+
+fn run<M: Mapper + serde::ser::Serialize>(
+    nes: Nes<M>,
+    config: &Config,
+    frontend: &mut Frontend,
+) -> Stop {
+    match frontend {
+        Frontend::Glutin(glutin_frontend) => run_glutin(nes, config, glutin_frontend),
+        Frontend::HeadlessPrintingFinalFrameHash { num_frames } => {
+            let final_frame_hash = run_headless_hashing_final_frame(nes, *num_frames);
+            println!("{:?}", final_frame_hash);
+            Stop::Quit
+        }
+    }
+}
+
 fn main() {
     let args = Args::arg().with_help_default().parse_env_default_or_exit();
     let config = Config::from_args(&args);
     let mut current_nes = DynamicNes::from_args(&args).unwrap();
-    let mut frontend = Frontend::new();
+    let Args { mut frontend, .. } = args;
     loop {
         let stop = match current_nes {
             DynamicNes::NromHorizontal(nes) => run(nes, &config, &mut frontend),
@@ -409,7 +474,7 @@ fn main() {
             DynamicNes::NromFourScreenVram(nes) => run(nes, &config, &mut frontend),
         };
         match stop {
-            Stop::WindowClosed => break,
+            Stop::Quit => break,
             Stop::Load(dynamic_nes) => current_nes = dynamic_nes,
         }
     }
