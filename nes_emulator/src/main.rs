@@ -47,6 +47,7 @@ struct Args {
     input: Input,
     autosave_after_frames: Option<u64>,
     save_state_filename: Option<String>,
+    gif_filename: Option<String>,
 }
 
 impl Args {
@@ -56,11 +57,13 @@ impl Args {
                 input = Input::arg();
                 autosave_after_frames = simon::opt("a", "autosave-after-frames", "save state after this many frames", "INT");
                 save_state_filename = simon::opt("s", "save-state-file", "state file to save", "PATH");
+                gif_filename = simon::opt("g", "gif", "gif file to record into", "PATH");
             } in {
                 Self {
                     input,
                     autosave_after_frames,
-                    save_state_filename
+                    save_state_filename,
+                    gif_filename,
                 }
             }
         }
@@ -70,6 +73,21 @@ impl Args {
 struct NesRenderOutput<'a> {
     glutin_pixels: Pixels<'a>,
     gif_frame: &'a mut gif_renderer::Frame,
+}
+
+impl<'a> RenderOutput for Pixels<'a> {
+    fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour_sprite_back(x, y, colour_index);
+    }
+    fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour_sprite_front(x, y, colour_index);
+    }
+    fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour_background(x, y, colour_index);
+    }
+    fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour_universal_background(x, y, colour_index);
+    }
 }
 
 impl<'a> RenderOutput for NesRenderOutput<'a> {
@@ -186,6 +204,7 @@ impl SaveConfig {
 
 struct Config {
     save_config: Option<SaveConfig>,
+    gif_filename: Option<PathBuf>,
 }
 
 impl Config {
@@ -197,7 +216,14 @@ impl Config {
                 filename: save_state_filename.into(),
                 autosave_after_frames: args.autosave_after_frames,
             });
-        Self { save_config }
+        let gif_filename = args
+            .gif_filename
+            .as_ref()
+            .map(|gif_filename| gif_filename.into());
+        Self {
+            save_config,
+            gif_filename,
+        }
     }
     fn save_filename(&self) -> Option<&PathBuf> {
         self.save_config
@@ -332,8 +358,10 @@ fn run<M: Mapper + serde::ser::Serialize>(
     frontend: &mut Frontend,
 ) -> Stop {
     let mut frame_count = 0;
-    let output_gif_file = File::create("/tmp/a.gif").unwrap();
-    let mut gif_renderer = gif_renderer::Renderer::new(output_gif_file);
+    let mut gif_renderer = config
+        .gif_filename
+        .as_ref()
+        .map(|gif_filename| gif_renderer::Renderer::new(File::create(gif_filename).unwrap()));
     let autosave_config = config.autosave_config();
     loop {
         if let Some(autosave_config) = autosave_config.as_ref() {
@@ -350,14 +378,18 @@ fn run<M: Mapper + serde::ser::Serialize>(
         if let Some(stop) = stop {
             return stop;
         };
-        frontend.with_pixels(|pixels| {
-            let mut gif_frame = gif_renderer::Frame::new();
-            let mut render_output = NesRenderOutput {
-                glutin_pixels: pixels,
-                gif_frame: &mut gif_frame,
-            };
-            nes.render(&mut render_output);
-            gif_renderer.add(gif_frame);
+        frontend.with_pixels(|mut pixels| {
+            if let Some(gif_renderer) = gif_renderer.as_mut() {
+                let mut gif_frame = gif_renderer::Frame::new();
+                let mut render_output = NesRenderOutput {
+                    glutin_pixels: pixels,
+                    gif_frame: &mut gif_frame,
+                };
+                nes.render(&mut render_output);
+                gif_renderer.add(gif_frame);
+            } else {
+                nes.render(&mut pixels);
+            }
         });
         nes.run_for_frame();
         frontend.render();
