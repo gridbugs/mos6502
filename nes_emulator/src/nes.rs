@@ -283,7 +283,7 @@ impl<M: Mapper> Nes<M> {
         nes.start();
         nes
     }
-    pub fn render<R: RenderOutput>(&mut self, render_output: &mut R) {
+    pub fn render<R: RenderOutput>(&self, render_output: &mut R) {
         self.devices.devices.ppu.render(
             &self.devices.devices.mapper,
             &self.devices.oam,

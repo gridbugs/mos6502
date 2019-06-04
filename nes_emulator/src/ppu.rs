@@ -183,7 +183,7 @@ impl Ppu {
         self.read_buffer = value_from_vram;
         value_for_cpu
     }
-    pub fn render<M: PpuMapper, O: RenderOutput>(&mut self, memory: &M, oam: &Oam, pixels: &mut O) {
+    pub fn render<M: PpuMapper, O: RenderOutput>(&self, memory: &M, oam: &Oam, pixels: &mut O) {
         let name_table_and_attribute_table = memory.ppu_name_table(NameTableChoice::TopLeft);
         let name_table = &name_table_and_attribute_table[0x0..=0x3BF];
         let attribute_table = &name_table_and_attribute_table[0x3C0..=0x3FF];

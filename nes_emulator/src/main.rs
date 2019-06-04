@@ -156,6 +156,14 @@ impl<'a> RenderOutput for NesRenderOutput<'a> {
     }
 }
 
+fn render_to_hash<M: Mapper>(nes: &Nes<M>) -> u64 {
+    let mut frame = nes_headless_frame::Frame::new();
+    nes.render(&mut frame);
+    let mut hasher = DefaultHasher::new();
+    frame.hash(&mut hasher);
+    hasher.finish()
+}
+
 #[derive(Serialize, Deserialize)]
 pub enum DynamicNes {
     NromHorizontal(Nes<nrom::Nrom<nrom::Horizontal>>),
@@ -315,6 +323,7 @@ fn handle_event<M: Mapper + serde::ser::Serialize, P: AsRef<Path> + Copy>(
     nes: &mut Nes<M>,
     save_state_path: Option<P>,
     event: glutin::Event,
+    frame_count: u64,
 ) -> Option<Stop> {
     match event {
         glutin::Event::WindowEvent { event, .. } => match event {
@@ -356,6 +365,10 @@ fn handle_event<M: Mapper + serde::ser::Serialize, P: AsRef<Path> + Copy>(
                                         return Some(Stop::Load(dynamic_nes));
                                     }
                                 }
+                            }
+                            glutin::VirtualKeyCode::I => {
+                                println!("Frame Count: {}", frame_count);
+                                println!("Frame Hash: {}", render_to_hash(nes));
                             }
                             _ => (),
                         }
@@ -420,7 +433,7 @@ fn run_glutin<M: Mapper + serde::ser::Serialize>(
         let mut stop = None;
         frontend.poll_glutin_events(|event| {
             if stop.is_none() {
-                stop = handle_event(&mut nes, config.save_filename(), event);
+                stop = handle_event(&mut nes, config.save_filename(), event, frame_count);
             }
         });
         if let Some(stop) = stop {
@@ -449,11 +462,7 @@ fn run_headless_hashing_final_frame<M: Mapper>(mut nes: Nes<M>, num_frames: u64)
     for _ in 0..num_frames {
         nes.run_for_frame();
     }
-    let mut frame = nes_headless_frame::Frame::new();
-    nes.render(&mut frame);
-    let mut hasher = DefaultHasher::new();
-    frame.hash(&mut hasher);
-    hasher.finish()
+    render_to_hash(&nes)
 }
 
 fn run<M: Mapper + serde::ser::Serialize>(
