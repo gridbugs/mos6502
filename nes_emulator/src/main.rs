@@ -25,7 +25,7 @@ use std::hash::{Hash, Hasher};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
-use mapper::{mirroring, nrom, Mapper};
+use mapper::{mirroring, mmc1, nrom, Mapper};
 use nes::Nes;
 use ppu::RenderOutput;
 
@@ -160,7 +160,8 @@ impl<'a> RenderOutput for NesRenderOutput<'a> {
 pub enum DynamicNes {
     NromHorizontal(Nes<nrom::Nrom<mirroring::Horizontal>>),
     NromVertical(Nes<nrom::Nrom<mirroring::Vertical>>),
-    NromFourScreenVram(Nes<nrom::Nrom<mirroring::FourScreenVram>>),
+    Mmc1Horizontal(Nes<mmc1::Mmc1<mirroring::Horizontal>>),
+    Mmc1Vertical(Nes<mmc1::Mmc1<mirroring::Vertical>>),
 }
 
 #[derive(Debug)]
@@ -168,30 +169,54 @@ pub enum Error {
     UnexpectedFormat(mapper::Error),
     InesParseError(ines::Error),
     DeserializeError(bincode::Error),
+    UnexpectedMirroringForMapper {
+        mapper: ines::Mapper,
+        mirroring: ines::Mirroring,
+    },
+}
+
+impl From<mapper::Error> for Error {
+    fn from(e: mapper::Error) -> Self {
+        Error::UnexpectedFormat(e)
+    }
 }
 
 impl DynamicNes {
-    fn from_ines(ines: &Ines) -> Result<Self, mapper::Error> {
+    fn from_ines(ines: &Ines) -> Result<Self, Error> {
         let &Ines {
             ref header,
             ref prg_rom,
             ref chr_rom,
         } = ines;
-        match (header.mapper, header.mirroring) {
-            (ines::Mapper::Nrom, ines::Mirroring::Horizontal) => Ok(DynamicNes::NromHorizontal(
-                Nes::new(nrom::Nrom::new(mirroring::Horizontal, &prg_rom, &chr_rom)?),
-            )),
-            (ines::Mapper::Nrom, ines::Mirroring::Vertical) => Ok(DynamicNes::NromVertical(
-                Nes::new(nrom::Nrom::new(mirroring::Vertical, &prg_rom, &chr_rom)?),
-            )),
-            (ines::Mapper::Nrom, ines::Mirroring::FourScreenVram) => {
-                Ok(DynamicNes::NromFourScreenVram(Nes::new(nrom::Nrom::new(
-                    mirroring::FourScreenVram,
-                    &prg_rom,
-                    &chr_rom,
-                )?)))
-            }
-        }
+        use ines::Mapper::*;
+        use ines::Mirroring::*;
+        use mirroring as m;
+        use mmc1::Mmc1;
+        use nrom::Nrom;
+        use DynamicNes::*;
+        let mapper = header.mapper;
+        let mirroring = header.mirroring;
+        let dynamic_nes = match mapper {
+            Nrom => match mirroring {
+                Horizontal => {
+                    NromHorizontal(Nes::new(Nrom::new(m::Horizontal, &prg_rom, &chr_rom)?))
+                }
+                Vertical => NromVertical(Nes::new(Nrom::new(m::Vertical, &prg_rom, &chr_rom)?)),
+                FourScreenVram => {
+                    return Err(Error::UnexpectedMirroringForMapper { mapper, mirroring })
+                }
+            },
+            Mmc1 => match mirroring {
+                Horizontal => {
+                    Mmc1Horizontal(Nes::new(Mmc1::new(m::Horizontal, &prg_rom, &chr_rom)?))
+                }
+                Vertical => Mmc1Vertical(Nes::new(Mmc1::new(m::Vertical, &prg_rom, &chr_rom)?)),
+                FourScreenVram => {
+                    return Err(Error::UnexpectedMirroringForMapper { mapper, mirroring })
+                }
+            },
+        };
+        Ok(dynamic_nes)
     }
     fn from_args(args: &Args) -> Result<Self, Error> {
         let rom_buffer = match &args.input {
@@ -217,7 +242,6 @@ impl DynamicNes {
             }
         };
         Self::from_ines(&Ines::parse(&rom_buffer).map_err(Error::InesParseError)?)
-            .map_err(Error::UnexpectedFormat)
     }
 }
 
@@ -471,7 +495,8 @@ fn main() {
         let stop = match current_nes {
             DynamicNes::NromHorizontal(nes) => run(nes, &config, &mut frontend),
             DynamicNes::NromVertical(nes) => run(nes, &config, &mut frontend),
-            DynamicNes::NromFourScreenVram(nes) => run(nes, &config, &mut frontend),
+            DynamicNes::Mmc1Horizontal(nes) => run(nes, &config, &mut frontend),
+            DynamicNes::Mmc1Vertical(nes) => run(nes, &config, &mut frontend),
         };
         match stop {
             Stop::Quit => break,

@@ -14,6 +14,7 @@ pub enum Mirroring {
 #[derive(Debug, Clone, Copy)]
 pub enum Mapper {
     Nrom,
+    Mmc1,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -25,11 +26,13 @@ impl Mapper {
     fn encode(self) -> u8 {
         match self {
             Mapper::Nrom => 0,
+            Mapper::Mmc1 => 1,
         }
     }
     fn decode(code: u8) -> Result<Self, Error> {
         match code {
             0 => Ok(Mapper::Nrom),
+            1 => Ok(Mapper::Mmc1),
             other => Err(Error::UnimplementedMapper { code: other }),
         }
     }

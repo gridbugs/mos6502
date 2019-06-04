@@ -13,10 +13,10 @@ big_array! { BigArray; }
 const PRG_ROM_BYTES: usize = 32 * 1024;
 const CHR_ROM_BYTES: usize = 8 * 1024;
 const NAME_TABLE_RAM_BYTES: usize = 2 * NAME_TABLE_BYTES;
-const PRG_RAM_BYTES: usize = 8 * 1024;
+const RAM_BYTES: usize = 8 * 1024;
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct Nrom<M: Mirroring> {
+pub struct Mmc1<M: Mirroring> {
     #[serde(with = "BigArray")]
     prg_rom: [u8; PRG_ROM_BYTES],
     #[serde(with = "BigArray")]
@@ -24,13 +24,14 @@ pub struct Nrom<M: Mirroring> {
     #[serde(with = "BigArray")]
     name_table_ram: [u8; NAME_TABLE_RAM_BYTES],
     #[serde(with = "BigArray")]
-    prg_ram: [u8; PRG_RAM_BYTES],
+    ram: [u8; RAM_BYTES],
     palette_ram: PaletteRam,
     mirroring: M,
 }
 
-impl<M: Mirroring> Nrom<M> {
+impl<M: Mirroring> Mmc1<M> {
     pub fn new(mirroring: M, prg_rom_raw: &[u8], chr_rom_raw: &[u8]) -> Result<Self, Error> {
+        panic!("mmc1");
         let mut prg_rom = [0; PRG_ROM_BYTES];
         let mut chr_rom = [0; CHR_ROM_BYTES];
         const HALF_PRG_ROM_BYTES: usize = PRG_ROM_BYTES / 2;
@@ -50,19 +51,19 @@ impl<M: Mirroring> Nrom<M> {
         }
         let name_table_ram = [0; NAME_TABLE_RAM_BYTES];
         let palette_ram = PaletteRam::default();
-        let prg_ram = [0; PRG_RAM_BYTES];
+        let ram = [0; RAM_BYTES];
         Ok(Self {
             prg_rom,
             chr_rom,
             name_table_ram,
-            prg_ram,
+            ram,
             palette_ram,
             mirroring,
         })
     }
 }
 
-impl<M: Mirroring> PpuMapper for Nrom<M> {
+impl<M: Mirroring> PpuMapper for Mmc1<M> {
     fn ppu_write_u8(&mut self, address: PpuAddress, data: u8) {
         let address = address % 0x4000;
         match address {
@@ -109,13 +110,13 @@ impl<M: Mirroring> PpuMapper for Nrom<M> {
     }
 }
 
-impl<M: Mirroring> CpuMapper for Nrom<M> {
+impl<M: Mirroring> CpuMapper for Mmc1<M> {
     fn cpu_read_u8(&mut self, address: Address) -> u8 {
         self.cpu_read_u8_read_only(address)
     }
     fn cpu_write_u8(&mut self, address: Address, data: u8) {
         match address {
-            0x6000..=0x7FFF => self.prg_ram[address as usize % 0x2000] = data,
+            0x6000..=0x7FFF => self.ram[address as usize % 0x2000] = data,
             other => eprintln!(
                 "unexpected cartridge write of {:X} to address {:X}",
                 data, other
@@ -124,7 +125,7 @@ impl<M: Mirroring> CpuMapper for Nrom<M> {
     }
     fn cpu_read_u8_read_only(&self, address: Address) -> u8 {
         match address {
-            0x6000..=0x7FFF => self.prg_ram[address as usize % 0x2000],
+            0x6000..=0x7FFF => self.ram[address as usize % 0x2000],
             0x8000..=0xFFFF => self.prg_rom[address as usize % 0x8000],
             other => {
                 eprintln!("unexpected cartridge read from address {:X}", other);
@@ -134,8 +135,8 @@ impl<M: Mirroring> CpuMapper for Nrom<M> {
     }
 }
 
-impl<M: CloneDynamicNes> Mapper for Nrom<M> {
+impl<M: CloneDynamicNes> Mapper for Mmc1<M> {
     fn clone_dynamic_nes(nes: &Nes<Self>) -> DynamicNes {
-        M::nrom(nes)
+        M::mmc1(nes)
     }
 }
