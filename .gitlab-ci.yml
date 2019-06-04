@@ -4,3 +4,7 @@ test:cargo:
   script:
   - rustc --version && cargo --version
   - cargo test --all --verbose
+
+test:instr_test-v5:
+    script:
+    - ./hash_test.sh test_assets/instr_test-v5/all_instrs.nes 2100 14633519857423437404
