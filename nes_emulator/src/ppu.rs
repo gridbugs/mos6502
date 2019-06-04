@@ -9,13 +9,36 @@ const OAM_NUM_SPRITES: usize = 64;
 const OAM_BYTES: usize = OAM_SPRITE_BYTES * OAM_NUM_SPRITES;
 
 pub mod name_table_mirroring {
-    use super::NAME_TABLE_BYTES;
-    use crate::mapper::{NameTableChoice, PpuAddress};
-    pub fn horizontal(name_table: NameTableChoice) -> PpuAddress {
-        (name_table as PpuAddress / 2) * (NAME_TABLE_BYTES as PpuAddress)
+    pub mod physical_base_address {
+        use crate::mapper::{NameTableChoice, PpuAddress};
+        use crate::ppu::NAME_TABLE_BYTES;
+        pub const fn horizontal(name_table: NameTableChoice) -> PpuAddress {
+            (name_table as PpuAddress / 2) * (NAME_TABLE_BYTES as PpuAddress)
+        }
+        pub const fn vertical(name_table: NameTableChoice) -> PpuAddress {
+            (name_table as PpuAddress % 2) * (NAME_TABLE_BYTES as PpuAddress)
+        }
+        pub const fn single_screen_lower() -> PpuAddress {
+            0
+        }
+        pub const fn single_screen_upper() -> PpuAddress {
+            NAME_TABLE_BYTES as PpuAddress
+        }
     }
-    pub fn vertical(name_table: NameTableChoice) -> PpuAddress {
-        (name_table as PpuAddress % 2) * (NAME_TABLE_BYTES as PpuAddress)
+    pub mod physical_offset {
+        use crate::mapper::PpuAddress;
+        pub const fn single_screen_lower(virtual_offset: PpuAddress) -> PpuAddress {
+            virtual_offset & 0x03FF
+        }
+        pub const fn single_screen_upper(virtual_offset: PpuAddress) -> PpuAddress {
+            single_screen_lower(virtual_offset) | 0x0400
+        }
+        pub const fn horizontal(virtual_offset: PpuAddress) -> PpuAddress {
+            single_screen_lower(virtual_offset) | (virtual_offset & 0x0800).wrapping_shr(1)
+        }
+        pub const fn vertical(virtual_offset: PpuAddress) -> PpuAddress {
+            virtual_offset & !0x0800
+        }
     }
 }
 

@@ -28,7 +28,7 @@ pub struct Vertical;
 
 impl Mirroring for Horizontal {
     fn name_table_base_address(name_table: NameTableChoice) -> PpuAddress {
-        name_table_mirroring::horizontal(name_table)
+        name_table_mirroring::physical_base_address::horizontal(name_table)
     }
     fn clone_dynamic_nes(nes: &Nes<Nrom<Self>>) -> DynamicNes {
         DynamicNes::NromHorizontal(nes.clone())
@@ -36,7 +36,7 @@ impl Mirroring for Horizontal {
 }
 impl Mirroring for Vertical {
     fn name_table_base_address(name_table: NameTableChoice) -> PpuAddress {
-        name_table_mirroring::vertical(name_table)
+        name_table_mirroring::physical_base_address::vertical(name_table)
     }
     fn clone_dynamic_nes(nes: &Nes<Nrom<Self>>) -> DynamicNes {
         DynamicNes::NromVertical(nes.clone())
