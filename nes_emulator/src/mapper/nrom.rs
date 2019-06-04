@@ -1,10 +1,11 @@
-use super::{
-    mirroring, CpuMapper, Error, Mapper, NameTableChoice, PaletteRam, PatternTableChoice,
-    PpuAddress, PpuMapper, NAME_TABLE_BYTES, PATTERN_TABLE_BYTES,
-};
+use crate::mapper::mirroring::{CloneDynamicNes, Mirroring};
+use crate::mapper::Error;
+use crate::mapper::PpuAddress;
+use crate::mapper::{CpuMapper, Mapper, PpuMapper};
+use crate::mapper::{NameTableChoice, PaletteRam, PatternTableChoice};
+use crate::mapper::{NAME_TABLE_BYTES, PATTERN_TABLE_BYTES};
 use crate::nes::Nes;
 use crate::DynamicNes;
-use mirroring::{CloneDynamicNes, Mirroring};
 use mos6502::Address;
 
 big_array! { BigArray; }
@@ -12,6 +13,7 @@ big_array! { BigArray; }
 const PRG_ROM_BYTES: usize = 32 * 1024;
 const CHR_ROM_BYTES: usize = 8 * 1024;
 const NAME_TABLE_RAM_BYTES: usize = 2 * NAME_TABLE_BYTES;
+const RAM_BYTES: usize = 8 * 1024;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Nrom<M: Mirroring> {
@@ -21,6 +23,8 @@ pub struct Nrom<M: Mirroring> {
     chr_rom: [u8; CHR_ROM_BYTES],
     #[serde(with = "BigArray")]
     name_table_ram: [u8; NAME_TABLE_RAM_BYTES],
+    #[serde(with = "BigArray")]
+    ram: [u8; RAM_BYTES],
     palette_ram: PaletteRam,
     mirroring: M,
 }
@@ -46,10 +50,12 @@ impl<M: Mirroring> Nrom<M> {
         }
         let name_table_ram = [0; NAME_TABLE_RAM_BYTES];
         let palette_ram = PaletteRam::default();
+        let ram = [0; RAM_BYTES];
         Ok(Self {
             prg_rom,
             chr_rom,
             name_table_ram,
+            ram,
             palette_ram,
             mirroring,
         })
@@ -108,13 +114,17 @@ impl<M: Mirroring> CpuMapper for Nrom<M> {
         self.cpu_read_u8_read_only(address)
     }
     fn cpu_write_u8(&mut self, address: Address, data: u8) {
-        eprintln!(
-            "unexpected cartridge write of {:X} to address {:X}",
-            data, address
-        );
+        match address {
+            0x6000..=0x7FFF => self.ram[address as usize % 0x2000] = data,
+            other => eprintln!(
+                "unexpected cartridge write of {:X} to address {:X}",
+                data, other
+            ),
+        }
     }
     fn cpu_read_u8_read_only(&self, address: Address) -> u8 {
         match address {
+            0x6000..=0x7FFF => self.ram[address as usize % 0x2000],
             0x8000..=0xFFFF => self.prg_rom[address as usize % 0x8000],
             other => {
                 eprintln!("unexpected cartridge read from address {:X}", other);
