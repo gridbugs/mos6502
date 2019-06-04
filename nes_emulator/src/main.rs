@@ -25,7 +25,7 @@ use std::hash::{Hash, Hasher};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
-use mapper::{mirroring, mmc1, nrom, Mapper};
+use mapper::{mmc1, nrom, Mapper};
 use nes::Nes;
 use ppu::RenderOutput;
 
@@ -158,10 +158,9 @@ impl<'a> RenderOutput for NesRenderOutput<'a> {
 
 #[derive(Serialize, Deserialize)]
 pub enum DynamicNes {
-    NromHorizontal(Nes<nrom::Nrom<mirroring::Horizontal>>),
-    NromVertical(Nes<nrom::Nrom<mirroring::Vertical>>),
-    Mmc1Horizontal(Nes<mmc1::Mmc1<mirroring::Horizontal>>),
-    Mmc1Vertical(Nes<mmc1::Mmc1<mirroring::Vertical>>),
+    NromHorizontal(Nes<nrom::Nrom<nrom::Horizontal>>),
+    NromVertical(Nes<nrom::Nrom<nrom::Vertical>>),
+    Mmc1(Nes<mmc1::Mmc1>),
 }
 
 #[derive(Debug)]
@@ -169,10 +168,6 @@ pub enum Error {
     UnexpectedFormat(mapper::Error),
     InesParseError(ines::Error),
     DeserializeError(bincode::Error),
-    UnexpectedMirroringForMapper {
-        mapper: ines::Mapper,
-        mirroring: ines::Mirroring,
-    },
 }
 
 impl From<mapper::Error> for Error {
@@ -190,31 +185,21 @@ impl DynamicNes {
         } = ines;
         use ines::Mapper::*;
         use ines::Mirroring::*;
-        use mirroring as m;
         use mmc1::Mmc1;
         use nrom::Nrom;
-        use DynamicNes::*;
+        use DynamicNes as D;
         let mapper = header.mapper;
         let mirroring = header.mirroring;
         let dynamic_nes = match mapper {
             Nrom => match mirroring {
                 Horizontal => {
-                    NromHorizontal(Nes::new(Nrom::new(m::Horizontal, &prg_rom, &chr_rom)?))
+                    D::NromHorizontal(Nes::new(Nrom::new(nrom::Horizontal, &prg_rom, &chr_rom)?))
                 }
-                Vertical => NromVertical(Nes::new(Nrom::new(m::Vertical, &prg_rom, &chr_rom)?)),
-                FourScreenVram => {
-                    return Err(Error::UnexpectedMirroringForMapper { mapper, mirroring })
-                }
-            },
-            Mmc1 => match mirroring {
-                Horizontal => {
-                    Mmc1Horizontal(Nes::new(Mmc1::new(m::Horizontal, &prg_rom, &chr_rom)?))
-                }
-                Vertical => Mmc1Vertical(Nes::new(Mmc1::new(m::Vertical, &prg_rom, &chr_rom)?)),
-                FourScreenVram => {
-                    return Err(Error::UnexpectedMirroringForMapper { mapper, mirroring })
+                Vertical => {
+                    D::NromVertical(Nes::new(Nrom::new(nrom::Vertical, &prg_rom, &chr_rom)?))
                 }
             },
+            Mmc1 => D::Mmc1(Nes::new(Mmc1::new(&prg_rom, &chr_rom)?)),
         };
         Ok(dynamic_nes)
     }
@@ -495,8 +480,7 @@ fn main() {
         let stop = match current_nes {
             DynamicNes::NromHorizontal(nes) => run(nes, &config, &mut frontend),
             DynamicNes::NromVertical(nes) => run(nes, &config, &mut frontend),
-            DynamicNes::Mmc1Horizontal(nes) => run(nes, &config, &mut frontend),
-            DynamicNes::Mmc1Vertical(nes) => run(nes, &config, &mut frontend),
+            DynamicNes::Mmc1(nes) => run(nes, &config, &mut frontend),
         };
         match stop {
             Stop::Quit => break,

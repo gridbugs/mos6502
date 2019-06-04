@@ -27,7 +27,6 @@ impl PatternTableChoice {
 }
 
 const PATTERN_TABLE_BYTES: usize = 0x1000;
-const NAME_TABLE_BYTES: usize = 0x400;
 
 pub trait PpuMapper {
     fn ppu_write_u8(&mut self, address: PpuAddress, data: u8);
@@ -70,54 +69,3 @@ impl PaletteRam {
 
 pub mod mmc1;
 pub mod nrom;
-
-pub mod mirroring {
-    use super::mmc1;
-    use super::nrom;
-    use super::{NameTableChoice, PpuAddress, NAME_TABLE_BYTES};
-    use crate::nes::Nes;
-    use crate::DynamicNes;
-
-    pub trait Mirroring: Clone + Copy {
-        fn name_table_base_address(name_table: NameTableChoice) -> PpuAddress;
-    }
-
-    #[derive(Clone, Copy, Serialize, Deserialize)]
-    pub struct Horizontal;
-
-    #[derive(Clone, Copy, Serialize, Deserialize)]
-    pub struct Vertical;
-
-    impl Mirroring for Horizontal {
-        fn name_table_base_address(name_table: NameTableChoice) -> PpuAddress {
-            (name_table as PpuAddress / 2) * (NAME_TABLE_BYTES as PpuAddress)
-        }
-    }
-    impl Mirroring for Vertical {
-        fn name_table_base_address(name_table: NameTableChoice) -> PpuAddress {
-            (name_table as PpuAddress % 2) * (NAME_TABLE_BYTES as PpuAddress)
-        }
-    }
-
-    pub trait CloneDynamicNes: Mirroring {
-        fn nrom(nes: &Nes<nrom::Nrom<Self>>) -> DynamicNes;
-        fn mmc1(nes: &Nes<mmc1::Mmc1<Self>>) -> DynamicNes;
-    }
-
-    impl CloneDynamicNes for Horizontal {
-        fn nrom(nes: &Nes<nrom::Nrom<Self>>) -> DynamicNes {
-            DynamicNes::NromHorizontal(nes.clone())
-        }
-        fn mmc1(nes: &Nes<mmc1::Mmc1<Self>>) -> DynamicNes {
-            DynamicNes::Mmc1Horizontal(nes.clone())
-        }
-    }
-    impl CloneDynamicNes for Vertical {
-        fn nrom(nes: &Nes<nrom::Nrom<Self>>) -> DynamicNes {
-            DynamicNes::NromVertical(nes.clone())
-        }
-        fn mmc1(nes: &Nes<mmc1::Mmc1<Self>>) -> DynamicNes {
-            DynamicNes::Mmc1Vertical(nes.clone())
-        }
-    }
-}

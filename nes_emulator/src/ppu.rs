@@ -3,9 +3,21 @@ use mos6502::address;
 use mos6502::machine::{Address, Memory};
 use std::fmt;
 
+pub const NAME_TABLE_BYTES: usize = 0x400;
 const OAM_SPRITE_BYTES: usize = 4;
 const OAM_NUM_SPRITES: usize = 64;
 const OAM_BYTES: usize = OAM_SPRITE_BYTES * OAM_NUM_SPRITES;
+
+pub mod name_table_mirroring {
+    use super::NAME_TABLE_BYTES;
+    use crate::mapper::{NameTableChoice, PpuAddress};
+    pub fn horizontal(name_table: NameTableChoice) -> PpuAddress {
+        (name_table as PpuAddress / 2) * (NAME_TABLE_BYTES as PpuAddress)
+    }
+    pub fn vertical(name_table: NameTableChoice) -> PpuAddress {
+        (name_table as PpuAddress % 2) * (NAME_TABLE_BYTES as PpuAddress)
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Oam {

@@ -29,6 +29,7 @@ pub mod single_block {
                 num_chr_rom_blocks: 0,
                 mapper: Mapper::Nrom,
                 mirroring: Mirroring::Vertical,
+                four_screen_vram: false,
             },
             prg_rom,
             chr_rom: Vec::new(),

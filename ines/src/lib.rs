@@ -8,7 +8,6 @@ const HEADER_CHECKSUM: [u8; 4] = [78, 69, 83, 26];
 pub enum Mirroring {
     Horizontal,
     Vertical,
-    FourScreenVram,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -44,6 +43,7 @@ pub struct Header {
     pub num_chr_rom_blocks: u8,
     pub mapper: Mapper,
     pub mirroring: Mirroring,
+    pub four_screen_vram: bool,
 }
 
 impl Header {
@@ -52,9 +52,8 @@ impl Header {
         if checksum != &HEADER_CHECKSUM {
             panic!("Invalid checksum");
         }
-        let mirroring = if buffer[6] & (1 << 3) != 0 {
-            Mirroring::FourScreenVram
-        } else if buffer[6] & (1 << 0) != 0 {
+        let four_screen_vram = buffer[6] & (1 << 3) != 0;
+        let mirroring = if buffer[6] & (1 << 0) != 0 {
             Mirroring::Vertical
         } else {
             Mirroring::Horizontal
@@ -68,6 +67,7 @@ impl Header {
             num_chr_rom_blocks,
             mapper,
             mirroring,
+            four_screen_vram,
         })
     }
     fn prg_rom_bytes(&self) -> usize {
@@ -86,13 +86,15 @@ impl Header {
         match self.mirroring {
             Mirroring::Horizontal => {
                 buffer[6] |= 1 << 0;
-                buffer[6] &= !(1 << 3);
             }
             Mirroring::Vertical => {
                 buffer[6] &= !(1 << 0);
-                buffer[6] &= !(1 << 3);
             }
-            Mirroring::FourScreenVram => buffer[6] |= 1 << 3,
+        }
+        if self.four_screen_vram {
+            buffer[6] |= 1 << 3;
+        } else {
+            buffer[6] &= !(1 << 3);
         }
     }
 }
