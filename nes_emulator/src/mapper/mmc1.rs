@@ -13,6 +13,14 @@ const PRG_RAM_BYTES: usize = 8 * 1024;
 const PRG_ROM_BANK_BYTES: usize = 16 * 1024;
 const CHR_ROM_BANK_BYTES: usize = 4 * 1024;
 const NAME_TABLE_RAM_BYTES: usize = 2 * NAME_TABLE_BYTES;
+const MAX_NUM_SHIFT_REGISTER_WRITES: u8 = 4;
+
+mod registers {
+    pub const CONTROL: u8 = 0;
+    pub const CHR_BANK0: u8 = 1;
+    pub const CHR_BANK1: u8 = 2;
+    pub const PRG_BANK: u8 = 3;
+}
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 enum Mirroring {
@@ -86,6 +94,8 @@ pub struct Mmc1 {
     mirroring: Mirroring,
     prg_rom_bank_mode: PrgRomBankMode,
     chr_rom_bank_mode: ChrRomBankMode,
+    shift_register: u8,
+    num_shift_register_writes: u8,
 }
 
 impl Mmc1 {
@@ -166,6 +176,8 @@ impl Mmc1 {
         let chr_rom_bank1 = 1;
         let prg_rom_bank_mode = PrgRomBankMode::SwitchBoth;
         let chr_rom_bank_mode = ChrRomBankMode::SwitchTogether;
+        let shift_register = 0;
+        let num_shift_register_writes = 0;
         Ok(Self {
             palette_ram,
             prg_rom_banks,
@@ -179,7 +191,95 @@ impl Mmc1 {
             chr_rom_bank1,
             prg_rom_bank_mode,
             chr_rom_bank_mode,
+            shift_register,
+            num_shift_register_writes,
         })
+    }
+    fn write_control_register(&mut self, data: u8) {
+        self.mirroring = match data & 3 {
+            0 => Mirroring::SingleScreenLower,
+            1 => Mirroring::SingleScreenUpper,
+            2 => Mirroring::Vertical,
+            3 => Mirroring::Horizontal,
+            _ => unreachable!(),
+        };
+        self.prg_rom_bank_mode = match data.wrapping_shr(2) & 3 {
+            0 | 1 => PrgRomBankMode::SwitchBoth,
+            2 => {
+                self.prg_rom_bank0 = 0;
+                PrgRomBankMode::SwitchUpper
+            }
+            3 => {
+                self.prg_rom_bank1 = self.prg_rom_banks.len() - 1;
+                PrgRomBankMode::SwitchLower
+            }
+            _ => unreachable!(),
+        };
+        self.chr_rom_bank_mode = match data.wrapping_shr(4) & 1 {
+            0 => ChrRomBankMode::SwitchTogether,
+            1 => ChrRomBankMode::SwitchSeperate,
+            _ => unreachable!(),
+        };
+    }
+    fn write_chr_bank0(&mut self, data: u8) {
+        match self.chr_rom_bank_mode {
+            ChrRomBankMode::SwitchSeperate => {
+                self.chr_rom_bank0 = data as usize;
+            }
+            ChrRomBankMode::SwitchTogether => {
+                self.chr_rom_bank0 = (data & (!1)) as usize;
+                self.chr_rom_bank1 = (data | 1) as usize;
+            }
+        }
+    }
+    fn write_chr_bank1(&mut self, data: u8) {
+        match self.chr_rom_bank_mode {
+            ChrRomBankMode::SwitchSeperate => {
+                self.chr_rom_bank0 = data as usize;
+            }
+            ChrRomBankMode::SwitchTogether => (),
+        }
+    }
+    fn write_prg_bank(&mut self, data: u8) {
+        let bank = data & 0xF;
+        match self.prg_rom_bank_mode {
+            PrgRomBankMode::SwitchBoth => {
+                self.prg_rom_bank0 = (bank & (!1)) as usize;
+                self.prg_rom_bank1 = (bank | 1) as usize;
+            }
+            PrgRomBankMode::SwitchLower => {
+                self.prg_rom_bank0 = bank as usize;
+            }
+            PrgRomBankMode::SwitchUpper => {
+                self.prg_rom_bank1 = bank as usize;
+            }
+        }
+    }
+    fn write_register(&mut self, register: u8, data: u8) {
+        match register {
+            registers::CONTROL => self.write_control_register(data),
+            registers::CHR_BANK0 => self.write_chr_bank0(data),
+            registers::CHR_BANK1 => self.write_chr_bank1(data),
+            registers::PRG_BANK => self.write_prg_bank(data),
+            _ => unreachable!(),
+        }
+    }
+    fn write_u8(&mut self, address: Address, data: u8) {
+        if data & 1 << 7 != 0 {
+            self.num_shift_register_writes = 0;
+            self.shift_register = 0;
+        } else {
+            if self.num_shift_register_writes == MAX_NUM_SHIFT_REGISTER_WRITES {
+                let value = ((data & 1) << 4) | self.shift_register;
+                let offset = (address.wrapping_shr(13) & 3) as u8;
+                self.write_register(offset, value);
+                self.num_shift_register_writes = 0;
+                self.shift_register = 0;
+            } else {
+                self.shift_register |= (data & 1) << self.num_shift_register_writes;
+                self.num_shift_register_writes += 1;
+            }
+        }
     }
 }
 
@@ -239,9 +339,7 @@ impl CpuMapper for Mmc1 {
     fn cpu_write_u8(&mut self, address: Address, data: u8) {
         match address {
             0x6000..=0x7FFF => self.prg_ram[address as usize % 0x2000] = data,
-            0x8000..=0xFFFF => {
-                eprintln!("unimplemented cartridge write {:X} to {:X}", data, address)
-            }
+            0x8000..=0xFFFF => self.write_u8(address, data),
             other => eprintln!(
                 "unexpected cartridge write of {:X} to address {:X}",
                 data, other
