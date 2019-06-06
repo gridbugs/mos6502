@@ -24,6 +24,8 @@ use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use mapper::{mmc1, nrom, Mapper};
 use nes::Nes;
@@ -68,6 +70,7 @@ struct Args {
     input: Input,
     autosave_after_frames: Option<u64>,
     kill_after_frames: Option<u64>,
+    frame_duration: Option<Duration>,
     save_state_filename: Option<String>,
     gif_filename: Option<String>,
     frontend: Frontend,
@@ -80,6 +83,8 @@ impl Args {
                 input = Input::arg();
                 autosave_after_frames = simon::opt("a", "autosave-after-frames", "save state after this many frames", "INT");
                 kill_after_frames = simon::opt("k", "kill-after-frames", "exit after this many frames", "INT");
+                frame_duration = simon::opt("f", "frame-duration-ms", "frame duration in milliseconds", "INT")
+                    .option_map(Duration::from_millis);
                 save_state_filename = simon::opt("s", "save-state-file", "state file to save", "PATH");
                 gif_filename = simon::opt("g", "gif", "gif file to record into", "PATH");
                 frontend = Frontend::arg();
@@ -88,6 +93,7 @@ impl Args {
                     input,
                     autosave_after_frames,
                     kill_after_frames,
+                    frame_duration,
                     save_state_filename,
                     gif_filename,
                     frontend,
@@ -265,6 +271,7 @@ struct Config {
     save_config: Option<SaveConfig>,
     gif_filename: Option<PathBuf>,
     kill_after_frames: Option<u64>,
+    frame_duration: Option<Duration>,
 }
 
 impl Config {
@@ -284,6 +291,7 @@ impl Config {
             save_config,
             gif_filename,
             kill_after_frames: args.kill_after_frames,
+            frame_duration: args.frame_duration,
         }
     }
     fn save_filename(&self) -> Option<&PathBuf> {
@@ -430,6 +438,9 @@ fn run_glutin<M: Mapper + serde::ser::Serialize>(
         .map(|gif_filename| gif_renderer::Renderer::new(File::create(gif_filename).unwrap()));
     let autosave_config = config.autosave_config();
     loop {
+        let realtime_frame_timing = config
+            .frame_duration
+            .map(|frame_duration| (frame_duration, Instant::now()));
         if Some(frame_count) == config.kill_after_frames {
             return Stop::Quit;
         }
@@ -461,6 +472,11 @@ fn run_glutin<M: Mapper + serde::ser::Serialize>(
             }
         });
         nes.run_for_frame();
+        if let Some((frame_duration, frame_start)) = realtime_frame_timing {
+            if let Some(remaining) = frame_duration.checked_sub(frame_start.elapsed()) {
+                thread::sleep(remaining);
+            }
+        }
         frontend.render();
         frame_count += 1;
     }
