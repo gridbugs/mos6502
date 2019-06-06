@@ -307,7 +307,7 @@ impl PpuMapper for Mmc1 {
             0x1000..=0x1FFF => {
                 self.chr_rom_banks[self.chr_rom_bank1].rom[(address & 0x0FFF) as usize]
             }
-            0x0000..=0x3EFF => {
+            0x2000..=0x3EFF => {
                 let physical_offset =
                     self.mirroring.name_table_physical_offset(address & 0x0FFF) as usize;
                 self.name_table_ram[physical_offset]

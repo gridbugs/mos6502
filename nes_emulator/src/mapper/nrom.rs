@@ -18,6 +18,7 @@ const PRG_RAM_BYTES: usize = 8 * 1024;
 pub trait Mirroring: Clone + Copy {
     fn name_table_base_address(name_table: NameTableChoice) -> PpuAddress;
     fn clone_dynamic_nes(nes: &Nes<Nrom<Self>>) -> DynamicNes;
+    fn name_table_physical_offset(virtual_offset: PpuAddress) -> PpuAddress;
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
@@ -33,6 +34,9 @@ impl Mirroring for Horizontal {
     fn clone_dynamic_nes(nes: &Nes<Nrom<Self>>) -> DynamicNes {
         DynamicNes::NromHorizontal(nes.clone())
     }
+    fn name_table_physical_offset(virtual_offset: PpuAddress) -> PpuAddress {
+        name_table_mirroring::physical_offset::horizontal(virtual_offset)
+    }
 }
 impl Mirroring for Vertical {
     fn name_table_base_address(name_table: NameTableChoice) -> PpuAddress {
@@ -40,6 +44,9 @@ impl Mirroring for Vertical {
     }
     fn clone_dynamic_nes(nes: &Nes<Nrom<Self>>) -> DynamicNes {
         DynamicNes::NromVertical(nes.clone())
+    }
+    fn name_table_physical_offset(virtual_offset: PpuAddress) -> PpuAddress {
+        name_table_mirroring::physical_offset::vertical(virtual_offset)
     }
 }
 
@@ -96,14 +103,10 @@ impl<M: Mirroring> PpuMapper for Nrom<M> {
         match address {
             0x0000..=0x0FFF => println!("unimplemented pattern table write"),
             0x1000..=0x1FFF => println!("unimplemented pattern table write"),
-            0x2000..=0x23FF => self.name_table_ram[address as usize - 0x2000] = data,
-            0x2400..=0x27FF => self.name_table_ram[address as usize - 0x2400] = data,
-            0x2800..=0x2BFF => self.name_table_ram[address as usize - 0x2400] = data,
-            0x2C00..=0x2FFF => self.name_table_ram[address as usize - 0x2800] = data,
-            0x3000..=0x33FF => self.name_table_ram[address as usize - 0x3000] = data,
-            0x3400..=0x37FF => self.name_table_ram[address as usize - 0x3400] = data,
-            0x3800..=0x3BFF => self.name_table_ram[address as usize - 0x3400] = data,
-            0x3C00..=0x3EFF => self.name_table_ram[address as usize - 0x3800] = data,
+            0x2000..=0x3EFF => {
+                let physical_offset = M::name_table_physical_offset(address & 0x0FFF) as usize;
+                self.name_table_ram[physical_offset] = data;
+            }
             0x3F00..=0x3FFF => self.palette_ram.write_u8(address as u8, data),
             _ => unreachable!(),
         }
@@ -112,14 +115,10 @@ impl<M: Mirroring> PpuMapper for Nrom<M> {
         let address = address % 0x4000;
         match address {
             0x0000..=0x1FFF => self.chr_rom[address as usize],
-            0x2000..=0x23FF => self.name_table_ram[address as usize - 0x2000],
-            0x2400..=0x27FF => self.name_table_ram[address as usize - 0x2400],
-            0x2800..=0x2BFF => self.name_table_ram[address as usize - 0x2400],
-            0x2C00..=0x2FFF => self.name_table_ram[address as usize - 0x2800],
-            0x3000..=0x33FF => self.name_table_ram[address as usize - 0x3000],
-            0x3400..=0x37FF => self.name_table_ram[address as usize - 0x3400],
-            0x3800..=0x3BFF => self.name_table_ram[address as usize - 0x3400],
-            0x3C00..=0x3EFF => self.name_table_ram[address as usize - 0x3800],
+            0x2000..=0x3EFF => {
+                let physical_offset = M::name_table_physical_offset(address & 0x0FFF) as usize;
+                self.name_table_ram[physical_offset]
+            }
             0x3F00..=0x3FFF => self.palette_ram.read_u8(address as u8),
             _ => unreachable!(),
         }
