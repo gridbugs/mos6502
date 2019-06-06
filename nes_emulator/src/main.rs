@@ -67,6 +67,7 @@ impl Input {
 struct Args {
     input: Input,
     autosave_after_frames: Option<u64>,
+    kill_after_frames: Option<u64>,
     save_state_filename: Option<String>,
     gif_filename: Option<String>,
     frontend: Frontend,
@@ -78,6 +79,7 @@ impl Args {
             let {
                 input = Input::arg();
                 autosave_after_frames = simon::opt("a", "autosave-after-frames", "save state after this many frames", "INT");
+                kill_after_frames = simon::opt("k", "kill-after-frames", "exit after this many frames", "INT");
                 save_state_filename = simon::opt("s", "save-state-file", "state file to save", "PATH");
                 gif_filename = simon::opt("g", "gif", "gif file to record into", "PATH");
                 frontend = Frontend::arg();
@@ -85,6 +87,7 @@ impl Args {
                 Self {
                     input,
                     autosave_after_frames,
+                    kill_after_frames,
                     save_state_filename,
                     gif_filename,
                     frontend,
@@ -261,6 +264,7 @@ impl SaveConfig {
 struct Config {
     save_config: Option<SaveConfig>,
     gif_filename: Option<PathBuf>,
+    kill_after_frames: Option<u64>,
 }
 
 impl Config {
@@ -279,6 +283,7 @@ impl Config {
         Self {
             save_config,
             gif_filename,
+            kill_after_frames: args.kill_after_frames,
         }
     }
     fn save_filename(&self) -> Option<&PathBuf> {
@@ -455,6 +460,9 @@ fn run_glutin<M: Mapper + serde::ser::Serialize>(
         nes.run_for_frame();
         frontend.render();
         frame_count += 1;
+        if Some(frame_count) == config.kill_after_frames {
+            return Stop::Quit;
+        }
     }
 }
 
