@@ -8,6 +8,7 @@ edition = "2018"
 simon = "0.2"
 mos6502 = { path = "../mos6502" }
 ines = { path = "../ines" }
+nes_specs = { path = "../nes_specs" }
 analyser = { path = "../analyser" }
 glutin_frontend = { path = "../glutin_frontend" }
 gif_renderer = { path = "../gif_renderer" }

@@ -1,12 +1,20 @@
 use crate::mapper::{NameTableChoice, PatternTableChoice, PpuMapper};
 use mos6502::address;
 use mos6502::machine::{Address, Memory};
+use nes_specs;
 use std::fmt;
 
 pub const NAME_TABLE_BYTES: usize = 0x400;
 const OAM_SPRITE_BYTES: usize = 4;
 const OAM_NUM_SPRITES: usize = 64;
 const OAM_BYTES: usize = OAM_SPRITE_BYTES * OAM_NUM_SPRITES;
+const TILE_SIZE_PX: u16 = 8;
+const SCREEN_WIDTH_TILES: u16 = nes_specs::SCREEN_WIDTH_PX / TILE_SIZE_PX;
+const SCREEN_HEIGHT_TILES: u16 = nes_specs::SCREEN_HEIGHT_PX / TILE_SIZE_PX;
+const ATTRIBUTE_SIZE_TILES: u16 = 4;
+const SCREEN_WIDTH_ATTRIBUTES: u16 = SCREEN_WIDTH_TILES / ATTRIBUTE_SIZE_TILES;
+const PALETTE_NUM_COLOURS: u8 = 4;
+const PATTERN_BYTES: u8 = 16;
 
 pub mod name_table_mirroring {
     pub mod physical_base_address {
@@ -71,6 +79,89 @@ impl fmt::Debug for Oam {
             writeln!(f, "{:02}: {:02X?}", sprite_index, sprite)?;
         }
         Ok(())
+    }
+}
+
+struct NameTableEntry {
+    pattern_data_lo: [u8; PATTERN_BYTES as usize / 2],
+    pattern_data_hi: [u8; PATTERN_BYTES as usize / 2],
+    palette: [u8; PALETTE_NUM_COLOURS as usize],
+}
+
+impl NameTableEntry {
+    fn lookup<M: PpuMapper>(
+        tile_x: u16,
+        tile_y: u16,
+        background_pattern_table: &[u8],
+        memory: &M,
+    ) -> Self {
+        let name_table_choice = if tile_x < SCREEN_WIDTH_TILES {
+            if tile_y < SCREEN_HEIGHT_TILES {
+                NameTableChoice::TopLeft
+            } else {
+                NameTableChoice::BottomLeft
+            }
+        } else {
+            if tile_y < SCREEN_HEIGHT_TILES {
+                NameTableChoice::TopRight
+            } else {
+                NameTableChoice::BottomRight
+            }
+        };
+        let name_table = memory.ppu_name_table(name_table_choice);
+        let name_table_relative_tile_x = tile_x % SCREEN_WIDTH_TILES;
+        let name_table_relative_tile_y = tile_y % SCREEN_HEIGHT_TILES;
+        let name_table_pattern_address_index =
+            name_table_relative_tile_y * SCREEN_WIDTH_TILES + name_table_relative_tile_x;
+        let pattern_index = name_table[name_table_pattern_address_index as usize];
+        let pattern_offset = pattern_index as u16 * PATTERN_BYTES as u16;
+        let mut pattern_data_lo = [0; PATTERN_BYTES as usize / 2];
+        let mut pattern_data_hi = [0; PATTERN_BYTES as usize / 2];
+        pattern_data_lo.copy_from_slice(
+            &background_pattern_table
+                [pattern_offset as usize..pattern_offset as usize + (PATTERN_BYTES as usize / 2)],
+        );
+        pattern_data_hi.copy_from_slice(
+            &background_pattern_table[(pattern_offset as usize + (PATTERN_BYTES as usize / 2))
+                ..(pattern_offset as usize + PATTERN_BYTES as usize)],
+        );
+        let name_table_relative_attribute_x = name_table_relative_tile_x / ATTRIBUTE_SIZE_TILES;
+        let name_table_relative_attribute_y = name_table_relative_tile_y / ATTRIBUTE_SIZE_TILES;
+        let name_table_attribute_index = name_table_relative_attribute_y * SCREEN_WIDTH_ATTRIBUTES
+            + name_table_relative_attribute_x;
+        let attribute_block = name_table[name_table_attribute_index as usize];
+        let tile_2x2_block_coord_x = name_table_relative_tile_x / 2;
+        let tile_2x2_block_coord_y = name_table_relative_tile_y / 2;
+        let attribute_shift_to_select_2x2_tile_block = match (
+            tile_2x2_block_coord_x % 2 == 0,
+            tile_2x2_block_coord_y % 2 == 0,
+        ) {
+            (true, true) => 0,
+            (true, false) => 2,
+            (false, true) => 4,
+            (false, false) => 6,
+        };
+        let palette_base = (attribute_block.wrapping_shr(attribute_shift_to_select_2x2_tile_block)
+            & 0x3)
+            * PALETTE_NUM_COLOURS;
+        let mut palette = [0; PALETTE_NUM_COLOURS as usize];
+        palette.copy_from_slice(
+            &memory.ppu_palette_ram()[palette_base as usize..palette_base as usize + 4],
+        );
+        Self {
+            pattern_data_lo,
+            pattern_data_hi,
+            palette,
+        }
+    }
+    fn render<O: RenderOutput>(
+        &self,
+        pixel_min_x: u16,
+        pixel_min_y: u16,
+        pixel_max_x: u16,
+        pixel_max_y: u16,
+        pixels: &mut O,
+    ) {
     }
 }
 
@@ -183,7 +274,27 @@ impl Ppu {
         self.read_buffer = value_from_vram;
         value_for_cpu
     }
-    pub fn render<M: PpuMapper, O: RenderOutput>(&self, memory: &M, oam: &Oam, pixels: &mut O) {
+    fn _render_background<M: PpuMapper, O: RenderOutput>(&self, memory: &M, pixels: &mut O) {
+        let pixel_max_x = self.scroll_x as u16 + nes_specs::SCREEN_WIDTH_PX;
+        let pixel_max_y = self.scroll_y as u16 + nes_specs::SCREEN_HEIGHT_PX;
+        let tile_min_x = self.scroll_x as u16 / TILE_SIZE_PX;
+        let tile_min_y = self.scroll_y as u16 / TILE_SIZE_PX;
+        let tile_max_x = pixel_max_x / TILE_SIZE_PX;
+        let tile_max_y = pixel_max_y / TILE_SIZE_PX;
+        let background_pattern_table = memory.ppu_pattern_table(self.background_pattern_table);
+        for tile_y in tile_min_y..=tile_max_y {
+            for tile_x in tile_min_x..=tile_max_x {
+                NameTableEntry::lookup(tile_x, tile_y, background_pattern_table, memory).render(
+                    self.scroll_x as u16,
+                    self.scroll_y as u16,
+                    pixel_max_x,
+                    pixel_max_y,
+                    pixels,
+                );
+            }
+        }
+    }
+    fn render_background<M: PpuMapper, O: RenderOutput>(&self, memory: &M, pixels: &mut O) {
         let name_table_and_attribute_table = memory.ppu_name_table(NameTableChoice::TopLeft);
         let name_table = &name_table_and_attribute_table[0x0..=0x3BF];
         let attribute_table = &name_table_and_attribute_table[0x3C0..=0x3FF];
@@ -238,6 +349,9 @@ impl Ppu {
                 }
             }
         }
+    }
+    fn render_sprites<M: PpuMapper, O: RenderOutput>(&self, memory: &M, oam: &Oam, pixels: &mut O) {
+        let palette_ram = memory.ppu_palette_ram();
         let sprite_pattern_table = memory.ppu_pattern_table(self.sprite_pattern_table);
         for i in 0..OAM_NUM_SPRITES {
             let oam_entry_index = i * OAM_SPRITE_BYTES;
@@ -282,7 +396,7 @@ impl Ppu {
                     };
                     let x = position_x as u16 + offset_x as u16;
                     let y = position_y as u16 + offset_y as u16;
-                    if x < 256 && y < 240 {
+                    if x < nes_specs::SCREEN_WIDTH_PX && y < nes_specs::SCREEN_HEIGHT_PX {
                         if attributes & oam_attribute::flag::PRIORITY == 0 {
                             pixels.set_pixel_colour_sprite_front(x, y, colour_code);
                         } else {
@@ -292,6 +406,10 @@ impl Ppu {
                 }
             }
         }
+    }
+    pub fn render<M: PpuMapper, O: RenderOutput>(&self, memory: &M, oam: &Oam, pixels: &mut O) {
+        self.render_background(memory, pixels);
+        self.render_sprites(memory, oam, pixels);
     }
 }
 

@@ -11,6 +11,7 @@ extern crate serde;
 #[macro_use]
 extern crate serde_big_array;
 extern crate nes_headless_frame;
+extern crate nes_specs;
 
 mod apu;
 mod mapper;

@@ -3,12 +3,12 @@ extern crate gfx;
 extern crate gfx_device_gl;
 extern crate gfx_window_glutin;
 pub extern crate glutin;
+extern crate nes_specs;
 
 mod dimensions {
-    pub const NES_SCREEN_WIDTH_PX: u16 = 256;
-    pub const NES_SCREEN_HEIGHT_PX: u16 = 240;
+    use nes_specs;
     pub const SCALE: u16 = 2;
-    pub const PIXEL_BUFFER_SIZE: usize = (NES_SCREEN_WIDTH_PX * NES_SCREEN_HEIGHT_PX) as usize;
+    pub const PIXEL_BUFFER_SIZE: usize = nes_specs::SCREEN_TOTAL_PX as usize;
 }
 
 mod formats {
@@ -92,7 +92,7 @@ mod renderer {
                 })
                 .collect::<Vec<_>>();
             let (_, post_processor_in, ppu_pixel_out) = factory
-                .create_render_target(NES_SCREEN_WIDTH_PX, NES_SCREEN_HEIGHT_PX)
+                .create_render_target(nes_specs::SCREEN_WIDTH_PX, nes_specs::SCREEN_HEIGHT_PX)
                 .expect("Failed to create render target");
             let ppu_pixel_bundle = {
                 let pso = factory
@@ -179,10 +179,6 @@ use renderer::Renderer;
 use std::slice;
 mod colour;
 
-pub use dimensions::NES_SCREEN_HEIGHT_PX as HEIGHT_PX;
-pub use dimensions::NES_SCREEN_WIDTH_PX as WIDTH_PX;
-const NUM_PIXELS: usize = (WIDTH_PX * HEIGHT_PX) as usize;
-
 type GlutinRenderer = Renderer<
     gfx_device_gl::Resources,
     gfx_device_gl::CommandBuffer,
@@ -195,7 +191,7 @@ pub struct Frontend {
     windowed_context: glutin::WindowedContext<glutin::PossiblyCurrent>,
     events_loop: glutin::EventsLoop,
     colour_table: colour::ColourTable,
-    depths: [u8; NUM_PIXELS],
+    depths: [u8; nes_specs::SCREEN_TOTAL_PX as usize],
 }
 
 mod depth {
@@ -209,12 +205,12 @@ mod depth {
 pub struct Pixels<'a> {
     colour_table: &'a colour::ColourTable,
     raw: &'a mut [[f32; 4]],
-    depths: &'a mut [u8; NUM_PIXELS],
+    depths: &'a mut [u8; nes_specs::SCREEN_TOTAL_PX as usize],
 }
 
 impl<'a> Pixels<'a> {
     fn set_pixel_colour(&mut self, x: u16, y: u16, colour_index: u8, depth: u8) {
-        let offset = (y * NES_SCREEN_WIDTH_PX + x) as usize;
+        let offset = (y * nes_specs::SCREEN_WIDTH_PX + x) as usize;
         let current_depth = &mut self.depths[offset];
         if depth > *current_depth {
             *current_depth = depth;
@@ -269,8 +265,8 @@ impl Frontend {
     pub fn new() -> Self {
         let events_loop = glutin::EventsLoop::new();
         let window_size = glutin::dpi::LogicalSize::new(
-            (NES_SCREEN_WIDTH_PX * SCALE) as f64,
-            (NES_SCREEN_HEIGHT_PX * SCALE) as f64,
+            (nes_specs::SCREEN_WIDTH_PX * SCALE) as f64,
+            (nes_specs::SCREEN_HEIGHT_PX * SCALE) as f64,
         );
         let window_builder = glutin::WindowBuilder::new()
             .with_dimensions(window_size)
@@ -284,8 +280,8 @@ impl Frontend {
             .expect("Failed to create window");
         let hidpi = windowed_context.window().get_hidpi_factor();
         let window_size = glutin::dpi::PhysicalSize::new(
-            (NES_SCREEN_WIDTH_PX * SCALE) as f64,
-            (NES_SCREEN_HEIGHT_PX * SCALE) as f64,
+            (nes_specs::SCREEN_WIDTH_PX * SCALE) as f64,
+            (nes_specs::SCREEN_HEIGHT_PX * SCALE) as f64,
         )
         .to_logical(hidpi);
         windowed_context.window().set_inner_size(window_size);
@@ -299,13 +295,13 @@ impl Frontend {
             windowed_context,
             renderer,
             colour_table,
-            depths: [depth::EMPTY; NUM_PIXELS],
+            depths: [depth::EMPTY; nes_specs::SCREEN_TOTAL_PX as usize],
         }
     }
     pub fn render(&mut self) {
         self.renderer.render();
         self.windowed_context.swap_buffers().unwrap();
-        self.depths = [0; NUM_PIXELS];
+        self.depths = [0; nes_specs::SCREEN_TOTAL_PX as usize];
     }
     pub fn poll_glutin_events<F: FnMut(glutin::Event)>(&mut self, f: F) {
         self.events_loop.poll_events(f)

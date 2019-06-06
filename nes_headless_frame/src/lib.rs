@@ -1,10 +1,6 @@
-use std::hash::{Hash, Hasher};
+extern crate nes_specs;
 
-pub const NES_SCREEN_WIDTH_PX: u16 = 256;
-pub const NES_SCREEN_HEIGHT_PX: u16 = 240;
-pub const NES_SCREEN_PX: usize = (NES_SCREEN_WIDTH_PX * NES_SCREEN_HEIGHT_PX) as usize;
-pub const NUM_COLOURS: usize = 64;
-const COLOUR_MASK: u8 = (NUM_COLOURS as u8) - 1;
+use std::hash::{Hash, Hasher};
 
 mod depth {
     pub const EMPTY: u8 = 0;
@@ -15,15 +11,15 @@ mod depth {
 }
 
 pub struct Frame {
-    indices: [u8; NES_SCREEN_PX],
-    depths: [u8; NES_SCREEN_PX],
+    indices: [u8; nes_specs::SCREEN_TOTAL_PX as usize],
+    depths: [u8; nes_specs::SCREEN_TOTAL_PX as usize],
 }
 
 impl Frame {
     pub fn new() -> Self {
         Self {
-            indices: [0; NES_SCREEN_PX],
-            depths: [depth::EMPTY; NES_SCREEN_PX],
+            indices: [0; nes_specs::SCREEN_TOTAL_PX as usize],
+            depths: [depth::EMPTY; nes_specs::SCREEN_TOTAL_PX as usize],
         }
     }
     pub fn clear(&mut self) {
@@ -33,11 +29,11 @@ impl Frame {
         &self.indices
     }
     fn set_pixel_colour(&mut self, x: u16, y: u16, colour_index: u8, depth: u8) {
-        let offset = (y * NES_SCREEN_WIDTH_PX + x) as usize;
+        let offset = (y * nes_specs::SCREEN_WIDTH_PX + x) as usize;
         let current_depth = &mut self.depths[offset];
         if depth > *current_depth {
             *current_depth = depth;
-            self.indices[offset] = colour_index & COLOUR_MASK;
+            self.indices[offset] = colour_index & nes_specs::COLOUR_MASK;
         }
     }
     pub fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {

@@ -7,7 +7,7 @@ members = [
     "glutin_frontend",
     "ines",
     "mos6502",
-    "nes",
+    "nes_specs",
     "nes_emulator",
     "nes_headless_frame",
     "nes_samples",

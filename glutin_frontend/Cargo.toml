@@ -9,6 +9,7 @@ glutin = "0.21"
 gfx_window_glutin = "0.31"
 gfx_device_gl = "0.16"
 gfx = "0.18"
+nes_specs = { path = "../nes_specs" }
 
 [[example]]
 name = "test_pattern"

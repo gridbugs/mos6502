@@ -7,7 +7,6 @@ edition = "2018"
 [dependencies]
 assembler = { path = "../assembler" }
 mos6502 = { path = "../mos6502" }
-nes = { path = "../nes" }
 ines = { path = "../ines" }
 samples = { path = "../samples" }
 

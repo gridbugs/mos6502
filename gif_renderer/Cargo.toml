@@ -6,4 +6,5 @@ edition = "2018"
 
 [dependencies]
 nes_headless_frame = { path = "../nes_headless_frame" }
+nes_specs = { path = "../nes_specs" }
 gif = "0.10"
