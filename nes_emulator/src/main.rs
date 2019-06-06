@@ -430,6 +430,9 @@ fn run_glutin<M: Mapper + serde::ser::Serialize>(
         .map(|gif_filename| gif_renderer::Renderer::new(File::create(gif_filename).unwrap()));
     let autosave_config = config.autosave_config();
     loop {
+        if Some(frame_count) == config.kill_after_frames {
+            return Stop::Quit;
+        }
         if let Some(autosave_config) = autosave_config.as_ref() {
             if frame_count == autosave_config.autosave_after_frames {
                 save(&nes, Some(&autosave_config.filename));
@@ -460,9 +463,6 @@ fn run_glutin<M: Mapper + serde::ser::Serialize>(
         nes.run_for_frame();
         frontend.render();
         frame_count += 1;
-        if Some(frame_count) == config.kill_after_frames {
-            return Stop::Quit;
-        }
     }
 }
 
