@@ -1,4 +1,5 @@
 extern crate glutin_frontend;
+extern crate nes_specs;
 use glutin_frontend::*;
 
 const BLACK: u8 = 0x0F;
@@ -25,8 +26,8 @@ fn main() {
             for mut p in pixels.iter_mut() {
                 p.set_colour(BLACK);
             }
-            for i in 0..HEIGHT_PX {
-                let x = (i + offset) % WIDTH_PX;
+            for i in 0..nes_specs::SCREEN_HEIGHT_PX {
+                let x = (i + offset) % nes_specs::SCREEN_WIDTH_PX;
                 pixels.set_pixel_colour_background(x, i, PINK);
             }
             offset += 1;
