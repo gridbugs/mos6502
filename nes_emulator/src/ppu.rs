@@ -382,12 +382,8 @@ impl Ppu {
                     } else {
                         7 - row_index
                     };
-                    let x = (position_x as u16)
-                        .wrapping_add(offset_x as u16)
-                        .wrapping_sub(self.scroll_x as u16);
-                    let y = (position_y as u16)
-                        .wrapping_add(offset_y as u16)
-                        .wrapping_sub(self.scroll_y as u16);
+                    let x = (position_x as u16).wrapping_add(offset_x as u16);
+                    let y = (position_y as u16).wrapping_add(offset_y as u16);
                     if x < nes_specs::SCREEN_WIDTH_PX && y < nes_specs::SCREEN_HEIGHT_PX {
                         if attributes & oam_attribute::flag::PRIORITY == 0 {
                             pixels.set_pixel_colour_sprite_front(x, y, colour_code);
