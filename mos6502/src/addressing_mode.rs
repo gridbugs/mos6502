@@ -93,7 +93,10 @@ impl AbsoluteYIndexed {
         let base_address = memory.read_u16_le(cpu.pc.wrapping_add(1));
         base_address.wrapping_add(cpu.y as Address)
     }
-    fn address_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (Address, bool) {
+    pub fn address_check_cross_page_boundary<M: Memory>(
+        cpu: &Cpu,
+        memory: &mut M,
+    ) -> (Address, bool) {
         let base_address = memory.read_u16_le(cpu.pc.wrapping_add(1));
         let indexed_address = base_address.wrapping_add(cpu.y as Address);
         (
@@ -167,7 +170,10 @@ impl IndirectYIndexed {
             .read_u16_le_zero_page(base_address)
             .wrapping_add(cpu.y as Address)
     }
-    fn address_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (Address, bool) {
+    pub fn address_check_cross_page_boundary<M: Memory>(
+        cpu: &Cpu,
+        memory: &mut M,
+    ) -> (Address, bool) {
         let indirect_address = memory.read_u8(cpu.pc.wrapping_add(1));
         let base_address = memory.read_u16_le_zero_page(indirect_address);
         let indexed_address = base_address.wrapping_add(cpu.y as Address);

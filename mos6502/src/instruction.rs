@@ -158,6 +158,48 @@ pub mod adc {
         cycles
     }
 }
+pub mod ahx {
+    use super::*;
+    use opcode::ahx::*;
+    pub trait AddressingMode: addressing_mode::Trait {
+        fn address_and_num_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> (Address, u8);
+    }
+    impl AddressingMode for IndirectYIndexed {
+        fn address_and_num_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> (Address, u8) {
+            let (address, cross_page_boundary) =
+                Self::address_check_cross_page_boundary(cpu, memory);
+            (address, 5u8.wrapping_add(cross_page_boundary as u8))
+        }
+    }
+    impl AddressingMode for AbsoluteYIndexed {
+        fn address_and_num_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> (Address, u8) {
+            let (address, cross_page_boundary) =
+                Self::address_check_cross_page_boundary(cpu, memory);
+            (address, 4u8.wrapping_add(cross_page_boundary as u8))
+        }
+    }
+    pub struct Inst<A: AddressingMode>(pub A);
+    impl AssemblerInstruction for Inst<IndirectYIndexed> {
+        type AddressingMode = IndirectYIndexed;
+        fn opcode() -> u8 {
+            unofficial0::INDIRECT_Y_INDEXED
+        }
+    }
+    impl AssemblerInstruction for Inst<AbsoluteYIndexed> {
+        type AddressingMode = AbsoluteYIndexed;
+        fn opcode() -> u8 {
+            unofficial0::ABSOLUTE_Y_INDEXED
+        }
+    }
+    pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
+        let (target_address, num_cycles) = A::address_and_num_cycles(cpu, memory);
+        let value = cpu.x & cpu.acc & address::hi(target_address).wrapping_add(1);
+        let target_address = address::from_u8_lo_hi(address::lo(target_address), value);
+        memory.write_u8(target_address, value);
+        cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
+        num_cycles
+    }
+}
 pub mod alr {
     use super::*;
     use opcode::alr::*;

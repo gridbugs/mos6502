@@ -8,6 +8,12 @@ pub mod adc {
     pub const ZERO_PAGE: u8 = 0x65;
     pub const ZERO_PAGE_X_INDEXED: u8 = 0x75;
 }
+pub mod ahx {
+    pub mod unofficial0 {
+        pub const INDIRECT_Y_INDEXED: u8 = 0x93;
+        pub const ABSOLUTE_Y_INDEXED: u8 = 0x9F;
+    }
+}
 pub mod anc {
     pub mod unofficial0 {
         pub const IMMEDIATE: u8 = 0x0B;

@@ -7,6 +7,7 @@ pub trait Trait {
 }
 
 pub use adc::Inst as Adc;
+pub use ahx::Inst as Ahx;
 pub use alr::Inst as Alr;
 pub use anc::Inst as Anc;
 pub use and::Inst as And;

@@ -63,6 +63,12 @@ impl Cpu {
             opcode::adc::X_INDEXED_INDIRECT => adc::interpret(XIndexedIndirect, self, memory),
             opcode::adc::ZERO_PAGE => adc::interpret(ZeroPage, self, memory),
             opcode::adc::ZERO_PAGE_X_INDEXED => adc::interpret(ZeroPageXIndexed, self, memory),
+            opcode::ahx::unofficial0::ABSOLUTE_Y_INDEXED => {
+                ahx::interpret(AbsoluteYIndexed, self, memory)
+            }
+            opcode::ahx::unofficial0::INDIRECT_Y_INDEXED => {
+                ahx::interpret(IndirectYIndexed, self, memory)
+            }
             opcode::alr::unofficial0::IMMEDIATE => alr::interpret(self, memory),
             opcode::arr::unofficial0::IMMEDIATE => arr::interpret(self, memory),
             opcode::anc::unofficial0::IMMEDIATE => anc::interpret(self, memory),

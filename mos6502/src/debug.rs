@@ -5,6 +5,7 @@ use std::fmt;
 #[derive(Debug, Clone, Copy)]
 pub enum InstructionType {
     Adc,
+    Ahx,
     Alr,
     Arr,
     Anc,
@@ -142,6 +143,8 @@ impl Instruction {
             opcode::adc::X_INDEXED_INDIRECT => (Adc, XIndexedIndirect),
             opcode::adc::ZERO_PAGE => (Adc, ZeroPage),
             opcode::adc::ZERO_PAGE_X_INDEXED => (Adc, ZeroPageXIndexed),
+            opcode::ahx::unofficial0::ABSOLUTE_Y_INDEXED => (Ahx, AbsoluteYIndexed),
+            opcode::ahx::unofficial0::INDIRECT_Y_INDEXED => (Ahx, IndirectYIndexed),
             opcode::alr::unofficial0::IMMEDIATE => (Alr, Immediate),
             opcode::arr::unofficial0::IMMEDIATE => (Arr, Immediate),
             opcode::anc::unofficial0::IMMEDIATE => (Anc, Immediate),
