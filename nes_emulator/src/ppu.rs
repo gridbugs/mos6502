@@ -98,14 +98,14 @@ impl NameTableEntry {
         background_pattern_table: &[u8],
         memory: &M,
     ) -> Self {
-        let name_table_choice = if tile_x < SCREEN_WIDTH_TILES {
-            if tile_y < SCREEN_HEIGHT_TILES {
+        let name_table_choice = if tile_x % (SCREEN_WIDTH_TILES * 2) < SCREEN_WIDTH_TILES {
+            if tile_y % (SCREEN_HEIGHT_TILES * 2) < SCREEN_HEIGHT_TILES {
                 NameTableChoice::TopLeft
             } else {
                 NameTableChoice::BottomLeft
             }
         } else {
-            if tile_y < SCREEN_HEIGHT_TILES {
+            if tile_y % (SCREEN_HEIGHT_TILES * 2) < SCREEN_HEIGHT_TILES {
                 NameTableChoice::TopRight
             } else {
                 NameTableChoice::BottomRight
@@ -188,7 +188,6 @@ impl NameTableEntry {
                 let screen_pixel_x = pixel_x - pixel_min_x;
                 let palette_index = (pixel_row_lo.wrapping_shr(pixel_col as u32) & 0x1)
                     | (pixel_row_hi.wrapping_shr(pixel_col as u32).wrapping_shl(1) & 0x2);
-
                 match palette_index {
                     0 => pixels.set_pixel_colour_universal_background(
                         screen_pixel_x,
@@ -219,6 +218,8 @@ pub struct Ppu {
     next_scroll_write_is_x: bool,
     scroll_x: u8,
     scroll_y: u8,
+    name_table_base_x: u16,
+    name_table_base_y: u16,
 }
 
 pub type PpuAddress = u16;
@@ -245,6 +246,8 @@ impl Ppu {
             next_scroll_write_is_x: true,
             scroll_x: 0,
             scroll_y: 0,
+            name_table_base_x: 0,
+            name_table_base_y: 0,
         }
     }
     pub fn vblank_nmi(&self) -> bool {
@@ -267,6 +270,16 @@ impl Ppu {
             PatternTableChoice::PatternTable1
         };
         self.vblank_nmi = data & control::flag::VBLANK_NMI != 0;
+        self.name_table_base_x = if data & 0x1 == 0 {
+            0
+        } else {
+            nes_specs::SCREEN_WIDTH_PX
+        };
+        self.name_table_base_y = if data & 0x2 == 0 {
+            0
+        } else {
+            nes_specs::SCREEN_HEIGHT_PX
+        };
     }
     pub fn write_mask(&mut self, _data: u8) {}
     pub fn read_status(&mut self) -> u8 {
@@ -317,10 +330,12 @@ impl Ppu {
         value_for_cpu
     }
     fn render_background<M: PpuMapper, O: RenderOutput>(&self, memory: &M, pixels: &mut O) {
-        let pixel_max_x = self.scroll_x as u16 + nes_specs::SCREEN_WIDTH_PX - 1;
-        let pixel_max_y = self.scroll_y as u16 + nes_specs::SCREEN_HEIGHT_PX - 1;
-        let tile_min_x = self.scroll_x as u16 / TILE_SIZE_PX;
-        let tile_min_y = self.scroll_y as u16 / TILE_SIZE_PX;
+        let total_scroll_x = self.name_table_base_x + self.scroll_x as u16;
+        let total_scroll_y = self.name_table_base_y + self.scroll_y as u16;
+        let pixel_max_x = total_scroll_x + nes_specs::SCREEN_WIDTH_PX - 1;
+        let pixel_max_y = total_scroll_y + nes_specs::SCREEN_HEIGHT_PX - 1;
+        let tile_min_x = total_scroll_x / TILE_SIZE_PX;
+        let tile_min_y = total_scroll_y / TILE_SIZE_PX;
         let tile_max_x = pixel_max_x / TILE_SIZE_PX;
         let tile_max_y = pixel_max_y / TILE_SIZE_PX;
         let background_pattern_table = memory.ppu_pattern_table(self.background_pattern_table);
@@ -328,8 +343,8 @@ impl Ppu {
         for tile_y in tile_min_y..=tile_max_y {
             for tile_x in tile_min_x..=tile_max_x {
                 NameTableEntry::lookup(tile_x, tile_y, background_pattern_table, memory).render(
-                    self.scroll_x as u16,
-                    self.scroll_y as u16,
+                    total_scroll_x,
+                    total_scroll_y,
                     pixel_max_x,
                     pixel_max_y,
                     universal_background_colour,
