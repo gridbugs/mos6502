@@ -17,6 +17,7 @@ mod apu;
 mod mapper;
 mod nes;
 mod ppu;
+mod timing;
 
 use glutin_frontend::glutin;
 use ines::Ines;
@@ -75,6 +76,7 @@ struct Args {
     save_state_filename: Option<String>,
     gif_filename: Option<String>,
     frontend: Frontend,
+    debug: bool,
 }
 
 impl Args {
@@ -89,6 +91,7 @@ impl Args {
                 save_state_filename = simon::opt("s", "save-state-file", "state file to save", "PATH");
                 gif_filename = simon::opt("g", "gif", "gif file to record into", "PATH");
                 frontend = Frontend::arg();
+                debug = simon::flag("d", "debug", "enable debugging printouts");
             } in {
                 Self {
                     input,
@@ -98,6 +101,7 @@ impl Args {
                     save_state_filename,
                     gif_filename,
                     frontend,
+                    debug,
                 }
             }
         }
@@ -273,6 +277,7 @@ struct Config {
     gif_filename: Option<PathBuf>,
     kill_after_frames: Option<u64>,
     frame_duration: Option<Duration>,
+    debug: bool,
 }
 
 impl Config {
@@ -293,6 +298,7 @@ impl Config {
             gif_filename,
             kill_after_frames: args.kill_after_frames,
             frame_duration: args.frame_duration,
+            debug: args.debug,
         }
     }
     fn save_filename(&self) -> Option<&PathBuf> {
@@ -472,7 +478,11 @@ fn run_glutin<M: Mapper + serde::ser::Serialize>(
                 nes.render(&mut pixels);
             }
         });
-        nes.run_for_frame();
+        if config.debug {
+            nes.run_for_frame_debug();
+        } else {
+            nes.run_for_frame();
+        }
         if let Some((frame_duration, frame_start)) = realtime_frame_timing {
             if let Some(remaining) = frame_duration.checked_sub(frame_start.elapsed()) {
                 thread::sleep(remaining);

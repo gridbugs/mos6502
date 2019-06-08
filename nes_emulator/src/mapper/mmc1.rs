@@ -172,9 +172,9 @@ impl Mmc1 {
         let mirroring = Mirroring::SingleScreenLower;
         let prg_rom_bank0 = 0;
         let chr_rom_bank0 = 0;
-        let prg_rom_bank1 = 1;
+        let prg_rom_bank1 = prg_rom_banks.len() - 1;
         let chr_rom_bank1 = 1;
-        let prg_rom_bank_mode = PrgRomBankMode::SwitchBoth;
+        let prg_rom_bank_mode = PrgRomBankMode::SwitchLower;
         let chr_rom_bank_mode = ChrRomBankMode::SwitchTogether;
         let shift_register = 0;
         let num_shift_register_writes = 0;

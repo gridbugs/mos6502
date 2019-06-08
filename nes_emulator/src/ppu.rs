@@ -220,6 +220,7 @@ pub struct Ppu {
     scroll_y: u8,
     name_table_base_x: u16,
     name_table_base_y: u16,
+    vblank_flag: bool,
 }
 
 pub type PpuAddress = u16;
@@ -248,9 +249,10 @@ impl Ppu {
             scroll_y: 0,
             name_table_base_x: 0,
             name_table_base_y: 0,
+            vblank_flag: false,
         }
     }
-    pub fn vblank_nmi(&self) -> bool {
+    pub fn is_vblank_nmi_enabled(&self) -> bool {
         self.vblank_nmi
     }
     pub fn write_control(&mut self, data: u8) {
@@ -283,10 +285,22 @@ impl Ppu {
     }
     pub fn write_mask(&mut self, _data: u8) {}
     pub fn read_status(&mut self) -> u8 {
+        let value = if self.vblank_flag {
+            status::flag::VBLANK
+        } else {
+            0
+        };
         self.address = 0;
         self.next_address_write_is_hi_byte = true;
         self.next_scroll_write_is_x = true;
-        status::flag::VBLANK
+        self.vblank_flag = false;
+        value
+    }
+    pub fn set_vblank(&mut self) {
+        self.vblank_flag = true;
+    }
+    pub fn clear_vblank(&mut self) {
+        self.vblank_flag = false;
     }
     pub fn write_oam_address(&mut self, data: u8) {
         self.oam_address = data;

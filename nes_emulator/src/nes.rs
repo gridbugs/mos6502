@@ -1,6 +1,7 @@
 use crate::apu::Apu;
 use crate::mapper::Mapper;
 use crate::ppu::{Oam, Ppu, RenderOutput};
+use crate::timing;
 use crate::DynamicNes;
 use mos6502::debug::InstructionWithOperand;
 use mos6502::machine::{Address, Cpu, Memory, MemoryReadOnly};
@@ -230,41 +231,42 @@ impl<M: Mapper> MemoryReadOnly for NesDevicesWithOam<M> {
     }
 }
 
+trait RunForCycles {
+    fn run_for_cycles<M: Memory + MemoryReadOnly>(cpu: &mut Cpu, memory: &mut M, num_cycles: u32);
+}
+
+struct RunForCyclesRegular;
+struct RunForCyclesDebug;
+
+impl RunForCycles for RunForCyclesRegular {
+    fn run_for_cycles<M: Memory + MemoryReadOnly>(cpu: &mut Cpu, memory: &mut M, num_cycles: u32) {
+        cpu.run_for_cycles(memory, num_cycles as usize).unwrap();
+    }
+}
+
+impl RunForCycles for RunForCyclesDebug {
+    fn run_for_cycles<M: Memory + MemoryReadOnly>(cpu: &mut Cpu, memory: &mut M, num_cycles: u32) {
+        let mut count = 0;
+        while count < num_cycles {
+            if let Ok(instruction_with_operand) = InstructionWithOperand::next(cpu, memory) {
+                let stdout = io::stdout();
+                let mut handle = stdout.lock();
+                let _ = writeln!(handle, "{}", instruction_with_operand);
+            }
+            count += cpu.step(memory).unwrap() as u32;
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Nes<M: Mapper> {
     cpu: Cpu,
     devices: NesDevicesWithOam<M>,
 }
 
-const CYCLES_PER_FRAME: usize = 30000;
-
 impl<M: Mapper> Nes<M> {
     fn start(&mut self) {
         self.cpu.start(&mut self.devices);
-    }
-    fn run_for_cycles(&mut self, num_cycles: usize) {
-        self.cpu
-            .run_for_cycles(&mut self.devices, num_cycles)
-            .unwrap();
-    }
-    fn run_for_cycles_debug(&mut self, num_cycles: usize) {
-        let mut count = 0;
-        while count < num_cycles {
-            if let Ok(instruction_with_operand) =
-                InstructionWithOperand::next(&self.cpu, &self.devices)
-            {
-                let stdout = io::stdout();
-                let mut handle = stdout.lock();
-                let _ = writeln!(handle, "{}", instruction_with_operand);
-                //writeln!(handle, "{:X?}", self.cpu).unwrap();
-            }
-            count += self.cpu.step(&mut self.devices).unwrap() as usize;
-        }
-    }
-    fn nmi(&mut self) {
-        if self.devices.devices.ppu.vblank_nmi() {
-            self.cpu.nmi(&mut self.devices);
-        }
     }
     pub fn new(mapper: M) -> Self {
         let mut nes = Nes {
@@ -290,13 +292,28 @@ impl<M: Mapper> Nes<M> {
             render_output,
         );
     }
+    fn run_for_frame_general<R: RunForCycles>(&mut self, _: R) {
+        R::run_for_cycles(
+            &mut self.cpu,
+            &mut self.devices,
+            timing::APPROX_CPU_CYCLES_PER_FRAME - timing::APPROX_CPU_CYCLES_PER_VBLANK,
+        );
+        if self.devices.devices.ppu.is_vblank_nmi_enabled() {
+            self.cpu.nmi(&mut self.devices);
+        }
+        self.devices.devices.ppu.set_vblank();
+        R::run_for_cycles(
+            &mut self.cpu,
+            &mut self.devices,
+            timing::APPROX_CPU_CYCLES_PER_VBLANK,
+        );
+        self.devices.devices.ppu.clear_vblank();
+    }
     pub fn run_for_frame(&mut self) {
-        self.run_for_cycles(CYCLES_PER_FRAME);
-        self.nmi();
+        self.run_for_frame_general(RunForCyclesRegular);
     }
     pub fn run_for_frame_debug(&mut self) {
-        self.run_for_cycles_debug(CYCLES_PER_FRAME);
-        self.nmi();
+        self.run_for_frame_general(RunForCyclesDebug);
     }
     pub fn clone_dynamic_nes(&self) -> DynamicNes {
         M::clone_dynamic_nes(self)
