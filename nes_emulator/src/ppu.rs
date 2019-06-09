@@ -56,6 +56,14 @@ pub struct Oam {
     ram: Vec<u8>,
 }
 
+#[derive(Clone, Copy)]
+struct OamEntry {
+    tile_index: u8,
+    attributes: u8,
+    position_x: u8,
+    position_y: u8,
+}
+
 impl Oam {
     pub fn new() -> Self {
         Self {
@@ -70,6 +78,86 @@ impl Oam {
             *oam_byte = memory.read_u8(address)
         }
     }
+    fn get(&self, sprite_index: usize) -> Option<OamEntry> {
+        let oam_entry_address = sprite_index * OAM_SPRITE_BYTES;
+        let oam_entry = &self.ram[oam_entry_address..oam_entry_address + OAM_SPRITE_BYTES];
+        let position_y = oam_entry[0].wrapping_add(1);
+        if position_y == 0 || position_y & 0xF0 == 0xF0 {
+            return None;
+        }
+        Some(OamEntry {
+            position_y,
+            tile_index: oam_entry[1],
+            attributes: oam_entry[2],
+            position_x: oam_entry[3],
+        })
+    }
+}
+
+impl OamEntry {
+    fn flip_sprite_horizontally(&self) -> bool {
+        self.attributes & oam_attribute::flag::FLIP_SPRITE_HORIZONTALLY != 0
+    }
+    fn flip_sprite_vertically(&self) -> bool {
+        self.attributes & oam_attribute::flag::FLIP_SPRITE_VERTICALLY != 0
+    }
+    fn palette_base(&self) -> usize {
+        (((self.attributes & 0x3) + 4) * 4) as usize
+    }
+    fn is_in_front_of_background(&self) -> bool {
+        self.attributes & oam_attribute::flag::PRIORITY == 0
+    }
+    fn offset_within_pattern_table_8x8(&self) -> u16 {
+        self.tile_index as u16 * 16
+    }
+    fn offset_within_pattern_table_8x16(&self) -> (u16, PatternTableChoice) {
+        let tile_index = self.tile_index & !1;
+        let tile_offset = tile_index as u16 * 16;
+        let pattern_table_choice = if self.tile_index & 1 == 0 {
+            PatternTableChoice::PatternTable0
+        } else {
+            PatternTableChoice::PatternTable1
+        };
+        (tile_offset, pattern_table_choice)
+    }
+    fn render_pixel_row<O: RenderOutput>(
+        &self,
+        pixel_row_lo: u8,
+        pixel_row_hi: u8,
+        pixel_row_index: usize,
+        palette: &[u8],
+        extra_offset_y: u8,
+        pixels: &mut O,
+    ) {
+        for pixel_col in 0..8 {
+            let colour_code = match pattern_to_palette_index(pixel_row_lo, pixel_row_hi, pixel_col)
+            {
+                0 => continue,
+                non_zero => palette[non_zero as usize],
+            };
+            let offset_x = if self.flip_sprite_horizontally() {
+                pixel_col
+            } else {
+                7 - pixel_col
+            };
+            let offset_y = if self.flip_sprite_vertically() {
+                7 - pixel_row_index
+            } else {
+                pixel_row_index
+            };
+            let x = (self.position_x as u16).wrapping_add(offset_x as u16);
+            let y = (self.position_y as u16)
+                .wrapping_add(offset_y as u16)
+                .wrapping_add(extra_offset_y as u16);
+            if x < nes_specs::SCREEN_WIDTH_PX && y < nes_specs::SCREEN_HEIGHT_PX {
+                if self.is_in_front_of_background() {
+                    pixels.set_pixel_colour_sprite_front(x, y, colour_code);
+                } else {
+                    pixels.set_pixel_colour_sprite_back(x, y, colour_code);
+                }
+            }
+        }
+    }
 }
 
 impl fmt::Debug for Oam {
@@ -81,6 +169,11 @@ impl fmt::Debug for Oam {
         }
         Ok(())
     }
+}
+
+fn pattern_to_palette_index(pixel_row_lo: u8, pixel_row_hi: u8, pixel_index: u32) -> u8 {
+    (pixel_row_lo.wrapping_shr(pixel_index) & 0x1)
+        | (pixel_row_hi.wrapping_shr(pixel_index).wrapping_shl(1) & 0x2)
 }
 
 struct NameTableEntry {
@@ -186,9 +279,7 @@ impl NameTableEntry {
                     continue;
                 }
                 let screen_pixel_x = pixel_x - pixel_min_x;
-                let palette_index = (pixel_row_lo.wrapping_shr(pixel_col as u32) & 0x1)
-                    | (pixel_row_hi.wrapping_shr(pixel_col as u32).wrapping_shl(1) & 0x2);
-                match palette_index {
+                match pattern_to_palette_index(pixel_row_lo, pixel_row_hi, pixel_col as u32) {
                     0 => pixels.set_pixel_colour_universal_background(
                         screen_pixel_x,
                         screen_pixel_y,
@@ -203,6 +294,12 @@ impl NameTableEntry {
             }
         }
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+enum SpriteSize {
+    Small,
+    Large,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -221,6 +318,7 @@ pub struct Ppu {
     name_table_base_x: u16,
     name_table_base_y: u16,
     vblank_flag: bool,
+    sprite_size: SpriteSize,
 }
 
 pub type PpuAddress = u16;
@@ -250,6 +348,7 @@ impl Ppu {
             name_table_base_x: 0,
             name_table_base_y: 0,
             vblank_flag: false,
+            sprite_size: SpriteSize::Small,
         }
     }
     pub fn is_vblank_nmi_enabled(&self) -> bool {
@@ -281,6 +380,11 @@ impl Ppu {
             0
         } else {
             nes_specs::SCREEN_HEIGHT_PX
+        };
+        self.sprite_size = if data & 1 << 5 == 0 {
+            SpriteSize::Small
+        } else {
+            SpriteSize::Large
         };
     }
     pub fn write_mask(&mut self, _data: u8) {}
@@ -367,66 +471,102 @@ impl Ppu {
             }
         }
     }
-    fn render_sprites<M: PpuMapper, O: RenderOutput>(&self, memory: &M, oam: &Oam, pixels: &mut O) {
+    fn render_sprite_8x8<O: RenderOutput>(
+        oam_entry: OamEntry,
+        pattern_lo: &[u8],
+        pattern_hi: &[u8],
+        palette: &[u8],
+        extra_offset_y: u8,
+        pixels: &mut O,
+    ) {
+        for (row_index, (&pixel_row_lo, &pixel_row_hi)) in
+            pattern_lo.iter().zip(pattern_hi.iter()).enumerate()
+        {
+            oam_entry.render_pixel_row(
+                pixel_row_lo,
+                pixel_row_hi,
+                row_index,
+                palette,
+                extra_offset_y,
+                pixels,
+            );
+        }
+    }
+
+    fn render_sprites_8x8<M: PpuMapper, O: RenderOutput>(
+        &self,
+        memory: &M,
+        oam: &Oam,
+        pixels: &mut O,
+    ) {
         let palette_ram = memory.ppu_palette_ram();
         let sprite_pattern_table = memory.ppu_pattern_table(self.sprite_pattern_table);
-        for i in 0..OAM_NUM_SPRITES {
-            let oam_entry_index = i * OAM_SPRITE_BYTES;
-            let oam_entry = &oam.ram[oam_entry_index..oam_entry_index + OAM_SPRITE_BYTES];
-            let position_y = oam_entry[0].wrapping_add(1);
-            if position_y == 0 || position_y & 0xF0 == 0xF0 {
+        for sprite_index in 0..OAM_NUM_SPRITES {
+            let oam_entry = if let Some(oam_entry) = oam.get(sprite_index) {
+                oam_entry
+            } else {
                 continue;
-            }
-            let tile_index = oam_entry[1];
-            let attributes = oam_entry[2];
-            let position_x = oam_entry[3];
-            let pattern_address = tile_index as u16 * 16;
+            };
+            let pattern_offset = oam_entry.offset_within_pattern_table_8x8();
             let pattern_lo = &sprite_pattern_table
-                [pattern_address as usize + 0x0..=pattern_address as usize + 0x7];
+                [pattern_offset as usize + 0x0..=pattern_offset as usize + 0x7];
             let pattern_hi = &sprite_pattern_table
-                [pattern_address as usize + 0x8..=pattern_address as usize + 0xF];
-            let palette_base = ((attributes & 0x3) + 4) * 4;
-            let palette = &palette_ram[palette_base as usize..palette_base as usize + 4];
-            for (row_index, (&pixel_row_lo, &pixel_row_hi)) in
-                pattern_lo.iter().zip(pattern_hi.iter()).enumerate()
-            {
-                for i in 0..8 {
-                    let palette_index_lo = pixel_row_lo & 128u8.wrapping_shr(i) != 0;
-                    let palette_index_hi = pixel_row_hi & 128u8.wrapping_shr(i) != 0;
-                    let palette_index =
-                        palette_index_lo as u8 | (palette_index_hi as u8).wrapping_shl(1);
-                    let colour_code = match palette_index {
-                        0 => continue,
-                        _ => palette[palette_index as usize],
-                    };
-                    let offset_x =
-                        if attributes & oam_attribute::flag::FLIP_SPRITE_HORIZONTALLY == 0 {
-                            i
-                        } else {
-                            7 - i
-                        };
-                    let offset_y = if attributes & oam_attribute::flag::FLIP_SPRITE_VERTICALLY == 0
-                    {
-                        row_index
-                    } else {
-                        7 - row_index
-                    };
-                    let x = (position_x as u16).wrapping_add(offset_x as u16);
-                    let y = (position_y as u16).wrapping_add(offset_y as u16);
-                    if x < nes_specs::SCREEN_WIDTH_PX && y < nes_specs::SCREEN_HEIGHT_PX {
-                        if attributes & oam_attribute::flag::PRIORITY == 0 {
-                            pixels.set_pixel_colour_sprite_front(x, y, colour_code);
-                        } else {
-                            pixels.set_pixel_colour_sprite_back(x, y, colour_code);
-                        }
-                    }
-                }
-            }
+                [pattern_offset as usize + 0x8..=pattern_offset as usize + 0xF];
+            let palette_base = oam_entry.palette_base();
+            let palette = &palette_ram[palette_base..palette_base + 4];
+            Self::render_sprite_8x8(oam_entry, pattern_lo, pattern_hi, palette, 0, pixels);
+        }
+    }
+    fn render_sprites_8x16<M: PpuMapper, O: RenderOutput>(
+        &self,
+        memory: &M,
+        oam: &Oam,
+        pixels: &mut O,
+    ) {
+        let palette_ram = memory.ppu_palette_ram();
+        for sprite_index in 0..OAM_NUM_SPRITES {
+            let oam_entry = if let Some(oam_entry) = oam.get(sprite_index) {
+                oam_entry
+            } else {
+                continue;
+            };
+            let (pattern_offset, pattern_table_choice) =
+                oam_entry.offset_within_pattern_table_8x16();
+            let sprite_pattern_table = memory.ppu_pattern_table(pattern_table_choice);
+            let pattern_top_lo = &sprite_pattern_table
+                [pattern_offset as usize + 0x00..=pattern_offset as usize + 0x07];
+            let pattern_top_hi = &sprite_pattern_table
+                [pattern_offset as usize + 0x08..=pattern_offset as usize + 0x0F];
+            let pattern_bottom_lo = &sprite_pattern_table
+                [pattern_offset as usize + 0x10..=pattern_offset as usize + 0x17];
+            let pattern_bottom_hi = &sprite_pattern_table
+                [pattern_offset as usize + 0x18..=pattern_offset as usize + 0x1F];
+            let palette_base = oam_entry.palette_base();
+            let palette = &palette_ram[palette_base..palette_base + 4];
+            Self::render_sprite_8x8(
+                oam_entry,
+                pattern_top_lo,
+                pattern_top_hi,
+                palette,
+                0,
+                pixels,
+            );
+            Self::render_sprite_8x8(
+                oam_entry,
+                pattern_bottom_lo,
+                pattern_bottom_hi,
+                palette,
+                8,
+                pixels,
+            );
         }
     }
     pub fn render<M: PpuMapper, O: RenderOutput>(&self, memory: &M, oam: &Oam, pixels: &mut O) {
         self.render_background(memory, pixels);
-        self.render_sprites(memory, oam, pixels);
+        match self.sprite_size {
+            SpriteSize::Small => self.render_sprites_8x8(memory, oam, pixels),
+            SpriteSize::Large => self.render_sprites_8x16(memory, oam, pixels),
+        }
     }
 }
 
