@@ -286,14 +286,14 @@ impl<M: Mapper> Nes<M> {
         nes.start();
         nes
     }
-    pub fn render<R: RenderOutput>(&self, render_output: &mut R) {
+    fn render<R: RenderOutput>(&self, render_output: &mut R) {
         self.devices.devices.ppu.render(
             &self.devices.devices.mapper,
             &self.devices.oam,
             render_output,
         );
     }
-    fn run_for_frame_general<R: RunForCycles>(&mut self, _: R) {
+    fn run_for_frame_general<R: RunForCycles, O: RenderOutput>(&mut self, _: R, pixels: &mut O) {
         // pre-render scanline
         R::run_for_cycles(
             &mut self.cpu,
@@ -316,6 +316,7 @@ impl<M: Mapper> Nes<M> {
         if self.devices.devices.ppu.is_vblank_nmi_enabled() {
             self.cpu.nmi(&mut self.devices);
         }
+        self.render(pixels);
         self.devices.devices.ppu.set_vblank();
         R::run_for_cycles(
             &mut self.cpu,
@@ -324,11 +325,11 @@ impl<M: Mapper> Nes<M> {
         );
         self.devices.devices.ppu.clear_vblank();
     }
-    pub fn run_for_frame(&mut self) {
-        self.run_for_frame_general(RunForCyclesRegular);
+    pub fn run_for_frame<O: RenderOutput>(&mut self, pixels: &mut O) {
+        self.run_for_frame_general(RunForCyclesRegular, pixels);
     }
-    pub fn run_for_frame_debug(&mut self) {
-        self.run_for_frame_general(RunForCyclesDebug);
+    pub fn run_for_frame_debug<O: RenderOutput>(&mut self, pixels: &mut O) {
+        self.run_for_frame_general(RunForCyclesDebug, pixels);
     }
     pub fn clone_dynamic_nes(&self) -> DynamicNes {
         M::clone_dynamic_nes(self)

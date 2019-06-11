@@ -123,11 +123,6 @@ impl RenderOutput for nes_headless_frame::Frame {
     }
 }
 
-struct NesRenderOutput<'a> {
-    glutin_pixels: glutin_frontend::Pixels<'a>,
-    gif_frame: &'a mut gif_renderer::Frame,
-}
-
 impl<'a> RenderOutput for glutin_frontend::Pixels<'a> {
     fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
         self.set_pixel_colour_sprite_back(x, y, colour_index);
@@ -143,39 +138,49 @@ impl<'a> RenderOutput for glutin_frontend::Pixels<'a> {
     }
 }
 
-impl<'a> RenderOutput for NesRenderOutput<'a> {
+struct RenderOutputPair<'a, A, B> {
+    a: &'a mut A,
+    b: &'a mut B,
+}
+
+impl<'a, A, B> RenderOutputPair<'a, A, B> {
+    fn new(a: &'a mut A, b: &'a mut B) -> Self {
+        Self { a, b }
+    }
+}
+
+impl<'a, A, B> RenderOutput for RenderOutputPair<'a, A, B>
+where
+    A: RenderOutput,
+    B: RenderOutput,
+{
     fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.glutin_pixels
-            .set_pixel_colour_sprite_back(x, y, colour_index);
-        self.gif_frame
-            .set_pixel_colour_sprite_back(x, y, colour_index);
+        self.a.set_pixel_colour_sprite_back(x, y, colour_index);
+        self.b.set_pixel_colour_sprite_back(x, y, colour_index);
     }
     fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.glutin_pixels
-            .set_pixel_colour_sprite_front(x, y, colour_index);
-        self.gif_frame
-            .set_pixel_colour_sprite_front(x, y, colour_index);
+        self.a.set_pixel_colour_sprite_front(x, y, colour_index);
+        self.b.set_pixel_colour_sprite_front(x, y, colour_index);
     }
     fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.glutin_pixels
-            .set_pixel_colour_background(x, y, colour_index);
-        self.gif_frame
-            .set_pixel_colour_background(x, y, colour_index);
+        self.a.set_pixel_colour_background(x, y, colour_index);
+        self.b.set_pixel_colour_background(x, y, colour_index);
     }
     fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.glutin_pixels
+        self.a
             .set_pixel_colour_universal_background(x, y, colour_index);
-        self.gif_frame
+        self.b
             .set_pixel_colour_universal_background(x, y, colour_index);
     }
 }
 
-fn render_to_hash<M: Mapper>(nes: &Nes<M>) -> u64 {
-    let mut frame = nes_headless_frame::Frame::new();
-    nes.render(&mut frame);
-    let mut hasher = DefaultHasher::new();
-    frame.hash(&mut hasher);
-    hasher.finish()
+struct NoRenderOutput;
+
+impl RenderOutput for NoRenderOutput {
+    fn set_pixel_colour_sprite_back(&mut self, _x: u16, _y: u16, _colour_index: u8) {}
+    fn set_pixel_colour_sprite_front(&mut self, _x: u16, _y: u16, _colour_index: u8) {}
+    fn set_pixel_colour_background(&mut self, _x: u16, _y: u16, _colour_index: u8) {}
+    fn set_pixel_colour_universal_background(&mut self, _x: u16, _y: u16, _colour_index: u8) {}
 }
 
 #[derive(Serialize, Deserialize)]
@@ -339,16 +344,20 @@ enum Stop {
     Load(DynamicNes),
 }
 
+enum MetaAction {
+    Stop(Stop),
+    PrintInfo,
+}
+
 fn handle_event<M: Mapper + serde::ser::Serialize, P: AsRef<Path> + Copy>(
     nes: &mut Nes<M>,
     save_state_path: Option<P>,
     event: glutin::Event,
-    frame_count: u64,
-) -> Option<Stop> {
+) -> Option<MetaAction> {
     match event {
         glutin::Event::WindowEvent { event, .. } => match event {
             glutin::WindowEvent::CloseRequested => {
-                return Some(Stop::Quit);
+                return Some(MetaAction::Stop(Stop::Quit));
             }
             glutin::WindowEvent::KeyboardInput { input, .. } => match input.state {
                 glutin::ElementState::Pressed => {
@@ -382,13 +391,12 @@ fn handle_event<M: Mapper + serde::ser::Serialize, P: AsRef<Path> + Copy>(
                             glutin::VirtualKeyCode::L => {
                                 if let Some(save_state_path) = save_state_path.as_ref() {
                                     if let Some(dynamic_nes) = load(save_state_path).ok() {
-                                        return Some(Stop::Load(dynamic_nes));
+                                        return Some(MetaAction::Stop(Stop::Load(dynamic_nes)));
                                     }
                                 }
                             }
                             glutin::VirtualKeyCode::I => {
-                                println!("Frame Count: {}", frame_count);
-                                println!("Frame Hash: {}", render_to_hash(nes));
+                                return Some(MetaAction::PrintInfo);
                             }
                             _ => (),
                         }
@@ -433,6 +441,30 @@ fn handle_event<M: Mapper + serde::ser::Serialize, P: AsRef<Path> + Copy>(
     None
 }
 
+fn run_nes_for_frame<M: Mapper, O: RenderOutput>(
+    nes: &mut Nes<M>,
+    config: &Config,
+    pixels: &mut O,
+    gif_renderer: Option<&mut gif_renderer::Renderer<File>>,
+) {
+    if let Some(gif_renderer) = gif_renderer {
+        let mut gif_frame = gif_renderer::Frame::new();
+        let mut render_output = RenderOutputPair::new(pixels, &mut gif_frame);
+        if config.debug {
+            nes.run_for_frame_debug(&mut render_output);
+        } else {
+            nes.run_for_frame(&mut render_output);
+        }
+        gif_renderer.add(gif_frame);
+    } else {
+        if config.debug {
+            nes.run_for_frame_debug(pixels);
+        } else {
+            nes.run_for_frame(pixels);
+        }
+    }
+}
+
 fn run_glutin<M: Mapper + serde::ser::Serialize>(
     mut nes: Nes<M>,
     config: &Config,
@@ -456,32 +488,38 @@ fn run_glutin<M: Mapper + serde::ser::Serialize>(
                 save(&nes, Some(&autosave_config.filename));
             }
         }
-        let mut stop = None;
+        let mut meta_action = None;
         frontend.poll_glutin_events(|event| {
-            if stop.is_none() {
-                stop = handle_event(&mut nes, config.save_filename(), event, frame_count);
+            if meta_action.is_none() {
+                meta_action = handle_event(&mut nes, config.save_filename(), event);
             }
         });
-        if let Some(stop) = stop {
-            return stop;
-        };
-        frontend.with_pixels(|mut pixels| {
-            if let Some(gif_renderer) = gif_renderer.as_mut() {
-                let mut gif_frame = gif_renderer::Frame::new();
-                let mut render_output = NesRenderOutput {
-                    glutin_pixels: pixels,
-                    gif_frame: &mut gif_frame,
-                };
-                nes.render(&mut render_output);
-                gif_renderer.add(gif_frame);
-            } else {
-                nes.render(&mut pixels);
+        if let Some(meta_action) = meta_action {
+            match meta_action {
+                MetaAction::Stop(stop) => return stop,
+                MetaAction::PrintInfo => {
+                    frontend.with_pixels(|mut pixels| {
+                        let mut memory_only_frame = nes_headless_frame::Frame::new();
+                        let mut render_output =
+                            RenderOutputPair::new(&mut pixels, &mut memory_only_frame);
+                        run_nes_for_frame(
+                            &mut nes,
+                            config,
+                            &mut render_output,
+                            gif_renderer.as_mut(),
+                        );
+                        let mut hasher = DefaultHasher::new();
+                        memory_only_frame.hash(&mut hasher);
+                        let frame_hash = hasher.finish();
+                        println!("Frame Count: {}", frame_count);
+                        println!("Frame Hash: {}", frame_hash);
+                    });
+                }
             }
-        });
-        if config.debug {
-            nes.run_for_frame_debug();
         } else {
-            nes.run_for_frame();
+            frontend.with_pixels(|mut pixels| {
+                run_nes_for_frame(&mut nes, config, &mut pixels, gif_renderer.as_mut());
+            });
         }
         if let Some((frame_duration, frame_start)) = realtime_frame_timing {
             if let Some(remaining) = frame_duration.checked_sub(frame_start.elapsed()) {
@@ -494,10 +532,16 @@ fn run_glutin<M: Mapper + serde::ser::Serialize>(
 }
 
 fn run_headless_hashing_final_frame<M: Mapper>(mut nes: Nes<M>, num_frames: u64) -> u64 {
-    for _ in 0..num_frames {
-        nes.run_for_frame();
+    if let Some(n) = num_frames.checked_sub(1) {
+        for _ in 0..n {
+            nes.run_for_frame(&mut NoRenderOutput);
+        }
     }
-    render_to_hash(&nes)
+    let mut frame = nes_headless_frame::Frame::new();
+    nes.run_for_frame(&mut frame);
+    let mut hasher = DefaultHasher::new();
+    frame.hash(&mut hasher);
+    hasher.finish()
 }
 
 fn run<M: Mapper + serde::ser::Serialize>(
