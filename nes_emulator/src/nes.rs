@@ -286,13 +286,6 @@ impl<M: Mapper> Nes<M> {
         nes.start();
         nes
     }
-    fn render<R: RenderOutput>(&self, render_output: &mut R) {
-        self.devices.devices.ppu.render(
-            &self.devices.devices.mapper,
-            &self.devices.oam,
-            render_output,
-        );
-    }
     fn run_for_frame_general<R: RunForCycles, O: RenderOutput>(&mut self, _: R, pixels: &mut O) {
         // pre-render scanline
         R::run_for_cycles(
@@ -300,11 +293,23 @@ impl<M: Mapper> Nes<M> {
             &mut self.devices,
             timing::ntsc::APPROX_CPU_CYCLES_PER_SCANLINE,
         );
-        for _ in 0..nes_specs::SCREEN_HEIGHT_PX {
+        self.devices.devices.ppu.render_sprites(
+            &self.devices.devices.mapper,
+            &self.devices.oam,
+            pixels,
+        );
+        let sprite_zero = self.devices.devices.ppu.sprite_zero(&self.devices.oam);
+        for scanline in 0..(nes_specs::SCREEN_HEIGHT_PX as u8) {
             R::run_for_cycles(
                 &mut self.cpu,
                 &mut self.devices,
                 timing::ntsc::APPROX_CPU_CYCLES_PER_SCANLINE,
+            );
+            self.devices.devices.ppu.render_background_scanline(
+                scanline,
+                &sprite_zero,
+                &self.devices.devices.mapper,
+                pixels,
             );
         }
         // post-render scanline
@@ -316,7 +321,6 @@ impl<M: Mapper> Nes<M> {
         if self.devices.devices.ppu.is_vblank_nmi_enabled() {
             self.cpu.nmi(&mut self.devices);
         }
-        self.render(pixels);
         self.devices.devices.ppu.set_vblank();
         R::run_for_cycles(
             &mut self.cpu,

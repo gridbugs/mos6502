@@ -331,6 +331,8 @@ pub trait RenderOutput {
     fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8);
 }
 
+pub struct SpriteZero {}
+
 impl Ppu {
     pub fn new() -> Self {
         Self {
@@ -561,7 +563,23 @@ impl Ppu {
             );
         }
     }
-    pub fn render<M: PpuMapper, O: RenderOutput>(&self, memory: &M, oam: &Oam, pixels: &mut O) {
+    pub fn render_background_scanline<M: PpuMapper, O: RenderOutput>(
+        &mut self,
+        scanline: u8,
+        sprite_zero: &SpriteZero,
+        memory: &M,
+        pixels: &mut O,
+    ) {
+    }
+    pub fn sprite_zero(&self, oam: &Oam) -> SpriteZero {
+        SpriteZero {}
+    }
+    pub fn render_sprites<M: PpuMapper, O: RenderOutput>(
+        &self,
+        memory: &M,
+        oam: &Oam,
+        pixels: &mut O,
+    ) {
         self.render_background(memory, pixels);
         match self.sprite_size {
             SpriteSize::Small => self.render_sprites_8x8(memory, oam, pixels),
