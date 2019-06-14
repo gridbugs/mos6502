@@ -16,6 +16,7 @@ const SCREEN_WIDTH_ATTRIBUTES: u16 = SCREEN_WIDTH_TILES / ATTRIBUTE_SIZE_TILES;
 const PALETTE_NUM_COLOURS: u8 = 4;
 const PATTERN_BYTES: u8 = 16;
 const ATTRIBUTE_TABLE_START_INDEX: usize = 960;
+const BLACK_COLOUR_CODE: u8 = 0xF;
 
 pub mod name_table_mirroring {
     pub mod physical_base_address {
@@ -127,6 +128,7 @@ impl OamEntry {
         pixel_row_index: usize,
         palette: &[u8],
         extra_offset_y: u8,
+        show_left_8_pixels: bool,
         pixels: &mut O,
     ) {
         for pixel_col in 0..8 {
@@ -150,6 +152,11 @@ impl OamEntry {
                 .wrapping_add(offset_y as u16)
                 .wrapping_add(extra_offset_y as u16);
             if x < nes_specs::SCREEN_WIDTH_PX && y < nes_specs::SCREEN_HEIGHT_PX {
+                let colour_code = if !show_left_8_pixels && x < 8 {
+                    BLACK_COLOUR_CODE
+                } else {
+                    colour_code
+                };
                 if self.is_in_front_of_background() {
                     pixels.set_pixel_colour_sprite_front(x, y, colour_code);
                 } else {
@@ -253,32 +260,33 @@ impl NameTableEntry {
             palette,
         }
     }
-    fn render<O: RenderOutput>(
+    fn render_pixel_row<O: RenderOutput>(
         &self,
+        pixel_row: u16,
         pixel_min_x: u16,
         pixel_min_y: u16,
         pixel_max_x: u16,
-        pixel_max_y: u16,
         background_colour_code: u8,
+        show_left_8_pixels: bool,
         pixels: &mut O,
     ) {
-        for (pixel_row, (&pixel_row_lo, &pixel_row_hi)) in self
-            .pattern_data_lo
-            .iter()
-            .zip(self.pattern_data_hi.iter())
-            .enumerate()
-        {
-            let pixel_y = self.top_left_pixel_y + pixel_row as u16;
-            if pixel_y < pixel_min_y || pixel_y > pixel_max_y {
+        let pixel_y = self.top_left_pixel_y + pixel_row;
+        let screen_pixel_y = pixel_y - pixel_min_y;
+        let pixel_row_lo = self.pattern_data_lo[pixel_row as usize];
+        let pixel_row_hi = self.pattern_data_hi[pixel_row as usize];
+        for pixel_col in 0..8u16 {
+            let pixel_x = self.top_left_pixel_x + TILE_SIZE_PX - pixel_col - 1;
+            if pixel_x < pixel_min_x || pixel_x > pixel_max_x {
                 continue;
             }
-            let screen_pixel_y = pixel_y - pixel_min_y;
-            for pixel_col in 0..8u16 {
-                let pixel_x = self.top_left_pixel_x + TILE_SIZE_PX - pixel_col - 1;
-                if pixel_x < pixel_min_x || pixel_x > pixel_max_x {
-                    continue;
-                }
-                let screen_pixel_x = pixel_x - pixel_min_x;
+            let screen_pixel_x = pixel_x - pixel_min_x;
+            if !show_left_8_pixels && screen_pixel_x < 8 {
+                pixels.set_pixel_colour_background(
+                    screen_pixel_x,
+                    screen_pixel_y,
+                    BLACK_COLOUR_CODE,
+                );
+            } else {
                 match pattern_to_palette_index(pixel_row_lo, pixel_row_hi, pixel_col as u32) {
                     0 => pixels.set_pixel_colour_universal_background(
                         screen_pixel_x,
@@ -319,6 +327,10 @@ pub struct Ppu {
     name_table_base_y: u16,
     vblank_flag: bool,
     sprite_size: SpriteSize,
+    show_background: bool,
+    show_sprites: bool,
+    show_background_left_8_pixels: bool,
+    show_sprites_left_8_pixels: bool,
 }
 
 pub type PpuAddress = u16;
@@ -351,6 +363,10 @@ impl Ppu {
             name_table_base_y: 0,
             vblank_flag: false,
             sprite_size: SpriteSize::Small,
+            show_background: false,
+            show_sprites: false,
+            show_background_left_8_pixels: false,
+            show_sprites_left_8_pixels: false,
         }
     }
     pub fn is_vblank_nmi_enabled(&self) -> bool {
@@ -389,7 +405,12 @@ impl Ppu {
             SpriteSize::Large
         };
     }
-    pub fn write_mask(&mut self, _data: u8) {}
+    pub fn write_mask(&mut self, data: u8) {
+        self.show_background_left_8_pixels = data & (1 << 1) != 0;
+        self.show_sprites_left_8_pixels = data & (1 << 2) != 0;
+        self.show_background = data & (1 << 3) != 0;
+        self.show_sprites = data & (1 << 4) != 0;
+    }
     pub fn read_status(&mut self) -> u8 {
         let value = if self.vblank_flag {
             status::flag::VBLANK
@@ -449,36 +470,13 @@ impl Ppu {
         self.read_buffer = value_from_vram;
         value_for_cpu
     }
-    fn render_background<M: PpuMapper, O: RenderOutput>(&self, memory: &M, pixels: &mut O) {
-        let total_scroll_x = self.name_table_base_x + self.scroll_x as u16;
-        let total_scroll_y = self.name_table_base_y + self.scroll_y as u16;
-        let pixel_max_x = total_scroll_x + nes_specs::SCREEN_WIDTH_PX - 1;
-        let pixel_max_y = total_scroll_y + nes_specs::SCREEN_HEIGHT_PX - 1;
-        let tile_min_x = total_scroll_x / TILE_SIZE_PX;
-        let tile_min_y = total_scroll_y / TILE_SIZE_PX;
-        let tile_max_x = pixel_max_x / TILE_SIZE_PX;
-        let tile_max_y = pixel_max_y / TILE_SIZE_PX;
-        let background_pattern_table = memory.ppu_pattern_table(self.background_pattern_table);
-        let universal_background_colour = memory.ppu_palette_ram()[0];
-        for tile_y in tile_min_y..=tile_max_y {
-            for tile_x in tile_min_x..=tile_max_x {
-                NameTableEntry::lookup(tile_x, tile_y, background_pattern_table, memory).render(
-                    total_scroll_x,
-                    total_scroll_y,
-                    pixel_max_x,
-                    pixel_max_y,
-                    universal_background_colour,
-                    pixels,
-                );
-            }
-        }
-    }
     fn render_sprite_8x8<O: RenderOutput>(
         oam_entry: OamEntry,
         pattern_lo: &[u8],
         pattern_hi: &[u8],
         palette: &[u8],
         extra_offset_y: u8,
+        show_sprites_left_8_pixels: bool,
         pixels: &mut O,
     ) {
         for (row_index, (&pixel_row_lo, &pixel_row_hi)) in
@@ -490,6 +488,7 @@ impl Ppu {
                 row_index,
                 palette,
                 extra_offset_y,
+                show_sprites_left_8_pixels,
                 pixels,
             );
         }
@@ -516,7 +515,15 @@ impl Ppu {
                 [pattern_offset as usize + 0x8..=pattern_offset as usize + 0xF];
             let palette_base = oam_entry.palette_base();
             let palette = &palette_ram[palette_base..palette_base + 4];
-            Self::render_sprite_8x8(oam_entry, pattern_lo, pattern_hi, palette, 0, pixels);
+            Self::render_sprite_8x8(
+                oam_entry,
+                pattern_lo,
+                pattern_hi,
+                palette,
+                0,
+                self.show_sprites_left_8_pixels,
+                pixels,
+            );
         }
     }
     fn render_sprites_8x16<M: PpuMapper, O: RenderOutput>(
@@ -551,6 +558,7 @@ impl Ppu {
                 pattern_top_hi,
                 palette,
                 0,
+                self.show_sprites_left_8_pixels,
                 pixels,
             );
             Self::render_sprite_8x8(
@@ -559,8 +567,14 @@ impl Ppu {
                 pattern_bottom_hi,
                 palette,
                 8,
+                self.show_sprites_left_8_pixels,
                 pixels,
             );
+        }
+    }
+    fn clear_background_scanline<O: RenderOutput>(&self, scanline: u8, pixels: &mut O) {
+        for pixel_x in 0..nes_specs::SCREEN_WIDTH_PX {
+            pixels.set_pixel_colour_background(pixel_x, scanline as u16, BLACK_COLOUR_CODE);
         }
     }
     pub fn render_background_scanline<M: PpuMapper, O: RenderOutput>(
@@ -570,6 +584,33 @@ impl Ppu {
         memory: &M,
         pixels: &mut O,
     ) {
+        if self.show_background {
+            let total_scroll_x = self.name_table_base_x + self.scroll_x as u16;
+            let total_scroll_y = self.name_table_base_y + self.scroll_y as u16;
+            let pixel_y = total_scroll_y + scanline as u16;
+            let tile_y = pixel_y / TILE_SIZE_PX;
+            let pixel_offset_within_tile_y = pixel_y % TILE_SIZE_PX;
+            let pixel_max_x = total_scroll_x + nes_specs::SCREEN_WIDTH_PX - 1;
+            let tile_min_x = total_scroll_x / TILE_SIZE_PX;
+            let tile_max_x = pixel_max_x / TILE_SIZE_PX;
+            let background_pattern_table = memory.ppu_pattern_table(self.background_pattern_table);
+            let universal_background_colour = memory.ppu_palette_ram()[0];
+            for tile_x in tile_min_x..=tile_max_x {
+                let name_table_entry =
+                    NameTableEntry::lookup(tile_x, tile_y, background_pattern_table, memory);
+                name_table_entry.render_pixel_row(
+                    pixel_offset_within_tile_y,
+                    total_scroll_x,
+                    total_scroll_y,
+                    pixel_max_x,
+                    universal_background_colour,
+                    self.show_background_left_8_pixels,
+                    pixels,
+                );
+            }
+        } else {
+            self.clear_background_scanline(scanline, pixels);
+        }
     }
     pub fn sprite_zero(&self, oam: &Oam) -> SpriteZero {
         SpriteZero {}
@@ -580,7 +621,9 @@ impl Ppu {
         oam: &Oam,
         pixels: &mut O,
     ) {
-        self.render_background(memory, pixels);
+        if !self.show_sprites {
+            return;
+        }
         match self.sprite_size {
             SpriteSize::Small => self.render_sprites_8x8(memory, oam, pixels),
             SpriteSize::Large => self.render_sprites_8x16(memory, oam, pixels),

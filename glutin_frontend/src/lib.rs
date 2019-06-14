@@ -162,8 +162,6 @@ mod renderer {
                     PIXEL_BUFFER_SIZE,
                 )
                 .expect("Failed to copy pixel colour buffer");
-            self.encoder
-                .clear(&self.ppu_pixel_bundle.data.out_colour, [0.0, 0.0, 0.0, 1.0]);
             self.ppu_pixel_bundle.encode(&mut self.encoder);
             self.post_processor_bundle.encode(&mut self.encoder);
             self.encoder.flush(&mut self.device);
