@@ -287,6 +287,7 @@ impl<M: Mapper> Nes<M> {
         nes
     }
     fn run_for_frame_general<R: RunForCycles, O: RenderOutput>(&mut self, _: R, pixels: &mut O) {
+        self.devices.devices.ppu.clear_sprite_zero_hit();
         // pre-render scanline
         R::run_for_cycles(
             &mut self.cpu,
@@ -298,7 +299,11 @@ impl<M: Mapper> Nes<M> {
             &self.devices.oam,
             pixels,
         );
-        let sprite_zero = self.devices.devices.ppu.sprite_zero(&self.devices.oam);
+        let sprite_zero = self
+            .devices
+            .devices
+            .ppu
+            .sprite_zero(&self.devices.oam, &mut self.devices.devices.mapper);
         for scanline in 0..(nes_specs::SCREEN_HEIGHT_PX as u8) {
             R::run_for_cycles(
                 &mut self.cpu,

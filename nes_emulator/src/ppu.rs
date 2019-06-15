@@ -57,7 +57,7 @@ pub struct Oam {
     ram: Vec<u8>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct OamEntry {
     tile_index: u8,
     attributes: u8,
@@ -191,6 +191,8 @@ struct NameTableEntry {
     palette: [u8; PALETTE_NUM_COLOURS as usize],
 }
 
+struct SpriteZeroHit;
+
 impl NameTableEntry {
     fn lookup<M: PpuMapper>(
         tile_x: u16,
@@ -268,12 +270,14 @@ impl NameTableEntry {
         pixel_max_x: u16,
         background_colour_code: u8,
         show_left_8_pixels: bool,
+        sprite_zero_row: SpriteZeroRow,
         pixels: &mut O,
-    ) {
+    ) -> Option<SpriteZeroHit> {
         let pixel_y = self.top_left_pixel_y + pixel_row;
         let screen_pixel_y = pixel_y - pixel_min_y;
         let pixel_row_lo = self.pattern_data_lo[pixel_row as usize];
         let pixel_row_hi = self.pattern_data_hi[pixel_row as usize];
+        let mut sprite_zero_hit = None;
         for pixel_col in 0..8u16 {
             let pixel_x = self.top_left_pixel_x + TILE_SIZE_PX - pixel_col - 1;
             if pixel_x < pixel_min_x || pixel_x > pixel_max_x {
@@ -293,14 +297,21 @@ impl NameTableEntry {
                         screen_pixel_y,
                         background_colour_code,
                     ),
-                    non_zero => pixels.set_pixel_colour_background(
-                        screen_pixel_x,
-                        screen_pixel_y,
-                        self.palette[non_zero as usize],
-                    ),
+                    non_zero => {
+                        if sprite_zero_hit.is_none() && sprite_zero_row.is_hit(screen_pixel_x as u8)
+                        {
+                            sprite_zero_hit = Some(SpriteZeroHit);
+                        }
+                        pixels.set_pixel_colour_background(
+                            screen_pixel_x,
+                            screen_pixel_y,
+                            self.palette[non_zero as usize],
+                        );
+                    }
                 }
             }
         }
+        sprite_zero_hit
     }
 }
 
@@ -331,6 +342,7 @@ pub struct Ppu {
     show_sprites: bool,
     show_background_left_8_pixels: bool,
     show_sprites_left_8_pixels: bool,
+    sprite_zero_hit: bool,
 }
 
 pub type PpuAddress = u16;
@@ -343,7 +355,58 @@ pub trait RenderOutput {
     fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8);
 }
 
-pub struct SpriteZero {}
+#[derive(Debug)]
+pub struct SpriteZero {
+    opaque_pixel_map: u128,
+    top_left_x: u8,
+    top_left_y: u8,
+}
+
+#[derive(Clone, Copy)]
+struct SpriteZeroRow {
+    top_left_x: u8,
+    opaque_pixel_map: u8,
+}
+
+impl SpriteZero {
+    fn blank() -> Self {
+        Self {
+            opaque_pixel_map: 0,
+            top_left_x: 0,
+            top_left_y: 0,
+        }
+    }
+    fn opaque_pixel_map_row(&self, scanline: u8) -> SpriteZeroRow {
+        let opaque_pixel_map = if let Some(offset) = scanline.checked_sub(self.top_left_y) {
+            if offset < 16 {
+                (self.opaque_pixel_map >> (offset * 8)) as u8
+            } else {
+                0
+            }
+        } else {
+            0
+        };
+        SpriteZeroRow {
+            opaque_pixel_map,
+            top_left_x: self.top_left_x,
+        }
+    }
+}
+
+impl SpriteZeroRow {
+    fn is_hit(&self, pixel_x: u8) -> bool {
+        pixel_x
+            .checked_sub(self.top_left_x)
+            .map(|offset| {
+                if offset < 8 {
+                    (0x80 >> offset) & self.opaque_pixel_map != 0
+                } else {
+                    false
+                }
+            })
+            .unwrap_or(false)
+    }
+}
 
 impl Ppu {
     pub fn new() -> Self {
@@ -367,6 +430,7 @@ impl Ppu {
             show_sprites: false,
             show_background_left_8_pixels: false,
             show_sprites_left_8_pixels: false,
+            sprite_zero_hit: false,
         }
     }
     pub fn is_vblank_nmi_enabled(&self) -> bool {
@@ -416,6 +480,10 @@ impl Ppu {
             status::flag::VBLANK
         } else {
             0
+        } | if self.sprite_zero_hit {
+            status::flag::SPRITE_ZERO_HIT
+        } else {
+            0
         };
         self.address = 0;
         self.next_address_write_is_hi_byte = true;
@@ -428,6 +496,9 @@ impl Ppu {
     }
     pub fn clear_vblank(&mut self) {
         self.vblank_flag = false;
+    }
+    pub fn clear_sprite_zero_hit(&mut self) {
+        self.sprite_zero_hit = false;
     }
     pub fn write_oam_address(&mut self, data: u8) {
         self.oam_address = data;
@@ -595,25 +666,96 @@ impl Ppu {
             let tile_max_x = pixel_max_x / TILE_SIZE_PX;
             let background_pattern_table = memory.ppu_pattern_table(self.background_pattern_table);
             let universal_background_colour = memory.ppu_palette_ram()[0];
+            let sprite_zero_row = sprite_zero.opaque_pixel_map_row(scanline);
             for tile_x in tile_min_x..=tile_max_x {
                 let name_table_entry =
                     NameTableEntry::lookup(tile_x, tile_y, background_pattern_table, memory);
-                name_table_entry.render_pixel_row(
+                if let Some(SpriteZeroHit) = name_table_entry.render_pixel_row(
                     pixel_offset_within_tile_y,
                     total_scroll_x,
                     total_scroll_y,
                     pixel_max_x,
                     universal_background_colour,
                     self.show_background_left_8_pixels,
+                    sprite_zero_row,
                     pixels,
-                );
+                ) {
+                    self.sprite_zero_hit = true;
+                }
             }
         } else {
             self.clear_background_scanline(scanline, pixels);
         }
     }
-    pub fn sprite_zero(&self, oam: &Oam) -> SpriteZero {
-        SpriteZero {}
+    fn sprite_opaque_pixel_map_8x8(pattern_lo: &[u8], pattern_hi: &[u8]) -> u64 {
+        let mut result = 0;
+        for (row_index, (&pixel_row_lo, &pixel_row_hi)) in
+            pattern_lo.iter().zip(pattern_hi.iter()).enumerate()
+        {
+            let pattern_opaque_pixel_map = (pixel_row_lo | pixel_row_hi) as u64;
+            let offset = row_index as u32 * 8;
+            result |= pattern_opaque_pixel_map << offset;
+        }
+        result
+    }
+    fn sprite_zero_8x8<M: PpuMapper>(&self, oam_entry: OamEntry, memory: &mut M) -> SpriteZero {
+        let sprite_pattern_table = memory.ppu_pattern_table(self.sprite_pattern_table);
+        let pattern_offset = oam_entry.offset_within_pattern_table_8x8();
+        let pattern_lo =
+            &sprite_pattern_table[pattern_offset as usize + 0x0..=pattern_offset as usize + 0x7];
+        let pattern_hi =
+            &sprite_pattern_table[pattern_offset as usize + 0x8..=pattern_offset as usize + 0xF];
+        let opaque_pixel_map = Self::sprite_opaque_pixel_map_8x8(pattern_lo, pattern_hi) as u128;
+        let top_left_x = oam_entry.position_x;
+        let top_left_y = oam_entry.position_y;
+        SpriteZero {
+            opaque_pixel_map,
+            top_left_x,
+            top_left_y,
+        }
+    }
+    fn sprite_zero_8x16<M: PpuMapper>(&self, oam_entry: OamEntry, memory: &mut M) -> SpriteZero {
+        let (pattern_offset, pattern_table_choice) = oam_entry.offset_within_pattern_table_8x16();
+        let sprite_pattern_table = memory.ppu_pattern_table(pattern_table_choice);
+        let pattern_top_lo =
+            &sprite_pattern_table[pattern_offset as usize + 0x00..=pattern_offset as usize + 0x07];
+        let pattern_top_hi =
+            &sprite_pattern_table[pattern_offset as usize + 0x08..=pattern_offset as usize + 0x0F];
+        let pattern_bottom_lo =
+            &sprite_pattern_table[pattern_offset as usize + 0x10..=pattern_offset as usize + 0x17];
+        let pattern_bottom_hi =
+            &sprite_pattern_table[pattern_offset as usize + 0x18..=pattern_offset as usize + 0x1F];
+        let opaque_pixel_map_top =
+            Self::sprite_opaque_pixel_map_8x8(pattern_top_lo, pattern_top_hi);
+        let opaque_pixel_map_bottom =
+            Self::sprite_opaque_pixel_map_8x8(pattern_bottom_lo, pattern_bottom_hi);
+        let opaque_pixel_map =
+            (opaque_pixel_map_top as u128) | ((opaque_pixel_map_bottom as u128) << 64);
+        let top_left_x = oam_entry.position_x;
+        let top_left_y = oam_entry.position_y;
+        SpriteZero {
+            opaque_pixel_map,
+            top_left_x,
+            top_left_y,
+        }
+    }
+    pub fn sprite_zero<M: PpuMapper>(&self, oam: &Oam, memory: &mut M) -> SpriteZero {
+        if !(self.show_background && self.show_sprites) {
+            SpriteZero::blank()
+        } else if let Some(oam_entry) = oam.get(0) {
+            if oam_entry.position_x >= 8
+                || (self.show_background_left_8_pixels && self.show_sprites_left_8_pixels)
+            {
+                match self.sprite_size {
+                    SpriteSize::Small => self.sprite_zero_8x8(oam_entry, memory),
+                    SpriteSize::Large => self.sprite_zero_8x16(oam_entry, memory),
+                }
+            } else {
+                SpriteZero::blank()
+            }
+        } else {
+            SpriteZero::blank()
+        }
     }
     pub fn render_sprites<M: PpuMapper, O: RenderOutput>(
         &self,
@@ -650,10 +792,12 @@ pub mod control {
 pub mod status {
     pub mod bit {
         pub const VBLANK: u8 = 7;
+        pub const SPRITE_ZERO_HIT: u8 = 6;
     }
     pub mod flag {
         use super::bit;
         pub const VBLANK: u8 = 1 << bit::VBLANK;
+        pub const SPRITE_ZERO_HIT: u8 = 1 << bit::SPRITE_ZERO_HIT;
     }
 }
 
