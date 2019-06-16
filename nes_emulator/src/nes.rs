@@ -316,6 +316,7 @@ impl<M: Mapper> Nes<M> {
                 &self.devices.devices.mapper,
                 pixels,
             );
+            self.devices.devices.ppu.end_scanline();
         }
         // post-render scanline
         R::run_for_cycles(
@@ -333,6 +334,7 @@ impl<M: Mapper> Nes<M> {
             timing::ntsc::APPROX_CPU_CYCLES_PER_VBLANK,
         );
         self.devices.devices.ppu.clear_vblank();
+        self.devices.devices.ppu.end_vblank();
     }
     pub fn run_for_frame<O: RenderOutput>(&mut self, pixels: &mut O) {
         self.run_for_frame_general(RunForCyclesRegular, pixels);

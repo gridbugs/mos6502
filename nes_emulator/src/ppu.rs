@@ -321,21 +321,124 @@ enum SpriteSize {
     Large,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+struct ScrollStateAddress(u16);
+
+impl ScrollStateAddress {
+    fn set_name_table_from_low_2_bits(&mut self, data: u8) {
+        self.0 = (self.0 & !(0x3 << 10)) | ((data & 0x3) as u16) << 10;
+    }
+    fn set_coarse_x_scroll_from_scroll(&mut self, data: u8) {
+        self.0 = (self.0 & !0x1F) | ((data as u16) >> 3);
+    }
+    fn set_y_scroll(&mut self, data: u8) {
+        self.0 = (self.0 & !(0x1F << 5)) | (((data as u16) >> 3) << 5);
+        self.0 = (self.0 & !(0x7 << 12)) | ((data as u16 & 0x7) << 12);
+    }
+    fn set_address_hi(&mut self, data: u8) {
+        self.0 = (self.0 & !(0x3F << 8)) | ((data as u16 & 0x3F) << 8);
+        self.0 = self.0 & !(0x1 << 14);
+    }
+    fn set_address_lo(&mut self, data: u8) {
+        self.0 = (self.0 & !0xFF) | data as u16;
+    }
+    fn copy_from_other_with_mask(&mut self, other: Self, mask: u16) {
+        self.0 = (self.0 & !mask) | (other.0 & mask);
+    }
+    fn ppu_address(&self) -> PpuAddress {
+        self.0
+    }
+    fn scroll_x_coarse(&self) -> u16 {
+        let tile_coord = (self.0 & 0x1F) | ((self.0 & (0x1 << 10)) >> 5);
+        tile_coord << 3
+    }
+    fn scroll_y(&self) -> u16 {
+        let nametable_select_offset = ((self.0 & (0x1 << 11)) >> 11) * nes_specs::SCREEN_HEIGHT_PX;
+        let coarse_y_scroll = ((self.0 & (0x1F << 5)) >> 5) << 3;
+        let fine_y_scroll = (self.0 >> 12) & 0x7;
+        nametable_select_offset + coarse_y_scroll + fine_y_scroll
+    }
+    fn increment(&mut self, by: u8) {
+        self.0 = self.0.wrapping_add(by as u16);
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct ScrollState {
+    current_vram_address: ScrollStateAddress,
+    temporary_vram_address: ScrollStateAddress,
+    fine_x_scroll: u8,
+    first_write_toggle: bool,
+}
+
+impl ScrollState {
+    fn new() -> Self {
+        Self {
+            current_vram_address: ScrollStateAddress(0),
+            temporary_vram_address: ScrollStateAddress(0),
+            fine_x_scroll: 0,
+            first_write_toggle: true,
+        }
+    }
+    fn write_control(&mut self, data: u8) {
+        self.temporary_vram_address
+            .set_name_table_from_low_2_bits(data);
+    }
+    fn read_status(&mut self) {
+        self.first_write_toggle = true;
+    }
+    fn write_scroll(&mut self, data: u8) {
+        if self.first_write_toggle {
+            self.fine_x_scroll = data & 7;
+            self.temporary_vram_address
+                .set_coarse_x_scroll_from_scroll(data);
+        } else {
+            self.temporary_vram_address.set_y_scroll(data);
+        }
+        self.first_write_toggle = !self.first_write_toggle;
+    }
+    fn write_address(&mut self, data: u8) {
+        if self.first_write_toggle {
+            self.temporary_vram_address.set_address_hi(data);
+        } else {
+            self.temporary_vram_address.set_address_lo(data);
+            self.current_vram_address = self.temporary_vram_address;
+        }
+        self.first_write_toggle = !self.first_write_toggle;
+    }
+    fn copy_horizontal_scroll(&mut self) {
+        let mask = 0x1F | (0x1 << 10);
+        self.current_vram_address
+            .copy_from_other_with_mask(self.temporary_vram_address, mask);
+    }
+    fn copy_vertical_scroll(&mut self) {
+        let mask = (0x1F << 5) | (0xF << 11);
+        self.current_vram_address
+            .copy_from_other_with_mask(self.temporary_vram_address, mask);
+    }
+    fn scroll_x(&self) -> u16 {
+        let coarse = self.current_vram_address.scroll_x_coarse();
+        coarse | (self.fine_x_scroll as u16 & 0x7)
+    }
+    fn scroll_y(&self) -> u16 {
+        self.current_vram_address.scroll_y()
+    }
+    fn ppu_address(&self) -> PpuAddress {
+        self.current_vram_address.ppu_address()
+    }
+    fn increment_ppu_address(&mut self, by: u8) {
+        self.current_vram_address.increment(by);
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Ppu {
-    next_address_write_is_hi_byte: bool,
-    address: u16,
     address_increment: u8,
     vblank_nmi: bool,
     sprite_pattern_table: PatternTableChoice,
     background_pattern_table: PatternTableChoice,
     read_buffer: u8,
     oam_address: u8,
-    next_scroll_write_is_x: bool,
-    scroll_x: u8,
-    scroll_y: u8,
-    name_table_base_x: u16,
-    name_table_base_y: u16,
     vblank_flag: bool,
     sprite_size: SpriteSize,
     show_background: bool,
@@ -343,6 +446,7 @@ pub struct Ppu {
     show_background_left_8_pixels: bool,
     show_sprites_left_8_pixels: bool,
     sprite_zero_hit: bool,
+    scroll_state: ScrollState,
 }
 
 pub type PpuAddress = u16;
@@ -411,19 +515,12 @@ impl SpriteZeroRow {
 impl Ppu {
     pub fn new() -> Self {
         Self {
-            next_address_write_is_hi_byte: true,
-            address: 0,
             address_increment: 1,
             vblank_nmi: false,
             sprite_pattern_table: PatternTableChoice::PatternTable0,
             background_pattern_table: PatternTableChoice::PatternTable0,
             read_buffer: 0,
             oam_address: 0,
-            next_scroll_write_is_x: true,
-            scroll_x: 0,
-            scroll_y: 0,
-            name_table_base_x: 0,
-            name_table_base_y: 0,
             vblank_flag: false,
             sprite_size: SpriteSize::Small,
             show_background: false,
@@ -431,6 +528,17 @@ impl Ppu {
             show_background_left_8_pixels: false,
             show_sprites_left_8_pixels: false,
             sprite_zero_hit: false,
+            scroll_state: ScrollState::new(),
+        }
+    }
+    pub fn end_scanline(&mut self) {
+        if self.show_background {
+            self.scroll_state.copy_horizontal_scroll();
+        }
+    }
+    pub fn end_vblank(&mut self) {
+        if self.show_background {
+            self.scroll_state.copy_vertical_scroll();
         }
     }
     pub fn is_vblank_nmi_enabled(&self) -> bool {
@@ -453,21 +561,12 @@ impl Ppu {
             PatternTableChoice::PatternTable1
         };
         self.vblank_nmi = data & control::flag::VBLANK_NMI != 0;
-        self.name_table_base_x = if data & 0x1 == 0 {
-            0
-        } else {
-            nes_specs::SCREEN_WIDTH_PX
-        };
-        self.name_table_base_y = if data & 0x2 == 0 {
-            0
-        } else {
-            nes_specs::SCREEN_HEIGHT_PX
-        };
         self.sprite_size = if data & 1 << 5 == 0 {
             SpriteSize::Small
         } else {
             SpriteSize::Large
         };
+        self.scroll_state.write_control(data);
     }
     pub fn write_mask(&mut self, data: u8) {
         self.show_background_left_8_pixels = data & (1 << 1) != 0;
@@ -485,10 +584,8 @@ impl Ppu {
         } else {
             0
         };
-        self.address = 0;
-        self.next_address_write_is_hi_byte = true;
-        self.next_scroll_write_is_x = true;
         self.vblank_flag = false;
+        self.scroll_state.read_status();
         value
     }
     pub fn set_vblank(&mut self) {
@@ -513,31 +610,26 @@ impl Ppu {
         data
     }
     pub fn write_scroll(&mut self, data: u8) {
-        if self.next_scroll_write_is_x {
-            self.scroll_x = data;
-        } else {
-            self.scroll_y = data;
-        }
-        self.next_scroll_write_is_x = !self.next_scroll_write_is_x;
+        self.scroll_state.write_scroll(data);
     }
     pub fn write_address(&mut self, data: u8) {
-        let shift = self.next_address_write_is_hi_byte as u32 * 8;
-        let mask = 0xFF00u16.wrapping_shr(shift);
-        self.address = (self.address & mask) | (data as u16).wrapping_shl(shift);
-        self.next_address_write_is_hi_byte = !self.next_address_write_is_hi_byte;
+        self.scroll_state.write_address(data);
     }
     pub fn write_data<M: PpuMapper>(&mut self, memory: &mut M, data: u8) {
-        memory.ppu_write_u8(self.address, data);
-        self.address = self.address.wrapping_add(self.address_increment as u16);
+        memory.ppu_write_u8(self.scroll_state.ppu_address(), data);
+        self.scroll_state
+            .increment_ppu_address(self.address_increment);
     }
     pub fn read_data<M: PpuMapper>(&mut self, memory: &M) -> u8 {
-        let value_from_vram = memory.ppu_read_u8(self.address);
-        let value_for_cpu = if self.address < PALETTE_START {
+        let address = self.scroll_state.ppu_address();
+        let value_from_vram = memory.ppu_read_u8(address);
+        let value_for_cpu = if address < PALETTE_START {
             self.read_buffer
         } else {
             value_from_vram
         };
-        self.address = self.address.wrapping_add(self.address_increment as u16);
+        self.scroll_state
+            .increment_ppu_address(self.address_increment);
         self.read_buffer = value_from_vram;
         value_for_cpu
     }
@@ -656,8 +748,8 @@ impl Ppu {
         pixels: &mut O,
     ) {
         if self.show_background {
-            let total_scroll_x = self.name_table_base_x + self.scroll_x as u16;
-            let total_scroll_y = self.name_table_base_y + self.scroll_y as u16;
+            let total_scroll_x = self.scroll_state.scroll_x();
+            let total_scroll_y = self.scroll_state.scroll_y();
             let pixel_y = total_scroll_y + scanline as u16;
             let tile_y = pixel_y / TILE_SIZE_PX;
             let pixel_offset_within_tile_y = pixel_y % TILE_SIZE_PX;
