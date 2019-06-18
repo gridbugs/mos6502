@@ -604,7 +604,7 @@ fn run<M: Mapper + serde::ser::Serialize>(
         Frontend::Glutin(glutin_frontend) => run_glutin(nes, config, glutin_frontend),
         Frontend::HeadlessPrintingFinalFrameHash { num_frames } => {
             let final_frame_hash = run_headless_hashing_final_frame(nes, *num_frames);
-            println!("{:?}", final_frame_hash);
+            println!("{}", final_frame_hash);
             Stop::Quit
         }
     }
