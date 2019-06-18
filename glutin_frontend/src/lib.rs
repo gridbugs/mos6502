@@ -7,7 +7,6 @@ extern crate nes_specs;
 
 mod dimensions {
     use nes_specs;
-    pub const SCALE: u16 = 2;
     pub const PIXEL_BUFFER_SIZE: usize = nes_specs::SCREEN_TOTAL_PX as usize;
 }
 
@@ -171,7 +170,6 @@ mod renderer {
 
 }
 
-use dimensions::*;
 use formats::*;
 use renderer::Renderer;
 use std::slice;
@@ -260,11 +258,11 @@ impl<'a> Iterator for PixelsIterMut<'a> {
 }
 
 impl Frontend {
-    pub fn new() -> Self {
+    pub fn new(scale: f64) -> Self {
         let events_loop = glutin::EventsLoop::new();
         let window_size = glutin::dpi::LogicalSize::new(
-            (nes_specs::SCREEN_WIDTH_PX * SCALE) as f64,
-            (nes_specs::SCREEN_HEIGHT_PX * SCALE) as f64,
+            nes_specs::SCREEN_WIDTH_PX as f64 * scale,
+            nes_specs::SCREEN_HEIGHT_PX as f64 * scale,
         );
         let window_builder = glutin::WindowBuilder::new()
             .with_dimensions(window_size)
@@ -278,8 +276,8 @@ impl Frontend {
             .expect("Failed to create window");
         let hidpi = windowed_context.window().get_hidpi_factor();
         let window_size = glutin::dpi::PhysicalSize::new(
-            (nes_specs::SCREEN_WIDTH_PX * SCALE) as f64,
-            (nes_specs::SCREEN_HEIGHT_PX * SCALE) as f64,
+            nes_specs::SCREEN_WIDTH_PX as f64 * scale,
+            nes_specs::SCREEN_HEIGHT_PX as f64 * scale,
         )
         .to_logical(hidpi);
         windowed_context.window().set_inner_size(window_size);

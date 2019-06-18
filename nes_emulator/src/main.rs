@@ -33,8 +33,9 @@ use mapper::{mmc1, nrom, Mapper, PersistentState};
 use nes::Nes;
 use ppu::RenderOutput;
 
+#[derive(Clone)]
 enum Frontend {
-    Glutin(glutin_frontend::Frontend),
+    Glutin,
     HeadlessPrintingFinalFrameHash { num_frames: u64 },
 }
 
@@ -47,7 +48,7 @@ impl Frontend {
             "INT",
         )
         .option_map(|num_frames| Frontend::HeadlessPrintingFinalFrameHash { num_frames })
-        .with_default_lazy(|| Frontend::Glutin(glutin_frontend::Frontend::new()))
+        .with_default(Frontend::Glutin)
     }
 }
 
@@ -78,6 +79,7 @@ struct Args {
     frontend: Frontend,
     debug: bool,
     persistent_state_filename: Option<String>,
+    zoom: f64,
 }
 
 impl Args {
@@ -94,6 +96,7 @@ impl Args {
                 frontend = Frontend::arg();
                 debug = simon::flag("d", "debug", "enable debugging printouts");
                 persistent_state_filename = simon::opt("p", "persistent-state-filename", "file to store persistent state", "PATH");
+                zoom = simon::opt("z", "zoom", "real pixels per nes pixel", "FLOAT").with_default(2.);
             } in {
                 Self {
                     input,
@@ -105,6 +108,7 @@ impl Args {
                     frontend,
                     debug,
                     persistent_state_filename,
+                    zoom,
                 }
             }
         }
@@ -287,6 +291,7 @@ struct Config {
     frame_duration: Option<Duration>,
     debug: bool,
     persistent_state_filename: Option<PathBuf>,
+    zoom: f64,
 }
 
 impl Config {
@@ -310,6 +315,7 @@ impl Config {
             frame_duration: args.frame_duration,
             debug: args.debug,
             persistent_state_filename,
+            zoom: args.zoom,
         }
     }
     fn save_filename(&self) -> Option<&PathBuf> {
@@ -590,10 +596,16 @@ fn run_headless_hashing_final_frame<M: Mapper>(mut nes: Nes<M>, num_frames: u64)
     hasher.finish()
 }
 
+#[derive(Default)]
+struct LazyFrontendResources {
+    glutin: Option<glutin_frontend::Frontend>,
+}
+
 fn run<M: Mapper + serde::ser::Serialize>(
     mut nes: Nes<M>,
     config: &Config,
-    frontend: &mut Frontend,
+    frontend: &Frontend,
+    frontend_resources: &mut LazyFrontendResources,
 ) -> Stop {
     if let Some(persistent_state_filename) = config.persistent_state_filename.as_ref() {
         if let Some(Ok(persistent_state)) = load_persistent_state(persistent_state_filename) {
@@ -601,7 +613,12 @@ fn run<M: Mapper + serde::ser::Serialize>(
         }
     }
     match frontend {
-        Frontend::Glutin(glutin_frontend) => run_glutin(nes, config, glutin_frontend),
+        Frontend::Glutin => {
+            if frontend_resources.glutin.is_none() {
+                frontend_resources.glutin = Some(glutin_frontend::Frontend::new(config.zoom));
+            }
+            run_glutin(nes, config, frontend_resources.glutin.as_mut().unwrap())
+        }
         Frontend::HeadlessPrintingFinalFrameHash { num_frames } => {
             let final_frame_hash = run_headless_hashing_final_frame(nes, *num_frames);
             println!("{}", final_frame_hash);
@@ -614,12 +631,13 @@ fn main() {
     let args = Args::arg().with_help_default().parse_env_default_or_exit();
     let config = Config::from_args(&args);
     let mut current_nes = DynamicNes::from_args(&args).unwrap();
-    let Args { mut frontend, .. } = args;
+    let mut res = LazyFrontendResources::default();
+    let Args { frontend, .. } = args;
     loop {
         let stop = match current_nes {
-            DynamicNes::NromHorizontal(nes) => run(nes, &config, &mut frontend),
-            DynamicNes::NromVertical(nes) => run(nes, &config, &mut frontend),
-            DynamicNes::Mmc1(nes) => run(nes, &config, &mut frontend),
+            DynamicNes::NromHorizontal(nes) => run(nes, &config, &frontend, &mut res),
+            DynamicNes::NromVertical(nes) => run(nes, &config, &frontend, &mut res),
+            DynamicNes::Mmc1(nes) => run(nes, &config, &frontend, &mut res),
         };
         match stop {
             Stop::Quit => break,
