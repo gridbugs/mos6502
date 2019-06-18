@@ -1,5 +1,5 @@
 use crate::apu::Apu;
-use crate::mapper::Mapper;
+use crate::mapper::{Mapper, PersistentState, PersistentStateError};
 use crate::ppu::{Oam, Ppu, RenderOutput};
 use crate::timing;
 use crate::DynamicNes;
@@ -344,6 +344,18 @@ impl<M: Mapper> Nes<M> {
     }
     pub fn clone_dynamic_nes(&self) -> DynamicNes {
         M::clone_dynamic_nes(self)
+    }
+    pub fn save_persistent_state(&self) -> Option<PersistentState> {
+        self.devices.devices.mapper.save_persistent_state()
+    }
+    pub fn load_persistent_state(
+        &mut self,
+        persistent_state: &PersistentState,
+    ) -> Result<(), PersistentStateError> {
+        self.devices
+            .devices
+            .mapper
+            .load_persistent_state(persistent_state)
     }
 }
 

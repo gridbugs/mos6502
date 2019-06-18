@@ -3,6 +3,7 @@ use crate::mapper::PpuAddress;
 use crate::mapper::PATTERN_TABLE_BYTES;
 use crate::mapper::{CpuMapper, Mapper, PpuMapper};
 use crate::mapper::{NameTableChoice, PaletteRam, PatternTableChoice};
+use crate::mapper::{PersistentState, PersistentStateError};
 use crate::nes::Nes;
 use crate::ppu::{name_table_mirroring, NAME_TABLE_BYTES};
 use crate::DynamicNes;
@@ -164,5 +165,14 @@ impl<M: Mirroring> CpuMapper for Nrom<M> {
 impl<M: Mirroring> Mapper for Nrom<M> {
     fn clone_dynamic_nes(nes: &Nes<Self>) -> DynamicNes {
         M::clone_dynamic_nes(nes)
+    }
+    fn save_persistent_state(&self) -> Option<PersistentState> {
+        None
+    }
+    fn load_persistent_state(
+        &mut self,
+        _persistent_state: &PersistentState,
+    ) -> Result<(), PersistentStateError> {
+        Err(PersistentStateError::InvalidStateForMapper)
     }
 }

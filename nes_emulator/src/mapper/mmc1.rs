@@ -2,6 +2,7 @@ use crate::mapper::Error;
 use crate::mapper::PpuAddress;
 use crate::mapper::{CpuMapper, Mapper, PpuMapper};
 use crate::mapper::{NameTableChoice, PaletteRam, PatternTableChoice};
+use crate::mapper::{PersistentState, PersistentStateError};
 use crate::nes::Nes;
 use crate::ppu::{name_table_mirroring, NAME_TABLE_BYTES};
 use crate::DynamicNes;
@@ -366,5 +367,17 @@ impl CpuMapper for Mmc1 {
 impl Mapper for Mmc1 {
     fn clone_dynamic_nes(nes: &Nes<Self>) -> DynamicNes {
         DynamicNes::Mmc1(nes.clone())
+    }
+    fn save_persistent_state(&self) -> Option<PersistentState> {
+        Some(PersistentState::BatteryBackedRam(self.prg_ram.to_vec()))
+    }
+    fn load_persistent_state(
+        &mut self,
+        persistent_state: &PersistentState,
+    ) -> Result<(), PersistentStateError> {
+        match persistent_state {
+            PersistentState::BatteryBackedRam(data) => self.prg_ram.copy_from_slice(&data),
+        }
+        Ok(())
     }
 }

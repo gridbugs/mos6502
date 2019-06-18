@@ -42,8 +42,18 @@ pub trait CpuMapper {
     fn cpu_read_u8_read_only(&self, address: Address) -> u8;
 }
 
+#[derive(Debug)]
+pub enum PersistentStateError {
+    InvalidStateForMapper,
+}
+
 pub trait Mapper: CpuMapper + PpuMapper + Sized {
     fn clone_dynamic_nes(nes: &Nes<Self>) -> DynamicNes;
+    fn save_persistent_state(&self) -> Option<PersistentState>;
+    fn load_persistent_state(
+        &mut self,
+        persistent_state: &PersistentState,
+    ) -> Result<(), PersistentStateError>;
 }
 
 #[derive(Debug)]
@@ -65,6 +75,11 @@ impl PaletteRam {
     fn write_u8(&mut self, offset: u8, data: u8) {
         self.ram[offset as usize % PALETTE_RAM_BYTES] = data;
     }
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum PersistentState {
+    BatteryBackedRam(Vec<u8>),
 }
 
 pub mod mmc1;

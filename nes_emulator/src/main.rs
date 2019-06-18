@@ -29,7 +29,7 @@ use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use mapper::{mmc1, nrom, Mapper};
+use mapper::{mmc1, nrom, Mapper, PersistentState};
 use nes::Nes;
 use ppu::RenderOutput;
 
@@ -77,6 +77,7 @@ struct Args {
     gif_filename: Option<String>,
     frontend: Frontend,
     debug: bool,
+    persistent_state_filename: Option<String>,
 }
 
 impl Args {
@@ -92,6 +93,7 @@ impl Args {
                 gif_filename = simon::opt("g", "gif", "gif file to record into", "PATH");
                 frontend = Frontend::arg();
                 debug = simon::flag("d", "debug", "enable debugging printouts");
+                persistent_state_filename = simon::opt("p", "persistent-state-filename", "file to store persistent state", "PATH");
             } in {
                 Self {
                     input,
@@ -102,6 +104,7 @@ impl Args {
                     gif_filename,
                     frontend,
                     debug,
+                    persistent_state_filename,
                 }
             }
         }
@@ -283,6 +286,7 @@ struct Config {
     kill_after_frames: Option<u64>,
     frame_duration: Option<Duration>,
     debug: bool,
+    persistent_state_filename: Option<PathBuf>,
 }
 
 impl Config {
@@ -298,12 +302,14 @@ impl Config {
             .gif_filename
             .as_ref()
             .map(|gif_filename| gif_filename.into());
+        let persistent_state_filename = args.persistent_state_filename.as_ref().map(|f| f.into());
         Self {
             save_config,
             gif_filename,
             kill_after_frames: args.kill_after_frames,
             frame_duration: args.frame_duration,
             debug: args.debug,
+            persistent_state_filename,
         }
     }
     fn save_filename(&self) -> Option<&PathBuf> {
@@ -339,6 +345,30 @@ fn load<P: AsRef<Path>>(path: P) -> Result<DynamicNes, bincode::Error> {
     bincode::deserialize(&bytes)
 }
 
+fn save_persistent_state<P: AsRef<Path>>(persistent_state: &PersistentState, path: P) {
+    let bytes = bincode::serialize(persistent_state).expect("Failed to serialize persistent state");
+    let mut file = File::create(path).expect("Failed to create persistent state file");
+    file.write_all(&bytes)
+        .expect("Failed to write persistent state file");
+    println!("Wrote persistent state file");
+}
+
+fn load_persistent_state<P: AsRef<Path>>(
+    path: P,
+) -> Option<Result<PersistentState, bincode::Error>> {
+    if path.as_ref().exists() {
+        let mut persistent_state_file =
+            File::open(path).expect("Failed to open persistent state file");
+        let mut bytes = Vec::new();
+        persistent_state_file
+            .read_to_end(&mut bytes)
+            .expect("Failed to read persistent state file");
+        Some(bincode::deserialize(&bytes))
+    } else {
+        None
+    }
+}
+
 enum Stop {
     Quit,
     Load(DynamicNes),
@@ -349,9 +379,10 @@ enum MetaAction {
     PrintInfo,
 }
 
-fn handle_event<M: Mapper + serde::ser::Serialize, P: AsRef<Path> + Copy>(
+fn handle_event<M: Mapper + serde::ser::Serialize, P: AsRef<Path> + Copy, Q: AsRef<Path> + Copy>(
     nes: &mut Nes<M>,
     save_state_path: Option<P>,
+    persistent_state_path: Option<Q>,
     event: glutin::Event,
 ) -> Option<MetaAction> {
     match event {
@@ -392,6 +423,16 @@ fn handle_event<M: Mapper + serde::ser::Serialize, P: AsRef<Path> + Copy>(
                                 if let Some(save_state_path) = save_state_path.as_ref() {
                                     if let Some(dynamic_nes) = load(save_state_path).ok() {
                                         return Some(MetaAction::Stop(Stop::Load(dynamic_nes)));
+                                    }
+                                }
+                            }
+                            glutin::VirtualKeyCode::P => {
+                                if let Some(persistent_state_path) = persistent_state_path {
+                                    if let Some(persistent_state) = nes.save_persistent_state() {
+                                        save_persistent_state(
+                                            &persistent_state,
+                                            persistent_state_path,
+                                        );
                                     }
                                 }
                             }
@@ -491,7 +532,12 @@ fn run_glutin<M: Mapper + serde::ser::Serialize>(
         let mut meta_action = None;
         frontend.poll_glutin_events(|event| {
             if meta_action.is_none() {
-                meta_action = handle_event(&mut nes, config.save_filename(), event);
+                meta_action = handle_event(
+                    &mut nes,
+                    config.save_filename(),
+                    config.persistent_state_filename.as_ref(),
+                    event,
+                );
             }
         });
         if let Some(meta_action) = meta_action {
@@ -545,10 +591,15 @@ fn run_headless_hashing_final_frame<M: Mapper>(mut nes: Nes<M>, num_frames: u64)
 }
 
 fn run<M: Mapper + serde::ser::Serialize>(
-    nes: Nes<M>,
+    mut nes: Nes<M>,
     config: &Config,
     frontend: &mut Frontend,
 ) -> Stop {
+    if let Some(persistent_state_filename) = config.persistent_state_filename.as_ref() {
+        if let Some(Ok(persistent_state)) = load_persistent_state(persistent_state_filename) {
+            nes.load_persistent_state(&persistent_state).unwrap();
+        }
+    }
     match frontend {
         Frontend::Glutin(glutin_frontend) => run_glutin(nes, config, glutin_frontend),
         Frontend::HeadlessPrintingFinalFrameHash { num_frames } => {
