@@ -10,6 +10,7 @@ members = [
     "nes_specs",
     "nes_emulator",
     "nes_headless_frame",
+    "nes_name_table_debug",
     "nes_samples",
     "samples",
 ]

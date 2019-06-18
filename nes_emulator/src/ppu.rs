@@ -1,6 +1,7 @@
 use crate::mapper::{NameTableChoice, PatternTableChoice, PpuMapper};
 use mos6502::address;
 use mos6502::machine::{Address, Memory};
+use nes_name_table_debug::NameTableFrame;
 use nes_specs;
 use std::fmt;
 
@@ -464,7 +465,14 @@ impl ScrollState {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Scanline(u8);
+
+impl Scanline {
+    pub fn index(&self) -> u8 {
+        self.0
+    }
+}
 
 pub struct ScanlineIter {
     scanline: u8,
@@ -833,6 +841,91 @@ impl Ppu {
         } else {
             self.clear_background_scanline(scanline.0, pixels);
         }
+    }
+    pub fn debug_render_name_table_frame<M: PpuMapper>(
+        &self,
+        memory: &M,
+        name_table_frame: &mut NameTableFrame,
+    ) {
+        let background_pattern_table = memory.ppu_pattern_table(self.background_pattern_table);
+        for &(name_table_choice, offset_x, offset_y) in &[
+            (NameTableChoice::TopLeft, 0, 0),
+            (NameTableChoice::TopRight, nes_specs::SCREEN_WIDTH_PX, 0),
+            (NameTableChoice::BottomLeft, 0, nes_specs::SCREEN_HEIGHT_PX),
+            (
+                NameTableChoice::BottomRight,
+                nes_specs::SCREEN_WIDTH_PX,
+                nes_specs::SCREEN_HEIGHT_PX,
+            ),
+        ] {
+            let universal_background_colour = memory.ppu_palette_ram()[0];
+            let name_table = memory.ppu_name_table(name_table_choice);
+            for tile_y in 0..SCREEN_HEIGHT_TILES {
+                for tile_x in 0..SCREEN_WIDTH_TILES {
+                    let tile_index = tile_y * SCREEN_WIDTH_TILES + tile_x;
+                    let pattern_index = name_table[tile_index as usize];
+                    let pattern_offset = pattern_index as u16 * PATTERN_BYTES as u16;
+                    let mut pattern_data_lo = [0; PATTERN_BYTES as usize / 2];
+                    let mut pattern_data_hi = [0; PATTERN_BYTES as usize / 2];
+                    pattern_data_lo.copy_from_slice(
+                        &background_pattern_table[pattern_offset as usize
+                            ..pattern_offset as usize + (PATTERN_BYTES as usize / 2)],
+                    );
+                    pattern_data_hi.copy_from_slice(
+                        &background_pattern_table[(pattern_offset as usize
+                            + (PATTERN_BYTES as usize / 2))
+                            ..(pattern_offset as usize + PATTERN_BYTES as usize)],
+                    );
+                    let attribute_x = tile_x / ATTRIBUTE_SIZE_TILES;
+                    let attribute_y = tile_y / ATTRIBUTE_SIZE_TILES;
+                    let attribute_index = attribute_y * SCREEN_WIDTH_ATTRIBUTES + attribute_x;
+                    let attribute_block =
+                        name_table[ATTRIBUTE_TABLE_START_INDEX + attribute_index as usize];
+                    let tile_2x2_block_coord_x = tile_x / 2;
+                    let tile_2x2_block_coord_y = tile_y / 2;
+                    let attribute_shift_to_select_2x2_tile_block = match (
+                        tile_2x2_block_coord_y % 2 == 0,
+                        tile_2x2_block_coord_x % 2 == 0,
+                    ) {
+                        (true, true) => 0,
+                        (true, false) => 2,
+                        (false, true) => 4,
+                        (false, false) => 6,
+                    };
+                    let palette_base = (attribute_block
+                        .wrapping_shr(attribute_shift_to_select_2x2_tile_block)
+                        & 0x3)
+                        * PALETTE_NUM_COLOURS;
+                    let mut palette = [0; PALETTE_NUM_COLOURS as usize];
+                    palette.copy_from_slice(
+                        &memory.ppu_palette_ram()[palette_base as usize..palette_base as usize + 4],
+                    );
+                    for j in 0..TILE_SIZE_PX {
+                        let pixel_row_lo = pattern_data_lo[j as usize];
+                        let pixel_row_hi = pattern_data_hi[j as usize];
+                        for i in 0..TILE_SIZE_PX {
+                            let pixel_colour_index = match pattern_to_palette_index(
+                                pixel_row_lo,
+                                pixel_row_hi,
+                                (TILE_SIZE_PX - 1 - i) as u32,
+                            ) {
+                                0 => universal_background_colour,
+                                non_zero => palette[non_zero as usize],
+                            };
+                            let pixel_x = offset_x + (tile_x * TILE_SIZE_PX) + i;
+                            let pixel_y = offset_y + (tile_y * TILE_SIZE_PX) + j;
+                            name_table_frame.set_pixel(pixel_x, pixel_y, pixel_colour_index);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    pub fn scroll_x(&self) -> u16 {
+        self.scroll_state.scroll_x()
+    }
+    pub fn scroll_y(&self) -> u16 {
+        self.scroll_state.scroll_y()
     }
     fn sprite_opaque_pixel_map_8x8(pattern_lo: &[u8], pattern_hi: &[u8]) -> u64 {
         let mut result = 0;

@@ -12,6 +12,7 @@ nes_specs = { path = "../nes_specs" }
 analyser = { path = "../analyser" }
 glutin_frontend = { path = "../glutin_frontend" }
 gif_renderer = { path = "../gif_renderer" }
+nes_name_table_debug = { path = "../nes_name_table_debug" }
 serde = { version = "1.0", features = ["serde_derive"] }
 serde-big-array = "0.1"
 bincode = "1.1"

@@ -5,6 +5,7 @@ use crate::timing;
 use crate::DynamicNes;
 use mos6502::debug::InstructionWithOperand;
 use mos6502::machine::{Address, Cpu, Memory, MemoryReadOnly};
+use nes_name_table_debug::NameTableFrame;
 use std::io::{self, Write};
 
 const RAM_BYTES: usize = 0x800;
@@ -285,7 +286,12 @@ impl<M: Mapper> Nes<M> {
         nes.start();
         nes
     }
-    fn run_for_frame_general<R: RunForCycles, O: RenderOutput>(&mut self, _: R, pixels: &mut O) {
+    fn run_for_frame_general<R: RunForCycles, O: RenderOutput>(
+        &mut self,
+        _: R,
+        pixels: &mut O,
+        mut name_table_frame: Option<&mut NameTableFrame>,
+    ) {
         // pre-render scanline
         R::run_for_cycles(
             &mut self.cpu,
@@ -297,6 +303,12 @@ impl<M: Mapper> Nes<M> {
             &self.devices.oam,
             pixels,
         );
+        if let Some(ref mut name_table_frame) = name_table_frame {
+            self.devices
+                .devices
+                .ppu
+                .debug_render_name_table_frame(&self.devices.devices.mapper, name_table_frame);
+        }
         let sprite_zero = self
             .devices
             .devices
@@ -314,6 +326,13 @@ impl<M: Mapper> Nes<M> {
                 &self.devices.devices.mapper,
                 pixels,
             );
+            if let Some(ref mut name_table_frame) = name_table_frame {
+                name_table_frame.set_scroll(
+                    scanline.index(),
+                    self.devices.devices.ppu.scroll_x(),
+                    self.devices.devices.ppu.scroll_y(),
+                );
+            }
         }
         // post-render scanline
         R::run_for_cycles(
@@ -332,11 +351,19 @@ impl<M: Mapper> Nes<M> {
         );
         self.devices.devices.ppu.after_vblank();
     }
-    pub fn run_for_frame<O: RenderOutput>(&mut self, pixels: &mut O) {
-        self.run_for_frame_general(RunForCyclesRegular, pixels);
+    pub fn run_for_frame<O: RenderOutput>(
+        &mut self,
+        pixels: &mut O,
+        name_table_frame: Option<&mut NameTableFrame>,
+    ) {
+        self.run_for_frame_general(RunForCyclesRegular, pixels, name_table_frame);
     }
-    pub fn run_for_frame_debug<O: RenderOutput>(&mut self, pixels: &mut O) {
-        self.run_for_frame_general(RunForCyclesDebug, pixels);
+    pub fn run_for_frame_debug<O: RenderOutput>(
+        &mut self,
+        pixels: &mut O,
+        name_table_frame: Option<&mut NameTableFrame>,
+    ) {
+        self.run_for_frame_general(RunForCyclesDebug, pixels, name_table_frame);
     }
     pub fn clone_dynamic_nes(&self) -> DynamicNes {
         M::clone_dynamic_nes(self)

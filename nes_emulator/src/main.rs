@@ -11,6 +11,7 @@ extern crate serde;
 #[macro_use]
 extern crate serde_big_array;
 extern crate nes_headless_frame;
+extern crate nes_name_table_debug;
 extern crate nes_specs;
 
 mod apu;
@@ -21,17 +22,18 @@ mod timing;
 
 use glutin_frontend::glutin;
 use ines::Ines;
+use mapper::{mmc1, nrom, Mapper, PersistentState};
+use nes::Nes;
+use nes_name_table_debug::NameTableFrame;
+use ppu::RenderOutput;
 use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Read, Write};
+use std::ops::DerefMut;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
-
-use mapper::{mmc1, nrom, Mapper, PersistentState};
-use nes::Nes;
-use ppu::RenderOutput;
 
 #[derive(Clone)]
 enum Frontend {
@@ -76,6 +78,7 @@ struct Args {
     frame_duration: Option<Duration>,
     save_state_filename: Option<String>,
     gif_filename: Option<String>,
+    name_table_gif_filename: Option<String>,
     frontend: Frontend,
     debug: bool,
     persistent_state_filename: Option<String>,
@@ -93,6 +96,7 @@ impl Args {
                     .option_map(Duration::from_millis);
                 save_state_filename = simon::opt("s", "save-state-file", "state file to save", "PATH");
                 gif_filename = simon::opt("g", "gif", "gif file to record into", "PATH");
+                name_table_gif_filename = simon::opt("n", "name-table-gif", "gif file to record name tables into", "PATH");
                 frontend = Frontend::arg();
                 debug = simon::flag("d", "debug", "enable debugging printouts");
                 persistent_state_filename = simon::opt("p", "persistent-state-filename", "file to store persistent state", "PATH");
@@ -105,6 +109,7 @@ impl Args {
                     frame_duration,
                     save_state_filename,
                     gif_filename,
+                    name_table_gif_filename,
                     frontend,
                     debug,
                     persistent_state_filename,
@@ -292,6 +297,7 @@ struct Config {
     debug: bool,
     persistent_state_filename: Option<PathBuf>,
     zoom: f64,
+    name_table_gif_renderer: Option<NameTableGifRenderer>,
 }
 
 impl Config {
@@ -308,6 +314,10 @@ impl Config {
             .as_ref()
             .map(|gif_filename| gif_filename.into());
         let persistent_state_filename = args.persistent_state_filename.as_ref().map(|f| f.into());
+        let name_table_gif_renderer = args
+            .name_table_gif_filename
+            .as_ref()
+            .map(|f| NameTableGifRenderer::new(f));
         Self {
             save_config,
             gif_filename,
@@ -316,6 +326,7 @@ impl Config {
             debug: args.debug,
             persistent_state_filename,
             zoom: args.zoom,
+            name_table_gif_renderer,
         }
     }
     fn save_filename(&self) -> Option<&PathBuf> {
@@ -488,33 +499,60 @@ fn handle_event<M: Mapper + serde::ser::Serialize, P: AsRef<Path> + Copy, Q: AsR
     None
 }
 
+struct NameTableGifRenderer {
+    gif_renderer: gif_renderer::NameTableRenderer<File>,
+    frame: Box<NameTableFrame>,
+}
+
+impl NameTableGifRenderer {
+    fn new<P: AsRef<Path>>(path: P) -> Self {
+        let gif_renderer = gif_renderer::NameTableRenderer::new(File::create(path).unwrap());
+        let frame = Box::new(NameTableFrame::new());
+        Self {
+            gif_renderer,
+            frame,
+        }
+    }
+    fn render(&mut self) {
+        self.gif_renderer.add_name_table_frame(&self.frame);
+        *self.frame = NameTableFrame::new();
+    }
+}
+
 fn run_nes_for_frame<M: Mapper, O: RenderOutput>(
     nes: &mut Nes<M>,
-    config: &Config,
+    config: &mut Config,
     pixels: &mut O,
     gif_renderer: Option<&mut gif_renderer::Renderer<File>>,
 ) {
+    let name_table_frame = config
+        .name_table_gif_renderer
+        .as_mut()
+        .map(|r| r.frame.deref_mut());
     if let Some(gif_renderer) = gif_renderer {
         let mut gif_frame = gif_renderer::Frame::new();
         let mut render_output = RenderOutputPair::new(pixels, &mut gif_frame);
         if config.debug {
-            nes.run_for_frame_debug(&mut render_output);
+            nes.run_for_frame_debug(&mut render_output, name_table_frame);
         } else {
-            nes.run_for_frame(&mut render_output);
+            nes.run_for_frame(&mut render_output, name_table_frame);
         }
-        gif_renderer.add(gif_frame);
+        gif_renderer.add(&gif_frame);
     } else {
         if config.debug {
-            nes.run_for_frame_debug(pixels);
+            nes.run_for_frame_debug(pixels, name_table_frame);
         } else {
-            nes.run_for_frame(pixels);
+            nes.run_for_frame(pixels, name_table_frame);
         }
+    }
+    if let Some(name_table_gif_renderer) = config.name_table_gif_renderer.as_mut() {
+        name_table_gif_renderer.render();
     }
 }
 
 fn run_glutin<M: Mapper + serde::ser::Serialize>(
     mut nes: Nes<M>,
-    config: &Config,
+    config: &mut Config,
     frontend: &mut glutin_frontend::Frontend,
 ) -> Stop {
     let mut frame_count = 0;
@@ -586,11 +624,11 @@ fn run_glutin<M: Mapper + serde::ser::Serialize>(
 fn run_headless_hashing_final_frame<M: Mapper>(mut nes: Nes<M>, num_frames: u64) -> u64 {
     if let Some(n) = num_frames.checked_sub(1) {
         for _ in 0..n {
-            nes.run_for_frame(&mut NoRenderOutput);
+            nes.run_for_frame(&mut NoRenderOutput, None);
         }
     }
     let mut frame = nes_headless_frame::Frame::new();
-    nes.run_for_frame(&mut frame);
+    nes.run_for_frame(&mut frame, None);
     let mut hasher = DefaultHasher::new();
     frame.hash(&mut hasher);
     hasher.finish()
@@ -603,7 +641,7 @@ struct LazyFrontendResources {
 
 fn run<M: Mapper + serde::ser::Serialize>(
     mut nes: Nes<M>,
-    config: &Config,
+    config: &mut Config,
     frontend: &Frontend,
     frontend_resources: &mut LazyFrontendResources,
 ) -> Stop {
@@ -629,15 +667,15 @@ fn run<M: Mapper + serde::ser::Serialize>(
 
 fn main() {
     let args = Args::arg().with_help_default().parse_env_default_or_exit();
-    let config = Config::from_args(&args);
+    let mut config = Config::from_args(&args);
     let mut current_nes = DynamicNes::from_args(&args).unwrap();
     let mut res = LazyFrontendResources::default();
     let Args { frontend, .. } = args;
     loop {
         let stop = match current_nes {
-            DynamicNes::NromHorizontal(nes) => run(nes, &config, &frontend, &mut res),
-            DynamicNes::NromVertical(nes) => run(nes, &config, &frontend, &mut res),
-            DynamicNes::Mmc1(nes) => run(nes, &config, &frontend, &mut res),
+            DynamicNes::NromHorizontal(nes) => run(nes, &mut config, &frontend, &mut res),
+            DynamicNes::NromVertical(nes) => run(nes, &mut config, &frontend, &mut res),
+            DynamicNes::Mmc1(nes) => run(nes, &mut config, &frontend, &mut res),
         };
         match stop {
             Stop::Quit => break,
