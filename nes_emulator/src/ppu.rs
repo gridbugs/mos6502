@@ -764,12 +764,17 @@ impl Ppu {
                 [pattern_offset as usize + 0x18..=pattern_offset as usize + 0x1F];
             let palette_base = oam_entry.palette_base();
             let palette = &palette_ram[palette_base..palette_base + 4];
+            let (offset_top, offset_bottom) = if oam_entry.flip_sprite_vertically() {
+                (8, 0)
+            } else {
+                (0, 8)
+            };
             Self::render_sprite_8x8(
                 oam_entry,
                 pattern_top_lo,
                 pattern_top_hi,
                 palette,
-                0,
+                offset_top,
                 self.show_sprites_left_8_pixels,
                 pixels,
             );
@@ -778,7 +783,7 @@ impl Ppu {
                 pattern_bottom_lo,
                 pattern_bottom_hi,
                 palette,
-                8,
+                offset_bottom,
                 self.show_sprites_left_8_pixels,
                 pixels,
             );
