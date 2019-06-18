@@ -185,7 +185,6 @@ fn pattern_to_palette_index(pixel_row_lo: u8, pixel_row_hi: u8, pixel_index: u32
 
 struct NameTableEntry {
     top_left_pixel_x: u16,
-    top_left_pixel_y: u16,
     pattern_data_lo: [u8; PATTERN_BYTES as usize / 2],
     pattern_data_hi: [u8; PATTERN_BYTES as usize / 2],
     palette: [u8; PALETTE_NUM_COLOURS as usize],
@@ -256,7 +255,6 @@ impl NameTableEntry {
         );
         Self {
             top_left_pixel_x: tile_x * TILE_SIZE_PX,
-            top_left_pixel_y: tile_y * TILE_SIZE_PX,
             pattern_data_lo,
             pattern_data_hi,
             palette,
@@ -264,17 +262,15 @@ impl NameTableEntry {
     }
     fn render_pixel_row<O: RenderOutput>(
         &self,
+        scanline: u8,
         pixel_row: u16,
         pixel_min_x: u16,
-        pixel_min_y: u16,
         pixel_max_x: u16,
         background_colour_code: u8,
         show_left_8_pixels: bool,
         sprite_zero_row: SpriteZeroRow,
         pixels: &mut O,
     ) -> Option<SpriteZeroHit> {
-        let pixel_y = self.top_left_pixel_y + pixel_row;
-        let screen_pixel_y = pixel_y - pixel_min_y;
         let pixel_row_lo = self.pattern_data_lo[pixel_row as usize];
         let pixel_row_hi = self.pattern_data_hi[pixel_row as usize];
         let mut sprite_zero_hit = None;
@@ -287,14 +283,14 @@ impl NameTableEntry {
             if !show_left_8_pixels && screen_pixel_x < 8 {
                 pixels.set_pixel_colour_background(
                     screen_pixel_x,
-                    screen_pixel_y,
+                    scanline as u16,
                     BLACK_COLOUR_CODE,
                 );
             } else {
                 match pattern_to_palette_index(pixel_row_lo, pixel_row_hi, pixel_col as u32) {
                     0 => pixels.set_pixel_colour_universal_background(
                         screen_pixel_x,
-                        screen_pixel_y,
+                        scanline as u16,
                         background_colour_code,
                     ),
                     non_zero => {
@@ -304,7 +300,7 @@ impl NameTableEntry {
                         }
                         pixels.set_pixel_colour_background(
                             screen_pixel_x,
-                            screen_pixel_y,
+                            scanline as u16,
                             self.palette[non_zero as usize],
                         );
                     }
@@ -367,8 +363,8 @@ impl ScrollStateAddress {
     fn increment_ppu_address(&mut self, by: u8) {
         self.0 = self.0.wrapping_add(by as u16);
     }
-    fn increment_scroll_y(&mut self) {
-        if self.0 & (0x7 << 12) == (0x7 << 12) {
+    fn increment_vertical_scroll(&mut self) {
+        if self.0 & (0x7 << 12) != (0x7 << 12) {
             // increment fine y scroll
             self.0 += 0x1 << 12;
         } else {
@@ -462,6 +458,9 @@ impl ScrollState {
     }
     fn increment_ppu_address(&mut self, by: u8) {
         self.current_vram_address.increment_ppu_address(by);
+    }
+    fn increment_vertical_scroll(&mut self) {
+        self.current_vram_address.increment_vertical_scroll();
     }
 }
 
@@ -568,6 +567,7 @@ impl Ppu {
     pub fn end_scanline(&mut self) {
         if self.show_background {
             self.scroll_state.copy_horizontal_scroll();
+            self.scroll_state.increment_vertical_scroll();
         }
     }
     pub fn end_vblank(&mut self) {
@@ -782,13 +782,12 @@ impl Ppu {
         pixels: &mut O,
     ) {
         if self.show_background {
-            let total_scroll_x = self.scroll_state.scroll_x();
-            let total_scroll_y = self.scroll_state.scroll_y();
-            let pixel_y = total_scroll_y + scanline as u16;
-            let tile_y = pixel_y / TILE_SIZE_PX;
-            let pixel_offset_within_tile_y = pixel_y % TILE_SIZE_PX;
-            let pixel_max_x = total_scroll_x + nes_specs::SCREEN_WIDTH_PX - 1;
-            let tile_min_x = total_scroll_x / TILE_SIZE_PX;
+            let scroll_x = self.scroll_state.scroll_x();
+            let scroll_y = self.scroll_state.scroll_y();
+            let tile_y = scroll_y / TILE_SIZE_PX;
+            let pixel_offset_within_tile_y = scroll_y % TILE_SIZE_PX;
+            let pixel_max_x = scroll_x + nes_specs::SCREEN_WIDTH_PX - 1;
+            let tile_min_x = scroll_x / TILE_SIZE_PX;
             let tile_max_x = pixel_max_x / TILE_SIZE_PX;
             let background_pattern_table = memory.ppu_pattern_table(self.background_pattern_table);
             let universal_background_colour = memory.ppu_palette_ram()[0];
@@ -797,9 +796,9 @@ impl Ppu {
                 let name_table_entry =
                     NameTableEntry::lookup(tile_x, tile_y, background_pattern_table, memory);
                 if let Some(SpriteZeroHit) = name_table_entry.render_pixel_row(
+                    scanline,
                     pixel_offset_within_tile_y,
-                    total_scroll_x,
-                    total_scroll_y,
+                    scroll_x,
                     pixel_max_x,
                     universal_background_colour,
                     self.show_background_left_8_pixels,
