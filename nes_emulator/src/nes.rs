@@ -1,11 +1,10 @@
 use crate::apu::Apu;
 use crate::mapper::{Mapper, PersistentState, PersistentStateError};
-use crate::ppu::{Oam, Ppu, RenderOutput};
+use crate::ppu::{Oam, Ppu, RenderOutput, ScanlineIter};
 use crate::timing;
 use crate::DynamicNes;
 use mos6502::debug::InstructionWithOperand;
 use mos6502::machine::{Address, Cpu, Memory, MemoryReadOnly};
-use nes_specs;
 use std::io::{self, Write};
 
 const RAM_BYTES: usize = 0x800;
@@ -287,7 +286,6 @@ impl<M: Mapper> Nes<M> {
         nes
     }
     fn run_for_frame_general<R: RunForCycles, O: RenderOutput>(&mut self, _: R, pixels: &mut O) {
-        self.devices.devices.ppu.clear_sprite_zero_hit();
         // pre-render scanline
         R::run_for_cycles(
             &mut self.cpu,
@@ -304,7 +302,7 @@ impl<M: Mapper> Nes<M> {
             .devices
             .ppu
             .sprite_zero(&self.devices.oam, &mut self.devices.devices.mapper);
-        for scanline in 0..(nes_specs::SCREEN_HEIGHT_PX as u8) {
+        for scanline in ScanlineIter::new() {
             R::run_for_cycles(
                 &mut self.cpu,
                 &mut self.devices,
@@ -316,7 +314,6 @@ impl<M: Mapper> Nes<M> {
                 &self.devices.devices.mapper,
                 pixels,
             );
-            self.devices.devices.ppu.end_scanline();
         }
         // post-render scanline
         R::run_for_cycles(
@@ -327,14 +324,13 @@ impl<M: Mapper> Nes<M> {
         if self.devices.devices.ppu.is_vblank_nmi_enabled() {
             self.cpu.nmi(&mut self.devices);
         }
-        self.devices.devices.ppu.set_vblank();
+        self.devices.devices.ppu.before_vblank();
         R::run_for_cycles(
             &mut self.cpu,
             &mut self.devices,
             timing::ntsc::APPROX_CPU_CYCLES_PER_VBLANK,
         );
-        self.devices.devices.ppu.clear_vblank();
-        self.devices.devices.ppu.end_vblank();
+        self.devices.devices.ppu.after_vblank();
     }
     pub fn run_for_frame<O: RenderOutput>(&mut self, pixels: &mut O) {
         self.run_for_frame_general(RunForCyclesRegular, pixels);

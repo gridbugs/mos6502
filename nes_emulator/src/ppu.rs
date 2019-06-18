@@ -464,6 +464,31 @@ impl ScrollState {
     }
 }
 
+pub struct Scanline(u8);
+
+pub struct ScanlineIter {
+    scanline: u8,
+}
+
+impl ScanlineIter {
+    pub fn new() -> Self {
+        Self { scanline: 0 }
+    }
+}
+
+impl Iterator for ScanlineIter {
+    type Item = Scanline;
+    fn next(&mut self) -> Option<Self::Item> {
+        let scanline = self.scanline;
+        if scanline as u16 == nes_specs::SCREEN_HEIGHT_PX {
+            None
+        } else {
+            self.scanline += 1;
+            Some(Scanline(scanline))
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Ppu {
     address_increment: u8,
@@ -564,17 +589,6 @@ impl Ppu {
             scroll_state: ScrollState::new(),
         }
     }
-    pub fn end_scanline(&mut self) {
-        if self.show_background {
-            self.scroll_state.copy_horizontal_scroll();
-            self.scroll_state.increment_vertical_scroll();
-        }
-    }
-    pub fn end_vblank(&mut self) {
-        if self.show_background {
-            self.scroll_state.copy_vertical_scroll();
-        }
-    }
     pub fn is_vblank_nmi_enabled(&self) -> bool {
         self.vblank_nmi
     }
@@ -622,14 +636,15 @@ impl Ppu {
         self.scroll_state.read_status();
         value
     }
-    pub fn set_vblank(&mut self) {
+    pub fn before_vblank(&mut self) {
         self.vblank_flag = true;
     }
-    pub fn clear_vblank(&mut self) {
+    pub fn after_vblank(&mut self) {
         self.vblank_flag = false;
-    }
-    pub fn clear_sprite_zero_hit(&mut self) {
         self.sprite_zero_hit = false;
+        if self.show_background {
+            self.scroll_state.copy_vertical_scroll();
+        }
     }
     pub fn write_oam_address(&mut self, data: u8) {
         self.oam_address = data;
@@ -776,7 +791,7 @@ impl Ppu {
     }
     pub fn render_background_scanline<M: PpuMapper, O: RenderOutput>(
         &mut self,
-        scanline: u8,
+        scanline: Scanline,
         sprite_zero: &SpriteZero,
         memory: &M,
         pixels: &mut O,
@@ -791,12 +806,12 @@ impl Ppu {
             let tile_max_x = pixel_max_x / TILE_SIZE_PX;
             let background_pattern_table = memory.ppu_pattern_table(self.background_pattern_table);
             let universal_background_colour = memory.ppu_palette_ram()[0];
-            let sprite_zero_row = sprite_zero.opaque_pixel_map_row(scanline);
+            let sprite_zero_row = sprite_zero.opaque_pixel_map_row(scanline.0);
             for tile_x in tile_min_x..=tile_max_x {
                 let name_table_entry =
                     NameTableEntry::lookup(tile_x, tile_y, background_pattern_table, memory);
                 if let Some(SpriteZeroHit) = name_table_entry.render_pixel_row(
-                    scanline,
+                    scanline.0,
                     pixel_offset_within_tile_y,
                     scroll_x,
                     pixel_max_x,
@@ -808,8 +823,10 @@ impl Ppu {
                     self.sprite_zero_hit = true;
                 }
             }
+            self.scroll_state.copy_horizontal_scroll();
+            self.scroll_state.increment_vertical_scroll();
         } else {
-            self.clear_background_scanline(scanline, pixels);
+            self.clear_background_scanline(scanline.0, pixels);
         }
     }
     fn sprite_opaque_pixel_map_8x8(pattern_lo: &[u8], pattern_hi: &[u8]) -> u64 {
