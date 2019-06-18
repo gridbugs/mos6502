@@ -321,6 +321,12 @@ enum SpriteSize {
     Large,
 }
 
+// The layout of this value is:
+// yyy NN YYYYY XXXXX
+// ||| || ||||| +++++-- coarse X scroll
+// ||| || +++++-------- coarse Y scroll
+// ||| ++-------------- nametable select
+// +++----------------- fine Y scroll
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 struct ScrollStateAddress(u16);
 
@@ -358,8 +364,36 @@ impl ScrollStateAddress {
         let fine_y_scroll = (self.0 >> 12) & 0x7;
         nametable_select_offset + coarse_y_scroll + fine_y_scroll
     }
-    fn increment(&mut self, by: u8) {
+    fn increment_ppu_address(&mut self, by: u8) {
         self.0 = self.0.wrapping_add(by as u16);
+    }
+    fn increment_scroll_y(&mut self) {
+        if self.0 & (0x7 << 12) == (0x7 << 12) {
+            // increment fine y scroll
+            self.0 += 0x1 << 12;
+        } else {
+            // set fine y scroll to 0
+            self.0 &= !(0x7 << 12);
+            let mut tile_scroll_y = (self.0 & (0x1F << 5)) >> 5;
+            match tile_scroll_y {
+                29 => {
+                    // we're currently on the bottom pixel row of the bottom tile row, so wrap to 0
+                    tile_scroll_y = 0;
+                    // and flip the Y bit of the name table select
+                    self.0 ^= 0x1 << 11;
+                }
+                31 => {
+                    // We're currently inside the attribute table (this is allowed).
+                    // In this case the hardware will just wrap the tile row to 0
+                    tile_scroll_y = 0;
+                }
+                _ => {
+                    // no wrapping necessary
+                    tile_scroll_y += 1;
+                }
+            }
+            self.0 = (self.0 & !(0x1F << 5)) | (tile_scroll_y << 5);
+        }
     }
 }
 
@@ -427,7 +461,7 @@ impl ScrollState {
         self.current_vram_address.ppu_address()
     }
     fn increment_ppu_address(&mut self, by: u8) {
-        self.current_vram_address.increment(by);
+        self.current_vram_address.increment_ppu_address(by);
     }
 }
 
