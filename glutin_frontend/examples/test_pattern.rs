@@ -6,7 +6,7 @@ const BLACK: u8 = 0x0F;
 const PINK: u8 = 0x15;
 
 fn main() {
-    let mut frontend = Frontend::new();
+    let mut frontend = Frontend::new(1.);
     let mut running = true;
     let mut offset = 0u16;
     loop {
