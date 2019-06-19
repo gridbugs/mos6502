@@ -1,6 +1,7 @@
 extern crate gif;
 extern crate nes_headless_frame;
 extern crate nes_name_table_debug;
+extern crate nes_palette;
 extern crate nes_specs;
 use gif::SetParameter;
 use std::borrow::Cow;
@@ -8,6 +9,7 @@ use std::io;
 
 pub use nes_headless_frame::Frame;
 pub use nes_name_table_debug::NameTableFrame;
+use nes_palette::Palette;
 
 pub struct Renderer<W: io::Write> {
     encoder: gif::Encoder<W>,
@@ -15,15 +17,12 @@ pub struct Renderer<W: io::Write> {
 
 impl<W: io::Write> Renderer<W> {
     pub fn new(output: W) -> Self {
-        let palette = include_bytes!("palette.pal");
-        if palette.len() != nes_specs::NUM_COLOURS * 3 {
-            panic!("unexpected palette length: {}", palette.len());
-        }
+        let palette = Palette::basic();
         let mut encoder = gif::Encoder::new(
             output,
             nes_specs::SCREEN_WIDTH_PX,
             nes_specs::SCREEN_HEIGHT_PX,
-            palette,
+            &palette.to_bytes(),
         )
         .unwrap();
         encoder.set(gif::Repeat::Infinite).unwrap();
@@ -45,15 +44,12 @@ pub struct NameTableRenderer<W: io::Write> {
 
 impl<W: io::Write> NameTableRenderer<W> {
     pub fn new(output: W) -> Self {
-        let palette = include_bytes!("palette.pal");
-        if palette.len() != nes_specs::NUM_COLOURS * 3 {
-            panic!("unexpected palette length: {}", palette.len());
-        }
+        let palette = Palette::basic();
         let mut encoder = gif::Encoder::new(
             output,
             nes_name_table_debug::NAME_TABLE_WIDTH_PX,
             nes_name_table_debug::NAME_TABLE_HEIGHT_PX,
-            palette,
+            &palette.to_bytes(),
         )
         .unwrap();
         encoder.set(gif::Repeat::Infinite).unwrap();

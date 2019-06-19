@@ -1,5 +1,4 @@
-const NUM_COLOURS: usize = 64;
-const COLOUR_MASK: u8 = (NUM_COLOURS as u8) - 1;
+use nes_palette::{Palette, COLOUR_MASK};
 
 pub struct ColourTable {
     colours: Vec<[f32; 3]>,
@@ -7,8 +6,8 @@ pub struct ColourTable {
 
 impl ColourTable {
     pub fn new() -> Self {
-        let bytes = include_bytes!("palette.pal");
-        let colours = bytes
+        let colours = Palette::basic()
+            .to_bytes()
             .chunks(3)
             .map(|c| [c[0] as f32 / 255., c[1] as f32 / 255., c[2] as f32 / 255.])
             .collect();

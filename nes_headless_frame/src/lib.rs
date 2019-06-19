@@ -1,3 +1,4 @@
+extern crate nes_palette;
 extern crate nes_specs;
 
 use std::hash::{Hash, Hasher};
@@ -33,7 +34,7 @@ impl Frame {
         let current_depth = &mut self.depths[offset];
         if depth > *current_depth {
             *current_depth = depth;
-            self.indices[offset] = colour_index & nes_specs::COLOUR_MASK;
+            self.indices[offset] = colour_index & nes_palette::COLOUR_MASK;
         }
     }
     pub fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {

@@ -1,9 +1,8 @@
 [package]
-name = "nes_headless_frame"
+name = "nes_palette"
 version = "0.1.0"
 authors = ["Stephen Sherratt <stephen@sherra.tt>"]
 edition = "2018"
 
 [dependencies]
-nes_specs = { path = "../nes_specs" }
-nes_palette = { path = "../nes_palette" }
+rgb24 = "0.1"

@@ -3,6 +3,7 @@ extern crate gfx;
 extern crate gfx_device_gl;
 extern crate gfx_window_glutin;
 pub extern crate glutin;
+extern crate nes_palette;
 extern crate nes_specs;
 
 mod dimensions {
