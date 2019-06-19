@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 nes_specs = { path = "../nes_specs" }
+nes_palette = { path = "../nes_palette" }

@@ -20,6 +20,7 @@ mod nes;
 mod ppu;
 mod timing;
 
+use gif_renderer::Rgb24;
 use glutin_frontend::glutin;
 use ines::Ines;
 use mapper::{mmc1, nrom, Mapper, PersistentState};
@@ -506,7 +507,11 @@ struct NameTableGifRenderer {
 
 impl NameTableGifRenderer {
     fn new<P: AsRef<Path>>(path: P) -> Self {
-        let gif_renderer = gif_renderer::NameTableRenderer::new(File::create(path).unwrap());
+        let gif_renderer = gif_renderer::NameTableRenderer::new(
+            File::create(path).unwrap(),
+            |on_screen| on_screen.saturating_add(Rgb24::new(50, 50, 100)),
+            |off_screen| off_screen.saturating_scalar_mul_div(1, 2),
+        );
         let frame = Box::new(NameTableFrame::new());
         Self {
             gif_renderer,

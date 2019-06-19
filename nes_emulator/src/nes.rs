@@ -315,6 +315,13 @@ impl<M: Mapper> Nes<M> {
             .ppu
             .sprite_zero(&self.devices.oam, &mut self.devices.devices.mapper);
         for scanline in ScanlineIter::new() {
+            if let Some(ref mut name_table_frame) = name_table_frame {
+                name_table_frame.set_scroll(
+                    scanline.index(),
+                    self.devices.devices.ppu.scroll_x(),
+                    self.devices.devices.ppu.scroll_y(),
+                );
+            }
             R::run_for_cycles(
                 &mut self.cpu,
                 &mut self.devices,
@@ -326,13 +333,6 @@ impl<M: Mapper> Nes<M> {
                 &self.devices.devices.mapper,
                 pixels,
             );
-            if let Some(ref mut name_table_frame) = name_table_frame {
-                name_table_frame.set_scroll(
-                    scanline.index(),
-                    self.devices.devices.ppu.scroll_x(),
-                    self.devices.devices.ppu.scroll_y(),
-                );
-            }
         }
         // post-render scanline
         R::run_for_cycles(
