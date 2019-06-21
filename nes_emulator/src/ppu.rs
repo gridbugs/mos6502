@@ -191,7 +191,15 @@ struct NameTableEntry {
     palette: [u8; PALETTE_NUM_COLOURS as usize],
 }
 
-struct SpriteZeroHit;
+pub struct SpriteZeroHit {
+    screen_pixel_x: u8,
+}
+
+impl SpriteZeroHit {
+    pub fn screen_pixel_x(&self) -> u8 {
+        self.screen_pixel_x
+    }
+}
 
 impl NameTableEntry {
     fn lookup<M: PpuMapper>(
@@ -297,7 +305,9 @@ impl NameTableEntry {
                     non_zero => {
                         if sprite_zero_hit.is_none() && sprite_zero_row.is_hit(screen_pixel_x as u8)
                         {
-                            sprite_zero_hit = Some(SpriteZeroHit);
+                            sprite_zero_hit = Some(SpriteZeroHit {
+                                screen_pixel_x: screen_pixel_x as u8,
+                            });
                         }
                         pixels.set_pixel_colour_background(
                             screen_pixel_x,
@@ -808,7 +818,8 @@ impl Ppu {
         sprite_zero: &SpriteZero,
         memory: &M,
         pixels: &mut O,
-    ) {
+    ) -> Option<SpriteZeroHit> {
+        let mut ret = None;
         if self.show_background {
             let scroll_x = self.scroll_state.scroll_x();
             let scroll_y = self.scroll_state.scroll_y();
@@ -823,7 +834,7 @@ impl Ppu {
             for tile_x in tile_min_x..=tile_max_x {
                 let name_table_entry =
                     NameTableEntry::lookup(tile_x, tile_y, background_pattern_table, memory);
-                if let Some(SpriteZeroHit) = name_table_entry.render_pixel_row(
+                if let Some(sprite_zero_hit) = name_table_entry.render_pixel_row(
                     scanline.0,
                     pixel_offset_within_tile_y,
                     scroll_x,
@@ -833,6 +844,9 @@ impl Ppu {
                     sprite_zero_row,
                     pixels,
                 ) {
+                    if !self.sprite_zero_hit {
+                        ret = Some(sprite_zero_hit);
+                    }
                     self.sprite_zero_hit = true;
                 }
             }
@@ -841,6 +855,7 @@ impl Ppu {
         } else {
             self.clear_background_scanline(scanline.0, pixels);
         }
+        ret
     }
     pub fn debug_render_name_table_frame<M: PpuMapper>(
         &self,

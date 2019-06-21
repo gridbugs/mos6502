@@ -327,12 +327,22 @@ impl<M: Mapper> Nes<M> {
                 &mut self.devices,
                 timing::ntsc::APPROX_CPU_CYCLES_PER_SCANLINE,
             );
-            self.devices.devices.ppu.render_background_scanline(
+            if let Some(sprite_zero_hit) = self.devices.devices.ppu.render_background_scanline(
                 scanline,
                 &sprite_zero,
                 &self.devices.devices.mapper,
                 pixels,
-            );
+            ) {
+                let pixels_after_sprite_zero_hit =
+                    nes_specs::SCREEN_WIDTH_PX - sprite_zero_hit.screen_pixel_x() as u16;
+                let approx_cpu_cycles_after_sprite_zero_hit = pixels_after_sprite_zero_hit as u32
+                    / timing::ntsc::NUM_PPU_CYCLES_PER_CPU_CYCLE;
+                R::run_for_cycles(
+                    &mut self.cpu,
+                    &mut self.devices,
+                    approx_cpu_cycles_after_sprite_zero_hit,
+                );
+            }
         }
         // post-render scanline
         R::run_for_cycles(

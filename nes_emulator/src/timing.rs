@@ -1,5 +1,5 @@
 pub mod ntsc {
-    const NUM_PPU_CYCLES_PER_CPU_CYCLE: u32 = 3;
+    pub const NUM_PPU_CYCLES_PER_CPU_CYCLE: u32 = 3;
     const NUM_PPU_CYCLES_PER_SCANLINE: u32 = 341;
     const NUM_VBLANK_SCANLINES: u32 = 20;
     pub const APPROX_CPU_CYCLES_PER_VBLANK: u32 =
