@@ -5,7 +5,7 @@ authors = ["Stephen Sherratt <stephen@sherra.tt>"]
 edition = "2018"
 
 [dependencies]
-simon = "0.2"
+simon = "0.3"
 mos6502 = { path = "../mos6502" }
 ines = { path = "../ines" }
 nes_specs = { path = "../nes_specs" }

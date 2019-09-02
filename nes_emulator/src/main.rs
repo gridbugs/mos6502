@@ -27,6 +27,7 @@ use mapper::{mmc1, nrom, Mapper, PersistentState};
 use nes::Nes;
 use nes_name_table_debug::NameTableFrame;
 use ppu::RenderOutput;
+use simon::Arg;
 use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
 use std::hash::{Hash, Hasher};
@@ -43,7 +44,7 @@ enum Frontend {
 }
 
 impl Frontend {
-    fn arg() -> simon::ArgExt<impl simon::Arg<Item = Self>> {
+    fn arg() -> impl Arg<Item = Self> {
         simon::opt(
             "e",
             "headless-num-frames",
@@ -63,12 +64,12 @@ enum Input {
 }
 
 impl Input {
-    fn arg() -> simon::ArgExt<impl simon::Arg<Item = Self>> {
+    fn arg() -> impl Arg<Item = Self> {
         let rom_file = simon::opt("r", "rom-file", "rom file (ines format) to load", "PATH")
             .option_map(Input::RomFile);
         let load_state_file = simon::opt("l", "load-state-file", "state file to load", "PATH")
             .option_map(Input::StateFile);
-        rom_file.either(load_state_file).with_default(Input::Stdin)
+        rom_file.choice(load_state_file).with_default(Input::Stdin)
     }
 }
 
@@ -87,7 +88,7 @@ struct Args {
 }
 
 impl Args {
-    fn arg() -> simon::ArgExt<impl simon::Arg<Item = Self>> {
+    fn arg() -> impl Arg<Item = Self> {
         args_map! {
             let {
                 input = Input::arg();
@@ -671,7 +672,7 @@ fn run<M: Mapper + serde::ser::Serialize>(
 }
 
 fn main() {
-    let args = Args::arg().with_help_default().parse_env_default_or_exit();
+    let args = Args::arg().with_help_default().parse_env_or_exit();
     let mut config = Config::from_args(&args);
     let mut current_nes = DynamicNes::from_args(&args).unwrap();
     let mut res = LazyFrontendResources::default();
