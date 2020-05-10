@@ -4,7 +4,7 @@ members = [
     "analyser",
     "assembler",
     "gif_renderer",
-    "glutin_frontend",
+    "graphical_frontend",
     "ines",
     "mos6502",
     "nes_specs",

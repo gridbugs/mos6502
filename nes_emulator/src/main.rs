@@ -5,7 +5,7 @@ mod ppu;
 mod timing;
 
 use gif_renderer::Rgb24;
-use glutin_frontend::glutin;
+use graphical_frontend::glutin;
 use ines::Ines;
 use mapper::{mmc1, nrom, Mapper, PersistentState};
 use nes::Nes;
@@ -24,7 +24,7 @@ use std::time::{Duration, Instant};
 
 #[derive(Clone)]
 enum Frontend {
-    Glutin,
+    Graphical,
     HeadlessPrintingFinalFrameHash { num_frames: u64 },
 }
 
@@ -37,7 +37,7 @@ impl Frontend {
             "INT",
         )
         .option_map(|num_frames| Frontend::HeadlessPrintingFinalFrameHash { num_frames })
-        .with_default(Frontend::Glutin)
+        .with_default(Frontend::Graphical)
     }
 }
 
@@ -122,7 +122,7 @@ impl RenderOutput for nes_headless_frame::Frame {
     }
 }
 
-impl<'a> RenderOutput for glutin_frontend::Pixels<'a> {
+impl<'a> RenderOutput for graphical_frontend::Pixels<'a> {
     fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
         self.set_pixel_colour_sprite_back(x, y, colour_index);
     }
@@ -541,10 +541,10 @@ fn run_nes_for_frame<M: Mapper, O: RenderOutput>(
     }
 }
 
-fn run_glutin<M: Mapper + serde::ser::Serialize>(
+fn run_graphical<M: Mapper + serde::ser::Serialize>(
     mut nes: Nes<M>,
     config: &mut Config,
-    frontend: &mut glutin_frontend::Frontend,
+    frontend: &mut graphical_frontend::Frontend,
 ) -> Stop {
     let mut frame_count = 0;
     let mut gif_renderer = config
@@ -565,7 +565,7 @@ fn run_glutin<M: Mapper + serde::ser::Serialize>(
             }
         }
         let mut meta_action = None;
-        frontend.poll_glutin_events(|event| {
+        frontend.poll_events(|event| {
             if meta_action.is_none() {
                 meta_action = handle_event(
                     &mut nes,
@@ -627,7 +627,7 @@ fn run_headless_hashing_final_frame<M: Mapper>(mut nes: Nes<M>, num_frames: u64)
 
 #[derive(Default)]
 struct LazyFrontendResources {
-    glutin: Option<glutin_frontend::Frontend>,
+    graphical: Option<graphical_frontend::Frontend>,
 }
 
 fn run<M: Mapper + serde::ser::Serialize>(
@@ -642,11 +642,11 @@ fn run<M: Mapper + serde::ser::Serialize>(
         }
     }
     match frontend {
-        Frontend::Glutin => {
-            if frontend_resources.glutin.is_none() {
-                frontend_resources.glutin = Some(glutin_frontend::Frontend::new(config.zoom));
+        Frontend::Graphical => {
+            if frontend_resources.graphical.is_none() {
+                frontend_resources.graphical = Some(graphical_frontend::Frontend::new(config.zoom));
             }
-            run_glutin(nes, config, frontend_resources.glutin.as_mut().unwrap())
+            run_graphical(nes, config, frontend_resources.graphical.as_mut().unwrap())
         }
         Frontend::HeadlessPrintingFinalFrameHash { num_frames } => {
             let final_frame_hash = run_headless_hashing_final_frame(nes, *num_frames);

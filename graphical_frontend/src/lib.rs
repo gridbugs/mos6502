@@ -294,7 +294,7 @@ impl Frontend {
         self.windowed_context.swap_buffers().unwrap();
         self.depths = [0; nes_specs::SCREEN_TOTAL_PX as usize];
     }
-    pub fn poll_glutin_events<F: FnMut(glutin::Event)>(&mut self, f: F) {
+    pub fn poll_events<F: FnMut(glutin::Event)>(&mut self, f: F) {
         self.events_loop.poll_events(f)
     }
     pub fn with_pixels<F: FnMut(Pixels)>(&mut self, mut f: F) {
