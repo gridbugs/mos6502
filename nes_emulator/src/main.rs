@@ -1,19 +1,3 @@
-#[macro_use]
-extern crate simon;
-extern crate analyser;
-extern crate bincode;
-extern crate gif_renderer;
-extern crate glutin_frontend;
-extern crate ines;
-extern crate mos6502;
-#[macro_use]
-extern crate serde;
-#[macro_use]
-extern crate serde_big_array;
-extern crate nes_headless_frame;
-extern crate nes_name_table_debug;
-extern crate nes_specs;
-
 mod apu;
 mod mapper;
 mod nes;
@@ -27,7 +11,8 @@ use mapper::{mmc1, nrom, Mapper, PersistentState};
 use nes::Nes;
 use nes_name_table_debug::NameTableFrame;
 use ppu::RenderOutput;
-use simon::Arg;
+use serde::{Deserialize, Serialize};
+use simon::{args_map, Arg};
 use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
 use std::hash::{Hash, Hasher};

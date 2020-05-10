@@ -2,6 +2,7 @@ use crate::addressing_mode::*;
 use crate::instruction::*;
 pub use crate::{address, status, Address};
 use crate::{opcode, UnknownOpcode};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Cpu {

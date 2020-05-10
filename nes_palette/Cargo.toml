@@ -5,4 +5,4 @@ authors = ["Stephen Sherratt <stephen@sherra.tt>"]
 edition = "2018"
 
 [dependencies]
-rgb24 = "0.1"
+rgb24 = "0.2"

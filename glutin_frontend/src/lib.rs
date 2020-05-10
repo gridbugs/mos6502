@@ -1,10 +1,4 @@
-#[macro_use]
-extern crate gfx;
-extern crate gfx_device_gl;
-extern crate gfx_window_glutin;
-pub extern crate glutin;
-extern crate nes_palette;
-extern crate nes_specs;
+pub use glutin;
 
 mod dimensions {
     use nes_specs;
@@ -26,6 +20,7 @@ mod renderer {
     use super::formats::*;
     use super::quad::*;
     use gfx;
+    use gfx::*;
 
     gfx_vertex_struct!(QuadCorner {
         corner_zero_to_one: [f32; 2] = "a_CornerZeroToOne",
@@ -168,7 +163,6 @@ mod renderer {
             self.device.cleanup();
         }
     }
-
 }
 
 use formats::*;

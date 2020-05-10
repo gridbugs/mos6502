@@ -1,5 +1,3 @@
-extern crate assembler;
-extern crate mos6502;
 use assembler::Block;
 pub use mos6502::machine::{Address, Cpu, MemoryReadOnly};
 

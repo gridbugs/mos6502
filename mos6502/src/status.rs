@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 pub mod bit {
     pub const CARRY: u8 = 0;
     pub const ZERO: u8 = 1;

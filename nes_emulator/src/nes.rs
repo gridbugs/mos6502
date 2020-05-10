@@ -6,6 +6,8 @@ use crate::DynamicNes;
 use mos6502::debug::InstructionWithOperand;
 use mos6502::machine::{Address, Cpu, Memory, MemoryReadOnly};
 use nes_name_table_debug::NameTableFrame;
+use serde::{Deserialize, Serialize};
+use serde_big_array::big_array;
 use std::io::{self, Write};
 
 const RAM_BYTES: usize = 0x800;

@@ -8,6 +8,8 @@ use crate::nes::Nes;
 use crate::ppu::{name_table_mirroring, NAME_TABLE_BYTES};
 use crate::DynamicNes;
 use mos6502::Address;
+use serde::{Deserialize, Serialize};
+use serde_big_array::big_array;
 
 big_array! { BigArray; }
 

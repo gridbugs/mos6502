@@ -1,6 +1,3 @@
-extern crate nes_palette;
-extern crate nes_specs;
-
 pub const NAME_TABLE_WIDTH_PX: u16 = nes_specs::SCREEN_WIDTH_PX * 2;
 pub const NAME_TABLE_HEIGHT_PX: u16 = nes_specs::SCREEN_HEIGHT_PX * 2;
 pub const NAME_TABLE_TOTAL_PX: u32 = NAME_TABLE_WIDTH_PX as u32 * NAME_TABLE_HEIGHT_PX as u32;

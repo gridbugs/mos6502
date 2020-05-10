@@ -1,5 +1,3 @@
-extern crate rgb24;
-
 pub use rgb24::Rgb24;
 
 pub const NUM_COLOURS: usize = 64;

@@ -1,6 +1,3 @@
-extern crate nes_palette;
-extern crate nes_specs;
-
 use std::hash::{Hash, Hasher};
 
 mod depth {

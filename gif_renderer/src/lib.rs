@@ -1,8 +1,3 @@
-extern crate gif;
-extern crate nes_headless_frame;
-extern crate nes_name_table_debug;
-extern crate nes_palette;
-extern crate nes_specs;
 use gif::SetParameter;
 use std::borrow::Cow;
 use std::io;

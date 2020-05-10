@@ -1,5 +1,3 @@
-extern crate glutin_frontend;
-extern crate nes_specs;
 use glutin_frontend::*;
 
 const BLACK: u8 = 0x0F;

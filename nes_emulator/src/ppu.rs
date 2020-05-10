@@ -3,6 +3,7 @@ use mos6502::address;
 use mos6502::machine::{Address, Memory};
 use nes_name_table_debug::NameTableFrame;
 use nes_specs;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 pub const NAME_TABLE_BYTES: usize = 0x400;

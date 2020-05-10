@@ -1,5 +1,3 @@
-extern crate mos6502;
-
 use mos6502::debug::{AddressingMode, InstructionType, InstructionWithOperand};
 use mos6502::machine::MemoryReadOnly;
 use mos6502::opcode;

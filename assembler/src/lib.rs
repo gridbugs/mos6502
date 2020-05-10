@@ -1,5 +1,3 @@
-extern crate mos6502;
-
 use mos6502::*;
 use std::collections::HashMap;
 

@@ -1,6 +1,7 @@
 use crate::nes::Nes;
 use crate::DynamicNes;
 use mos6502::Address;
+use serde::{Deserialize, Serialize};
 
 pub type PpuAddress = u16;
 

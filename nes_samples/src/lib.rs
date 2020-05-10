@@ -1,8 +1,3 @@
-extern crate assembler;
-extern crate ines;
-extern crate mos6502;
-extern crate samples;
-
 pub mod single_block {
     pub use addressing_mode::*;
     pub use assembler::*;
