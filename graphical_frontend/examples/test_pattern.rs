@@ -1,4 +1,4 @@
-use glutin_frontend::*;
+use graphical_frontend::*;
 
 const BLACK: u8 = 0x0F;
 const PINK: u8 = 0x15;
@@ -8,7 +8,7 @@ fn main() {
     let mut running = true;
     let mut offset = 0u16;
     loop {
-        frontend.poll_glutin_events(|event| match event {
+        frontend.poll_events(|event| match event {
             glutin::Event::WindowEvent { event, .. } => match event {
                 glutin::WindowEvent::CloseRequested => {
                     running = false;
