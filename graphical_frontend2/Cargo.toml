@@ -1,0 +1,10 @@
+[package]
+name = "graphical_frontend2"
+version = "0.1.0"
+authors = ["Stephen Sherratt <stephen@sherra.tt>"]
+edition = "2018"
+
+[dependencies]
+pixels = "0.0"
+winit = "0.22"
+nes_specs = { path = "../nes_specs" }

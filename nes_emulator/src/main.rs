@@ -628,6 +628,7 @@ fn run_headless_hashing_final_frame<M: Mapper>(mut nes: Nes<M>, num_frames: u64)
 #[derive(Default)]
 struct LazyFrontendResources {
     graphical: Option<graphical_frontend::Frontend>,
+    graphical2: Option<graphical_frontend2::Frontend>,
 }
 
 fn run<M: Mapper + serde::ser::Serialize>(
@@ -645,6 +646,8 @@ fn run<M: Mapper + serde::ser::Serialize>(
         Frontend::Graphical => {
             if frontend_resources.graphical.is_none() {
                 frontend_resources.graphical = Some(graphical_frontend::Frontend::new(config.zoom));
+                frontend_resources.graphical2 =
+                    Some(graphical_frontend2::Frontend::new(config.zoom));
             }
             run_graphical(nes, config, frontend_resources.graphical.as_mut().unwrap())
         }
