@@ -544,8 +544,10 @@ fn run_nes_for_frame<M: Mapper, O: RenderOutput>(
 fn run_graphical<M: Mapper + serde::ser::Serialize>(
     mut nes: Nes<M>,
     config: &mut Config,
-    frontend: &mut graphical_frontend::Frontend,
+    mut frontend: graphical_frontend::Frontend,
+    mut frontend2: graphical_frontend2::Frontend,
 ) -> Stop {
+    frontend2.run();
     let mut frame_count = 0;
     let mut gif_renderer = config
         .gif_filename
@@ -649,7 +651,12 @@ fn run<M: Mapper + serde::ser::Serialize>(
                 frontend_resources.graphical2 =
                     Some(graphical_frontend2::Frontend::new(config.zoom));
             }
-            run_graphical(nes, config, frontend_resources.graphical.as_mut().unwrap())
+            run_graphical(
+                nes,
+                config,
+                frontend_resources.graphical.take().unwrap(),
+                frontend_resources.graphical2.take().unwrap(),
+            )
         }
         Frontend::HeadlessPrintingFinalFrameHash { num_frames } => {
             let final_frame_hash = run_headless_hashing_final_frame(nes, *num_frames);
