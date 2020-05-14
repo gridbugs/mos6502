@@ -690,6 +690,7 @@ dependencies = [
 name = "graphical_frontend2"
 version = "0.1.0"
 dependencies = [
+ "nes_palette 0.1.0",
  "nes_specs 0.1.0",
  "pixels 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "winit 0.22.1 (registry+https://github.com/rust-lang/crates.io-index)",

@@ -87,7 +87,7 @@ impl Args {
                 frontend = Frontend::arg();
                 debug = simon::flag("d", "debug", "enable debugging printouts");
                 persistent_state_filename = simon::opt("p", "persistent-state-filename", "file to store persistent state", "PATH");
-                zoom = simon::opt("z", "zoom", "real pixels per nes pixel", "FLOAT").with_default(2.);
+                zoom = simon::opt("z", "zoom", "real pixels per nes pixel", "FLOAT").with_default(1.);
             } in {
                 Self {
                     input,
@@ -123,6 +123,21 @@ impl RenderOutput for nes_headless_frame::Frame {
 }
 
 impl<'a> RenderOutput for graphical_frontend::Pixels<'a> {
+    fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour_sprite_back(x, y, colour_index);
+    }
+    fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour_sprite_front(x, y, colour_index);
+    }
+    fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour_background(x, y, colour_index);
+    }
+    fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour_universal_background(x, y, colour_index);
+    }
+}
+
+impl<'a> RenderOutput for graphical_frontend2::Pixels<'a> {
     fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
         self.set_pixel_colour_sprite_back(x, y, colour_index);
     }
@@ -256,11 +271,13 @@ impl DynamicNes {
     }
 }
 
+#[derive(Clone)]
 struct SaveConfig {
     filename: PathBuf,
     autosave_after_frames: Option<u64>,
 }
 
+#[derive(Clone)]
 struct AutosaveConfig {
     filename: PathBuf,
     autosave_after_frames: u64,
@@ -276,6 +293,7 @@ impl SaveConfig {
     }
 }
 
+#[derive(Clone)]
 struct Config {
     save_config: Option<SaveConfig>,
     gif_filename: Option<PathBuf>,
@@ -284,7 +302,7 @@ struct Config {
     debug: bool,
     persistent_state_filename: Option<PathBuf>,
     zoom: f64,
-    name_table_gif_renderer: Option<NameTableGifRenderer>,
+    name_table_gif_renderer: Option<String>,
 }
 
 impl Config {
@@ -301,10 +319,7 @@ impl Config {
             .as_ref()
             .map(|gif_filename| gif_filename.into());
         let persistent_state_filename = args.persistent_state_filename.as_ref().map(|f| f.into());
-        let name_table_gif_renderer = args
-            .name_table_gif_filename
-            .as_ref()
-            .map(|f| NameTableGifRenderer::new(f));
+        let name_table_gif_renderer = args.name_table_gif_filename.clone();
         Self {
             save_config,
             gif_filename,
@@ -381,6 +396,114 @@ enum Stop {
 enum MetaAction {
     Stop(Stop),
     PrintInfo,
+}
+
+fn handle_event2<
+    M: Mapper + serde::ser::Serialize,
+    P: AsRef<Path> + Copy,
+    Q: AsRef<Path> + Copy,
+>(
+    nes: &mut Nes<M>,
+    save_state_path: Option<P>,
+    persistent_state_path: Option<Q>,
+    event: graphical_frontend2::input::Event,
+) -> Option<MetaAction> {
+    use graphical_frontend2::input;
+    match event {
+        input::Event::WindowEvent { event, .. } => match event {
+            input::WindowEvent::CloseRequested => {
+                return Some(MetaAction::Stop(Stop::Quit));
+            }
+            input::WindowEvent::KeyboardInput { input, .. } => match input.state {
+                input::ElementState::Pressed => {
+                    if let Some(virtual_keycode) = input.virtual_keycode {
+                        match virtual_keycode {
+                            input::VirtualKeyCode::Left => {
+                                nes::controller1::press::left(nes);
+                            }
+                            input::VirtualKeyCode::Right => {
+                                nes::controller1::press::right(nes);
+                            }
+                            input::VirtualKeyCode::Up => {
+                                nes::controller1::press::up(nes);
+                            }
+                            input::VirtualKeyCode::Down => {
+                                nes::controller1::press::down(nes);
+                            }
+                            input::VirtualKeyCode::Return => {
+                                nes::controller1::press::start(nes);
+                            }
+                            input::VirtualKeyCode::RShift => {
+                                nes::controller1::press::select(nes);
+                            }
+                            input::VirtualKeyCode::A => {
+                                nes::controller1::press::a(nes);
+                            }
+                            input::VirtualKeyCode::B => {
+                                nes::controller1::press::b(nes);
+                            }
+                            input::VirtualKeyCode::S => save(&nes, save_state_path),
+                            input::VirtualKeyCode::L => {
+                                if let Some(save_state_path) = save_state_path.as_ref() {
+                                    if let Some(dynamic_nes) = load(save_state_path).ok() {
+                                        return Some(MetaAction::Stop(Stop::Load(dynamic_nes)));
+                                    }
+                                }
+                            }
+                            input::VirtualKeyCode::P => {
+                                if let Some(persistent_state_path) = persistent_state_path {
+                                    if let Some(persistent_state) = nes.save_persistent_state() {
+                                        save_persistent_state(
+                                            &persistent_state,
+                                            persistent_state_path,
+                                        );
+                                    }
+                                }
+                            }
+                            input::VirtualKeyCode::I => {
+                                return Some(MetaAction::PrintInfo);
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+                input::ElementState::Released => {
+                    if let Some(virtual_keycode) = input.virtual_keycode {
+                        match virtual_keycode {
+                            input::VirtualKeyCode::Left => {
+                                nes::controller1::release::left(nes);
+                            }
+                            input::VirtualKeyCode::Right => {
+                                nes::controller1::release::right(nes);
+                            }
+                            input::VirtualKeyCode::Up => {
+                                nes::controller1::release::up(nes);
+                            }
+                            input::VirtualKeyCode::Down => {
+                                nes::controller1::release::down(nes);
+                            }
+                            input::VirtualKeyCode::Return => {
+                                nes::controller1::release::start(nes);
+                            }
+                            input::VirtualKeyCode::RShift => {
+                                nes::controller1::release::select(nes);
+                            }
+                            input::VirtualKeyCode::A => {
+                                nes::controller1::release::a(nes);
+                            }
+                            input::VirtualKeyCode::B => {
+                                nes::controller1::release::b(nes);
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+            },
+            _ => (),
+        },
+        _ => (),
+    }
+    None
 }
 
 fn handle_event<M: Mapper + serde::ser::Serialize, P: AsRef<Path> + Copy, Q: AsRef<Path> + Copy>(
@@ -515,9 +638,9 @@ fn run_nes_for_frame<M: Mapper, O: RenderOutput>(
     config: &mut Config,
     pixels: &mut O,
     gif_renderer: Option<&mut gif_renderer::Renderer<File>>,
+    mut name_table_gif_renderer: Option<&mut NameTableGifRenderer>,
 ) {
-    let name_table_frame = config
-        .name_table_gif_renderer
+    let name_table_frame = name_table_gif_renderer
         .as_mut()
         .map(|r| r.frame.deref_mut());
     if let Some(gif_renderer) = gif_renderer {
@@ -536,8 +659,111 @@ fn run_nes_for_frame<M: Mapper, O: RenderOutput>(
             nes.run_for_frame(pixels, name_table_frame);
         }
     }
-    if let Some(name_table_gif_renderer) = config.name_table_gif_renderer.as_mut() {
+    if let Some(name_table_gif_renderer) = name_table_gif_renderer {
         name_table_gif_renderer.render();
+    }
+}
+
+struct RunGraphical {
+    dynamic_nes: DynamicNes,
+    meta: RunGraphicalMeta,
+}
+
+struct RunGraphicalMeta {
+    frame_count: u64,
+    config: Config,
+    gif_renderer: Option<gif_renderer::Renderer<File>>,
+    name_table_gif_renderer: Option<NameTableGifRenderer>,
+    print_info: bool,
+}
+
+impl RunGraphicalMeta {
+    fn tick_gen<M: Mapper + serde::ser::Serialize>(
+        &mut self,
+        nes: &mut Nes<M>,
+        mut pixels: graphical_frontend2::Pixels,
+    ) -> Option<graphical_frontend2::ControlFlow> {
+        let realtime_frame_timing = self
+            .config
+            .frame_duration
+            .map(|frame_duration| (frame_duration, Instant::now()));
+        if Some(self.frame_count) == self.config.kill_after_frames {
+            return Some(graphical_frontend2::ControlFlow::Quit);
+        }
+        if let Some(autosave_config) = self.config.autosave_config() {
+            if self.frame_count == autosave_config.autosave_after_frames {
+                save(&nes, Some(&autosave_config.filename));
+            }
+        }
+        if self.print_info {
+            let mut memory_only_frame = nes_headless_frame::Frame::new();
+            let mut render_output = RenderOutputPair::new(&mut pixels, &mut memory_only_frame);
+            run_nes_for_frame(
+                nes,
+                &mut self.config,
+                &mut render_output,
+                self.gif_renderer.as_mut(),
+                self.name_table_gif_renderer.as_mut(),
+            );
+            let mut hasher = DefaultHasher::new();
+            memory_only_frame.hash(&mut hasher);
+            let frame_hash = hasher.finish();
+            println!("Frame Count: {}", self.frame_count);
+            println!("Frame Hash: {}", frame_hash);
+            self.print_info = false;
+        } else {
+            run_nes_for_frame(
+                nes,
+                &mut self.config,
+                &mut pixels,
+                self.gif_renderer.as_mut(),
+                self.name_table_gif_renderer.as_mut(),
+            );
+        }
+        if let Some((frame_duration, frame_start)) = realtime_frame_timing {
+            if let Some(remaining) = frame_duration.checked_sub(frame_start.elapsed()) {
+                thread::sleep(remaining);
+            }
+        }
+        self.frame_count += 1;
+        None
+    }
+}
+
+impl graphical_frontend2::AppTrait for RunGraphical {
+    fn handle_input(
+        &mut self,
+        e: graphical_frontend2::input::Event,
+    ) -> Option<graphical_frontend2::ControlFlow> {
+        let s = self.meta.config.save_filename();
+        let p = self.meta.config.persistent_state_filename.as_ref();
+        let meta_action = match self.dynamic_nes {
+            DynamicNes::NromHorizontal(ref mut n) => handle_event2(n, s, p, e),
+            DynamicNes::NromVertical(ref mut n) => handle_event2(n, s, p, e),
+            DynamicNes::Mmc1(ref mut n) => handle_event2(n, s, p, e),
+        };
+        match meta_action {
+            None => None,
+            Some(MetaAction::PrintInfo) => {
+                self.meta.print_info = true;
+                None
+            }
+            Some(MetaAction::Stop(stop)) => match stop {
+                Stop::Quit => Some(graphical_frontend2::ControlFlow::Quit),
+                Stop::Load(dynamic_nes) => {
+                    self.dynamic_nes = dynamic_nes;
+                    None
+                }
+            },
+        }
+    }
+    fn tick(&mut self, p: graphical_frontend2::Pixels) -> Option<graphical_frontend2::ControlFlow> {
+        let m = &mut self.meta;
+        match self.dynamic_nes {
+            DynamicNes::NromHorizontal(ref mut n) => m.tick_gen(n, p),
+            DynamicNes::NromVertical(ref mut n) => m.tick_gen(n, p),
+            DynamicNes::Mmc1(ref mut n) => m.tick_gen(n, p),
+        }
     }
 }
 
@@ -547,19 +773,22 @@ fn run_graphical<M: Mapper + serde::ser::Serialize>(
     mut frontend: graphical_frontend::Frontend,
     mut frontend2: graphical_frontend2::Frontend,
 ) -> Stop {
-    frontend2.run();
     let mut frame_count = 0;
     let mut gif_renderer = config
         .gif_filename
         .as_ref()
         .map(|gif_filename| gif_renderer::Renderer::new(File::create(gif_filename).unwrap()));
+    let mut name_table_gif_renderer = config
+        .name_table_gif_renderer
+        .as_ref()
+        .map(|f| NameTableGifRenderer::new(f));
     let autosave_config = config.autosave_config();
-    loop {
+    {
         let realtime_frame_timing = config
             .frame_duration
             .map(|frame_duration| (frame_duration, Instant::now()));
         if Some(frame_count) == config.kill_after_frames {
-            return Stop::Quit;
+            //return Stop::Quit;
         }
         if let Some(autosave_config) = autosave_config.as_ref() {
             if frame_count == autosave_config.autosave_after_frames {
@@ -579,7 +808,7 @@ fn run_graphical<M: Mapper + serde::ser::Serialize>(
         });
         if let Some(meta_action) = meta_action {
             match meta_action {
-                MetaAction::Stop(stop) => return stop,
+                MetaAction::Stop(stop) => (), // return stop,
                 MetaAction::PrintInfo => {
                     frontend.with_pixels(|mut pixels| {
                         let mut memory_only_frame = nes_headless_frame::Frame::new();
@@ -590,6 +819,7 @@ fn run_graphical<M: Mapper + serde::ser::Serialize>(
                             config,
                             &mut render_output,
                             gif_renderer.as_mut(),
+                            name_table_gif_renderer.as_mut(),
                         );
                         let mut hasher = DefaultHasher::new();
                         memory_only_frame.hash(&mut hasher);
@@ -601,7 +831,13 @@ fn run_graphical<M: Mapper + serde::ser::Serialize>(
             }
         } else {
             frontend.with_pixels(|mut pixels| {
-                run_nes_for_frame(&mut nes, config, &mut pixels, gif_renderer.as_mut());
+                run_nes_for_frame(
+                    &mut nes,
+                    config,
+                    &mut pixels,
+                    gif_renderer.as_mut(),
+                    name_table_gif_renderer.as_mut(),
+                );
             });
         }
         if let Some((frame_duration, frame_start)) = realtime_frame_timing {
@@ -612,9 +848,10 @@ fn run_graphical<M: Mapper + serde::ser::Serialize>(
         frontend.render();
         frame_count += 1;
     }
+    return Stop::Quit;
 }
 
-fn run_headless_hashing_final_frame<M: Mapper>(mut nes: Nes<M>, num_frames: u64) -> u64 {
+fn run_headless_hashing_final_frame_gen<M: Mapper>(mut nes: Nes<M>, num_frames: u64) -> u64 {
     if let Some(n) = num_frames.checked_sub(1) {
         for _ in 0..n {
             nes.run_for_frame(&mut NoRenderOutput, None);
@@ -625,6 +862,14 @@ fn run_headless_hashing_final_frame<M: Mapper>(mut nes: Nes<M>, num_frames: u64)
     let mut hasher = DefaultHasher::new();
     frame.hash(&mut hasher);
     hasher.finish()
+}
+
+fn run_headless_hashing_final_frame(dynamic_nes: DynamicNes, num_frames: u64) -> u64 {
+    match dynamic_nes {
+        DynamicNes::NromHorizontal(n) => run_headless_hashing_final_frame_gen(n, num_frames),
+        DynamicNes::NromVertical(n) => run_headless_hashing_final_frame_gen(n, num_frames),
+        DynamicNes::Mmc1(n) => run_headless_hashing_final_frame_gen(n, num_frames),
+    }
 }
 
 #[derive(Default)]
@@ -647,6 +892,7 @@ fn run<M: Mapper + serde::ser::Serialize>(
     match frontend {
         Frontend::Graphical => {
             if frontend_resources.graphical.is_none() {
+                let x = graphical_frontend2::Frontend::new(config.zoom);
                 frontend_resources.graphical = Some(graphical_frontend::Frontend::new(config.zoom));
                 frontend_resources.graphical2 =
                     Some(graphical_frontend2::Frontend::new(config.zoom));
@@ -659,7 +905,7 @@ fn run<M: Mapper + serde::ser::Serialize>(
             )
         }
         Frontend::HeadlessPrintingFinalFrameHash { num_frames } => {
-            let final_frame_hash = run_headless_hashing_final_frame(nes, *num_frames);
+            let final_frame_hash = run_headless_hashing_final_frame_gen(nes, *num_frames);
             println!("{}", final_frame_hash);
             Stop::Quit
         }
@@ -669,18 +915,34 @@ fn run<M: Mapper + serde::ser::Serialize>(
 fn main() {
     let args = Args::arg().with_help_default().parse_env_or_exit();
     let mut config = Config::from_args(&args);
-    let mut current_nes = DynamicNes::from_args(&args).unwrap();
+    let mut dynamic_nes = DynamicNes::from_args(&args).unwrap();
     let mut res = LazyFrontendResources::default();
     let Args { frontend, .. } = args;
-    loop {
-        let stop = match current_nes {
-            DynamicNes::NromHorizontal(nes) => run(nes, &mut config, &frontend, &mut res),
-            DynamicNes::NromVertical(nes) => run(nes, &mut config, &frontend, &mut res),
-            DynamicNes::Mmc1(nes) => run(nes, &mut config, &frontend, &mut res),
-        };
-        match stop {
-            Stop::Quit => break,
-            Stop::Load(dynamic_nes) => current_nes = dynamic_nes,
+    match frontend {
+        Frontend::HeadlessPrintingFinalFrameHash { num_frames } => {
+            let final_frame_hash = run_headless_hashing_final_frame(dynamic_nes, num_frames);
+            println!("{}", final_frame_hash);
+        }
+        Frontend::Graphical => {
+            let mut graphical_frontend = graphical_frontend2::Frontend::new(config.zoom);
+            let mut gif_renderer = config.gif_filename.as_ref().map(|gif_filename| {
+                gif_renderer::Renderer::new(File::create(gif_filename).unwrap())
+            });
+            let mut name_table_gif_renderer = config
+                .name_table_gif_renderer
+                .as_ref()
+                .map(|f| NameTableGifRenderer::new(f));
+            let mut run_graphical = RunGraphical {
+                dynamic_nes,
+                meta: RunGraphicalMeta {
+                    frame_count: 0,
+                    config,
+                    gif_renderer,
+                    name_table_gif_renderer,
+                    print_info: false,
+                },
+            };
+            graphical_frontend.run(run_graphical);
         }
     }
 }
