@@ -7,6 +7,5 @@ edition = "2018"
 [dependencies]
 pixels = "0.0.3"
 winit = "0.22"
-winit_input_helper = "0.6"
 nes_specs = { path = "../nes_specs" }
 nes_palette = { path = "../nes_palette" }

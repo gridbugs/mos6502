@@ -75,7 +75,6 @@ impl Frontend {
             colour_table,
             mut depths,
         } = self;
-        let mut input = winit_input_helper::WinitInputHelper::new();
         event_loop.run(move |event, _, control_flow| {
             let app_control_flow = match event {
                 winit::event::Event::RedrawRequested(_) => {

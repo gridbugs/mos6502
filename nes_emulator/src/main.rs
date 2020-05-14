@@ -5,9 +5,8 @@ mod ppu;
 mod timing;
 
 use gif_renderer::Rgb24;
-use graphical_frontend::glutin;
 use ines::Ines;
-use mapper::{mmc1, nrom, Mapper, PersistentState};
+use mapper::{mmc1, nrom, Mapper, PersistentState, PersistentStateError};
 use nes::Nes;
 use nes_name_table_debug::NameTableFrame;
 use ppu::RenderOutput;
@@ -108,21 +107,6 @@ impl Args {
 }
 
 impl RenderOutput for nes_headless_frame::Frame {
-    fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour_sprite_back(x, y, colour_index);
-    }
-    fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour_sprite_front(x, y, colour_index);
-    }
-    fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour_background(x, y, colour_index);
-    }
-    fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour_universal_background(x, y, colour_index);
-    }
-}
-
-impl<'a> RenderOutput for graphical_frontend::Pixels<'a> {
     fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
         self.set_pixel_colour_sprite_back(x, y, colour_index);
     }
@@ -268,6 +252,13 @@ impl DynamicNes {
             }
         };
         Self::from_ines(&Ines::parse(&rom_buffer).map_err(Error::InesParseError)?)
+    }
+    fn load_persistent_state(&mut self, ps: &PersistentState) -> Result<(), PersistentStateError> {
+        match self {
+            DynamicNes::NromHorizontal(n) => n.load_persistent_state(ps),
+            DynamicNes::NromVertical(n) => n.load_persistent_state(ps),
+            DynamicNes::Mmc1(n) => n.load_persistent_state(ps),
+        }
     }
 }
 
@@ -506,109 +497,6 @@ fn handle_event2<
     None
 }
 
-fn handle_event<M: Mapper + serde::ser::Serialize, P: AsRef<Path> + Copy, Q: AsRef<Path> + Copy>(
-    nes: &mut Nes<M>,
-    save_state_path: Option<P>,
-    persistent_state_path: Option<Q>,
-    event: glutin::Event,
-) -> Option<MetaAction> {
-    match event {
-        glutin::Event::WindowEvent { event, .. } => match event {
-            glutin::WindowEvent::CloseRequested => {
-                return Some(MetaAction::Stop(Stop::Quit));
-            }
-            glutin::WindowEvent::KeyboardInput { input, .. } => match input.state {
-                glutin::ElementState::Pressed => {
-                    if let Some(virtual_keycode) = input.virtual_keycode {
-                        match virtual_keycode {
-                            glutin::VirtualKeyCode::Left => {
-                                nes::controller1::press::left(nes);
-                            }
-                            glutin::VirtualKeyCode::Right => {
-                                nes::controller1::press::right(nes);
-                            }
-                            glutin::VirtualKeyCode::Up => {
-                                nes::controller1::press::up(nes);
-                            }
-                            glutin::VirtualKeyCode::Down => {
-                                nes::controller1::press::down(nes);
-                            }
-                            glutin::VirtualKeyCode::Return => {
-                                nes::controller1::press::start(nes);
-                            }
-                            glutin::VirtualKeyCode::RShift => {
-                                nes::controller1::press::select(nes);
-                            }
-                            glutin::VirtualKeyCode::A => {
-                                nes::controller1::press::a(nes);
-                            }
-                            glutin::VirtualKeyCode::B => {
-                                nes::controller1::press::b(nes);
-                            }
-                            glutin::VirtualKeyCode::S => save(&nes, save_state_path),
-                            glutin::VirtualKeyCode::L => {
-                                if let Some(save_state_path) = save_state_path.as_ref() {
-                                    if let Some(dynamic_nes) = load(save_state_path).ok() {
-                                        return Some(MetaAction::Stop(Stop::Load(dynamic_nes)));
-                                    }
-                                }
-                            }
-                            glutin::VirtualKeyCode::P => {
-                                if let Some(persistent_state_path) = persistent_state_path {
-                                    if let Some(persistent_state) = nes.save_persistent_state() {
-                                        save_persistent_state(
-                                            &persistent_state,
-                                            persistent_state_path,
-                                        );
-                                    }
-                                }
-                            }
-                            glutin::VirtualKeyCode::I => {
-                                return Some(MetaAction::PrintInfo);
-                            }
-                            _ => (),
-                        }
-                    }
-                }
-                glutin::ElementState::Released => {
-                    if let Some(virtual_keycode) = input.virtual_keycode {
-                        match virtual_keycode {
-                            glutin::VirtualKeyCode::Left => {
-                                nes::controller1::release::left(nes);
-                            }
-                            glutin::VirtualKeyCode::Right => {
-                                nes::controller1::release::right(nes);
-                            }
-                            glutin::VirtualKeyCode::Up => {
-                                nes::controller1::release::up(nes);
-                            }
-                            glutin::VirtualKeyCode::Down => {
-                                nes::controller1::release::down(nes);
-                            }
-                            glutin::VirtualKeyCode::Return => {
-                                nes::controller1::release::start(nes);
-                            }
-                            glutin::VirtualKeyCode::RShift => {
-                                nes::controller1::release::select(nes);
-                            }
-                            glutin::VirtualKeyCode::A => {
-                                nes::controller1::release::a(nes);
-                            }
-                            glutin::VirtualKeyCode::B => {
-                                nes::controller1::release::b(nes);
-                            }
-                            _ => (),
-                        }
-                    }
-                }
-            },
-            _ => (),
-        },
-        _ => (),
-    }
-    None
-}
-
 struct NameTableGifRenderer {
     gif_renderer: gif_renderer::NameTableRenderer<File>,
     frame: Box<NameTableFrame>,
@@ -767,90 +655,6 @@ impl graphical_frontend2::AppTrait for RunGraphical {
     }
 }
 
-fn run_graphical<M: Mapper + serde::ser::Serialize>(
-    mut nes: Nes<M>,
-    config: &mut Config,
-    mut frontend: graphical_frontend::Frontend,
-    mut frontend2: graphical_frontend2::Frontend,
-) -> Stop {
-    let mut frame_count = 0;
-    let mut gif_renderer = config
-        .gif_filename
-        .as_ref()
-        .map(|gif_filename| gif_renderer::Renderer::new(File::create(gif_filename).unwrap()));
-    let mut name_table_gif_renderer = config
-        .name_table_gif_renderer
-        .as_ref()
-        .map(|f| NameTableGifRenderer::new(f));
-    let autosave_config = config.autosave_config();
-    {
-        let realtime_frame_timing = config
-            .frame_duration
-            .map(|frame_duration| (frame_duration, Instant::now()));
-        if Some(frame_count) == config.kill_after_frames {
-            //return Stop::Quit;
-        }
-        if let Some(autosave_config) = autosave_config.as_ref() {
-            if frame_count == autosave_config.autosave_after_frames {
-                save(&nes, Some(&autosave_config.filename));
-            }
-        }
-        let mut meta_action = None;
-        frontend.poll_events(|event| {
-            if meta_action.is_none() {
-                meta_action = handle_event(
-                    &mut nes,
-                    config.save_filename(),
-                    config.persistent_state_filename.as_ref(),
-                    event,
-                );
-            }
-        });
-        if let Some(meta_action) = meta_action {
-            match meta_action {
-                MetaAction::Stop(stop) => (), // return stop,
-                MetaAction::PrintInfo => {
-                    frontend.with_pixels(|mut pixels| {
-                        let mut memory_only_frame = nes_headless_frame::Frame::new();
-                        let mut render_output =
-                            RenderOutputPair::new(&mut pixels, &mut memory_only_frame);
-                        run_nes_for_frame(
-                            &mut nes,
-                            config,
-                            &mut render_output,
-                            gif_renderer.as_mut(),
-                            name_table_gif_renderer.as_mut(),
-                        );
-                        let mut hasher = DefaultHasher::new();
-                        memory_only_frame.hash(&mut hasher);
-                        let frame_hash = hasher.finish();
-                        println!("Frame Count: {}", frame_count);
-                        println!("Frame Hash: {}", frame_hash);
-                    });
-                }
-            }
-        } else {
-            frontend.with_pixels(|mut pixels| {
-                run_nes_for_frame(
-                    &mut nes,
-                    config,
-                    &mut pixels,
-                    gif_renderer.as_mut(),
-                    name_table_gif_renderer.as_mut(),
-                );
-            });
-        }
-        if let Some((frame_duration, frame_start)) = realtime_frame_timing {
-            if let Some(remaining) = frame_duration.checked_sub(frame_start.elapsed()) {
-                thread::sleep(remaining);
-            }
-        }
-        frontend.render();
-        frame_count += 1;
-    }
-    return Stop::Quit;
-}
-
 fn run_headless_hashing_final_frame_gen<M: Mapper>(mut nes: Nes<M>, num_frames: u64) -> u64 {
     if let Some(n) = num_frames.checked_sub(1) {
         for _ in 0..n {
@@ -872,51 +676,10 @@ fn run_headless_hashing_final_frame(dynamic_nes: DynamicNes, num_frames: u64) ->
     }
 }
 
-#[derive(Default)]
-struct LazyFrontendResources {
-    graphical: Option<graphical_frontend::Frontend>,
-    graphical2: Option<graphical_frontend2::Frontend>,
-}
-
-fn run<M: Mapper + serde::ser::Serialize>(
-    mut nes: Nes<M>,
-    config: &mut Config,
-    frontend: &Frontend,
-    frontend_resources: &mut LazyFrontendResources,
-) -> Stop {
-    if let Some(persistent_state_filename) = config.persistent_state_filename.as_ref() {
-        if let Some(Ok(persistent_state)) = load_persistent_state(persistent_state_filename) {
-            nes.load_persistent_state(&persistent_state).unwrap();
-        }
-    }
-    match frontend {
-        Frontend::Graphical => {
-            if frontend_resources.graphical.is_none() {
-                let x = graphical_frontend2::Frontend::new(config.zoom);
-                frontend_resources.graphical = Some(graphical_frontend::Frontend::new(config.zoom));
-                frontend_resources.graphical2 =
-                    Some(graphical_frontend2::Frontend::new(config.zoom));
-            }
-            run_graphical(
-                nes,
-                config,
-                frontend_resources.graphical.take().unwrap(),
-                frontend_resources.graphical2.take().unwrap(),
-            )
-        }
-        Frontend::HeadlessPrintingFinalFrameHash { num_frames } => {
-            let final_frame_hash = run_headless_hashing_final_frame_gen(nes, *num_frames);
-            println!("{}", final_frame_hash);
-            Stop::Quit
-        }
-    }
-}
-
 fn main() {
     let args = Args::arg().with_help_default().parse_env_or_exit();
-    let mut config = Config::from_args(&args);
+    let config = Config::from_args(&args);
     let mut dynamic_nes = DynamicNes::from_args(&args).unwrap();
-    let mut res = LazyFrontendResources::default();
     let Args { frontend, .. } = args;
     match frontend {
         Frontend::HeadlessPrintingFinalFrameHash { num_frames } => {
@@ -924,15 +687,23 @@ fn main() {
             println!("{}", final_frame_hash);
         }
         Frontend::Graphical => {
-            let mut graphical_frontend = graphical_frontend2::Frontend::new(config.zoom);
-            let mut gif_renderer = config.gif_filename.as_ref().map(|gif_filename| {
+            let graphical_frontend = graphical_frontend2::Frontend::new(config.zoom);
+            let gif_renderer = config.gif_filename.as_ref().map(|gif_filename| {
                 gif_renderer::Renderer::new(File::create(gif_filename).unwrap())
             });
-            let mut name_table_gif_renderer = config
+            let name_table_gif_renderer = config
                 .name_table_gif_renderer
                 .as_ref()
                 .map(|f| NameTableGifRenderer::new(f));
-            let mut run_graphical = RunGraphical {
+            if let Some(persistent_state_filename) = config.persistent_state_filename.as_ref() {
+                if let Some(Ok(persistent_state)) = load_persistent_state(persistent_state_filename)
+                {
+                    dynamic_nes
+                        .load_persistent_state(&persistent_state)
+                        .unwrap();
+                }
+            }
+            let run_graphical = RunGraphical {
                 dynamic_nes,
                 meta: RunGraphicalMeta {
                     frame_count: 0,

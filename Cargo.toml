@@ -4,7 +4,6 @@ members = [
     "analyser",
     "assembler",
     "gif_renderer",
-    "graphical_frontend",
     "graphical_frontend2",
     "ines",
     "mos6502",

@@ -10,7 +10,6 @@ mos6502 = { path = "../mos6502" }
 ines = { path = "../ines" }
 nes_specs = { path = "../nes_specs" }
 analyser = { path = "../analyser" }
-graphical_frontend = { path = "../graphical_frontend" }
 graphical_frontend2 = { path = "../graphical_frontend2" }
 gif_renderer = { path = "../gif_renderer" }
 nes_name_table_debug = { path = "../nes_name_table_debug" }
