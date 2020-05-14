@@ -121,7 +121,7 @@ impl RenderOutput for nes_headless_frame::Frame {
     }
 }
 
-impl<'a> RenderOutput for graphical_frontend2::Pixels<'a> {
+impl<'a> RenderOutput for graphical_frontend::Pixels<'a> {
     fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
         self.set_pixel_colour_sprite_back(x, y, colour_index);
     }
@@ -389,17 +389,13 @@ enum MetaAction {
     PrintInfo,
 }
 
-fn handle_event2<
-    M: Mapper + serde::ser::Serialize,
-    P: AsRef<Path> + Copy,
-    Q: AsRef<Path> + Copy,
->(
+fn handle_event<M: Mapper + serde::ser::Serialize, P: AsRef<Path> + Copy, Q: AsRef<Path> + Copy>(
     nes: &mut Nes<M>,
     save_state_path: Option<P>,
     persistent_state_path: Option<Q>,
-    event: graphical_frontend2::input::Event,
+    event: graphical_frontend::input::Event,
 ) -> Option<MetaAction> {
-    use graphical_frontend2::input;
+    use graphical_frontend::input;
     match event {
         input::Event::WindowEvent { event, .. } => match event {
             input::WindowEvent::CloseRequested => {
@@ -569,14 +565,14 @@ impl RunGraphicalMeta {
     fn tick_gen<M: Mapper + serde::ser::Serialize>(
         &mut self,
         nes: &mut Nes<M>,
-        mut pixels: graphical_frontend2::Pixels,
-    ) -> Option<graphical_frontend2::ControlFlow> {
+        mut pixels: graphical_frontend::Pixels,
+    ) -> Option<graphical_frontend::ControlFlow> {
         let realtime_frame_timing = self
             .config
             .frame_duration
             .map(|frame_duration| (frame_duration, Instant::now()));
         if Some(self.frame_count) == self.config.kill_after_frames {
-            return Some(graphical_frontend2::ControlFlow::Quit);
+            return Some(graphical_frontend::ControlFlow::Quit);
         }
         if let Some(autosave_config) = self.config.autosave_config() {
             if self.frame_count == autosave_config.autosave_after_frames {
@@ -618,17 +614,17 @@ impl RunGraphicalMeta {
     }
 }
 
-impl graphical_frontend2::AppTrait for RunGraphical {
+impl graphical_frontend::AppTrait for RunGraphical {
     fn handle_input(
         &mut self,
-        e: graphical_frontend2::input::Event,
-    ) -> Option<graphical_frontend2::ControlFlow> {
+        e: graphical_frontend::input::Event,
+    ) -> Option<graphical_frontend::ControlFlow> {
         let s = self.meta.config.save_filename();
         let p = self.meta.config.persistent_state_filename.as_ref();
         let meta_action = match self.dynamic_nes {
-            DynamicNes::NromHorizontal(ref mut n) => handle_event2(n, s, p, e),
-            DynamicNes::NromVertical(ref mut n) => handle_event2(n, s, p, e),
-            DynamicNes::Mmc1(ref mut n) => handle_event2(n, s, p, e),
+            DynamicNes::NromHorizontal(ref mut n) => handle_event(n, s, p, e),
+            DynamicNes::NromVertical(ref mut n) => handle_event(n, s, p, e),
+            DynamicNes::Mmc1(ref mut n) => handle_event(n, s, p, e),
         };
         match meta_action {
             None => None,
@@ -637,7 +633,7 @@ impl graphical_frontend2::AppTrait for RunGraphical {
                 None
             }
             Some(MetaAction::Stop(stop)) => match stop {
-                Stop::Quit => Some(graphical_frontend2::ControlFlow::Quit),
+                Stop::Quit => Some(graphical_frontend::ControlFlow::Quit),
                 Stop::Load(dynamic_nes) => {
                     self.dynamic_nes = dynamic_nes;
                     None
@@ -645,7 +641,7 @@ impl graphical_frontend2::AppTrait for RunGraphical {
             },
         }
     }
-    fn tick(&mut self, p: graphical_frontend2::Pixels) -> Option<graphical_frontend2::ControlFlow> {
+    fn tick(&mut self, p: graphical_frontend::Pixels) -> Option<graphical_frontend::ControlFlow> {
         let m = &mut self.meta;
         match self.dynamic_nes {
             DynamicNes::NromHorizontal(ref mut n) => m.tick_gen(n, p),
@@ -687,7 +683,7 @@ fn main() {
             println!("{}", final_frame_hash);
         }
         Frontend::Graphical => {
-            let graphical_frontend = graphical_frontend2::Frontend::new(config.zoom);
+            let graphical_frontend = graphical_frontend::Frontend::new(config.zoom);
             let gif_renderer = config.gif_filename.as_ref().map(|gif_filename| {
                 gif_renderer::Renderer::new(File::create(gif_filename).unwrap())
             });

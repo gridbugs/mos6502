@@ -478,7 +478,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "graphical_frontend2"
+name = "graphical_frontend"
 version = "0.1.0"
 dependencies = [
  "nes_palette 0.1.0",
@@ -672,7 +672,7 @@ dependencies = [
  "analyser 0.1.0",
  "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "gif_renderer 0.1.0",
- "graphical_frontend2 0.1.0",
+ "graphical_frontend 0.1.0",
  "ines 0.1.0",
  "mos6502 0.1.0",
  "nes_headless_frame 0.1.0",

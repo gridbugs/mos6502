@@ -10,7 +10,7 @@ mos6502 = { path = "../mos6502" }
 ines = { path = "../ines" }
 nes_specs = { path = "../nes_specs" }
 analyser = { path = "../analyser" }
-graphical_frontend2 = { path = "../graphical_frontend2" }
+graphical_frontend = { path = "../graphical_frontend" }
 gif_renderer = { path = "../gif_renderer" }
 nes_name_table_debug = { path = "../nes_name_table_debug" }
 serde = { version = "1.0", features = ["serde_derive"] }
