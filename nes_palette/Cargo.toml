@@ -6,3 +6,10 @@ edition = "2018"
 
 [dependencies]
 rgb24 = "0.2"
+
+[dev-dependencies]
+ansi_term = "0.12"
+
+[[example]]
+name = "print_rgb"
+

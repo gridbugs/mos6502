@@ -42,4 +42,7 @@ impl Palette {
             *rgb24 = f(*rgb24);
         }
     }
+    pub fn colours(&self) -> &[Rgb24] {
+        &self.colours
+    }
 }
