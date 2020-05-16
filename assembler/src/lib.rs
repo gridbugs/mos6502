@@ -55,6 +55,15 @@ impl ArgOperand for i8 {
     }
 }
 
+pub struct Addr(pub Address);
+
+impl ArgOperand for Addr {
+    type Operand = operand::Address;
+    fn program(self, block: &mut Block) {
+        block.literal_address_le(self.0);
+    }
+}
+
 // Inside 6502 "assembly" programs, rust infers int literals to
 // be i32 rather than u8. This treats i32 as u8 to prevent the
 // need for explicit type coersion in assembly programs.
