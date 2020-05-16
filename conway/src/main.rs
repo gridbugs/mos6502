@@ -56,9 +56,9 @@ fn program(b: &mut Block) {
     b.inst(Sta(ZeroPage), 0);
     b.inst(Lda(Immediate), 0x00);
     b.inst(Sta(ZeroPage), 1);
-    b.inst(Lda(Immediate), 40);
+    b.inst(Lda(Immediate), 120);
     b.inst(Sta(ZeroPage), 2);
-    for i in 0..10 {
+    for i in 0..30 {
         if i % 2 == 0 {
             b.inst(Lda(Immediate), 0x55);
         } else {
@@ -68,16 +68,21 @@ fn program(b: &mut Block) {
             b.inst(Sta(ZeroPage), i * 4 + j + 3);
         }
     }
-    b.inst(Lda(Immediate), 0x21);
-    b.inst(Sta(ZeroPage), 43);
-    b.inst(Lda(Immediate), 0xE0);
-    b.inst(Sta(ZeroPage), 44);
-    b.inst(Lda(Immediate), 4);
-    b.inst(Sta(ZeroPage), 45);
+    b.inst(Lda(Immediate), 0x20);
+    b.inst(Sta(ZeroPage), 123);
+    b.inst(Lda(Immediate), 0x00);
+    b.inst(Sta(ZeroPage), 124);
+    b.inst(Lda(Immediate), 120);
+    b.inst(Sta(ZeroPage), 125);
     b.inst(Lda(Immediate), 0x55);
-    for j in 0..4 {
-        b.inst(Sta(ZeroPage), j + 46);
+    for i in 0..30 {
+        b.inst(Lda(Immediate), 0xFF);
+        for j in 0..4 {
+            b.inst(Sta(ZeroPage), i * 4 + j + 126);
+        }
     }
+    b.inst(Lda(Immediate), 0);
+    b.inst(Sta(ZeroPage), 246);
 
     // enable rendering
     b.inst(Lda(Immediate), 0b00001010);
@@ -89,15 +94,15 @@ fn program(b: &mut Block) {
     b.inst(Bit(Absolute), Addr(0x2002));
     b.inst(Bpl, LabelRelativeOffset("vblankmain"));
 
-    // disable rendering so we can take longer than vblank to update the ppu
-    b.inst(Lda(Immediate), 0b00000000);
-    b.inst(Sta(Absolute), Addr(0x2001)); // turn on background and left-background
-
     // update display
     b.inst(Bit(Absolute), Addr(0x2002)); // read ppu status to clear address latch
 
     // update ppu memory
     b.inst(Bit(Absolute), Addr(0x2002)); // read ppu status to clear address latch
+
+    let gas = 24;
+    b.inst(Lda(Immediate), gas);
+    b.inst(Sta(ZeroPage), 255); // store gas
 
     b.inst(Ldx(Immediate), 0); // initialize x register
 
@@ -105,9 +110,11 @@ fn program(b: &mut Block) {
     b.inst(Lda(ZeroPageXIndexed), 0);
     b.inst(Beq, LabelRelativeOffset("update-ppu-end"));
     b.inst(Sta(Absolute), Addr(0x2006));
+    b.inst(Sta(ZeroPage), 254);
     b.inst(Inx, ());
     b.inst(Lda(ZeroPageXIndexed), 0);
     b.inst(Sta(Absolute), Addr(0x2006)); // set ppu addr for current run
+    b.inst(Sta(ZeroPage), 253);
 
     b.inst(Inx, ());
     b.inst(Ldy(ZeroPageXIndexed), 0); // read length (bytes) of run into y register
@@ -115,6 +122,36 @@ fn program(b: &mut Block) {
     b.label("byte-run-start");
     b.inst(Dey, ());
     b.inst(Bmi, LabelRelativeOffset("byte-run-end"));
+
+    b.inst(Dec(ZeroPage), 255); // spend gas
+    b.inst(Bne, LabelRelativeOffset("post-vblank-wait"));
+    b.inst(Lda(Immediate), gas);
+    b.inst(Sta(ZeroPage), 255); // reset gas
+
+    b.inst(Lda(Immediate), 0);
+    b.inst(Sta(Absolute), Addr(0x2005));
+    b.inst(Sta(Absolute), Addr(0x2005)); // fix scroll
+
+    b.label("vblankmain-gas");
+    b.inst(Bit(Absolute), Addr(0x2002));
+    b.inst(Bpl, LabelRelativeOffset("vblankmain-gas"));
+
+    b.inst(Bit(Absolute), Addr(0x2002)); // read ppu status to clear address latch
+    b.inst(Lda(ZeroPage), 254);
+    b.inst(Sta(Absolute), Addr(0x2006));
+    b.inst(Lda(ZeroPage), 253);
+    b.inst(Sta(Absolute), Addr(0x2006)); // restore ppuaddr
+
+    b.label("post-vblank-wait");
+
+    b.inst(Clc, ());
+    b.inst(Lda(ZeroPage), 253);
+    b.inst(Adc(Immediate), 8);
+    b.inst(Sta(ZeroPage), 253);
+    b.inst(Lda(ZeroPage), 254);
+    b.inst(Adc(Immediate), 0);
+    b.inst(Sta(ZeroPage), 254); // update shadow ppuaddr
+
     b.inst(Inx, ());
     b.inst(Lda(ZeroPageXIndexed), 0); // read next byte into accumulator
     for i in 0..8 {
@@ -133,10 +170,6 @@ fn program(b: &mut Block) {
     b.inst(Lda(Immediate), 0);
     b.inst(Sta(Absolute), Addr(0x2005));
     b.inst(Sta(Absolute), Addr(0x2005)); // fix scroll
-
-    // enable rendering
-    b.inst(Lda(Immediate), 0b00001010);
-    b.inst(Sta(Absolute), Addr(0x2001)); // turn on background and left-background
 
     b.inst(Lda(Immediate), 0);
     b.inst(Sta(ZeroPage), 0); // clear update buffer
