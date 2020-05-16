@@ -51,11 +51,41 @@ fn program(b: &mut Block) {
     b.inst(Lda(Immediate), background_colour_1);
     b.inst(Sta(Absolute), Addr(0x2007));
 
-    // set a tile to be non-zero
+    // initialize state
+    b.inst(Lda(Immediate), 0x21);
+    b.inst(Sta(ZeroPage), 0);
+    b.inst(Sta(ZeroPage), 2);
+    b.inst(Lda(Immediate), 0x00);
+    b.inst(Sta(ZeroPage), 1);
+    b.inst(Sta(ZeroPage), 3);
+
+    // enable rendering
+    b.inst(Lda(Immediate), 0b00001010);
+    b.inst(Sta(Absolute), Addr(0x2001)); // turn on background and left-background
+
+    b.label("mainloop");
+
+    b.label("vblankmain");
+    b.inst(Bit(Absolute), Addr(0x2002));
+    b.inst(Bpl, LabelRelativeOffset("vblankmain"));
+
+    // update display
     b.inst(Bit(Absolute), Addr(0x2002)); // read ppu status to clear address latch
-    b.inst(Lda(Immediate), 0x20);
+
+    // clear previous
+    b.inst(Lda(ZeroPage), 3);
+    b.inst(Ora(Immediate), 0x20);
     b.inst(Sta(Absolute), Addr(0x2006));
-    b.inst(Lda(Immediate), 0x41);
+    b.inst(Lda(ZeroPage), 0x02);
+    b.inst(Sta(Absolute), Addr(0x2006));
+    b.inst(Lda(Immediate), 0);
+    b.inst(Sta(Absolute), Addr(0x2007));
+
+    // set current
+    b.inst(Lda(ZeroPage), 1);
+    b.inst(Ora(Immediate), 0x20);
+    b.inst(Sta(Absolute), Addr(0x2006));
+    b.inst(Lda(ZeroPage), 0x00);
     b.inst(Sta(Absolute), Addr(0x2006));
     b.inst(Lda(Immediate), 1);
     b.inst(Sta(Absolute), Addr(0x2007));
@@ -66,9 +96,37 @@ fn program(b: &mut Block) {
     b.inst(Sta(Absolute), Addr(0x2005));
     b.inst(Sta(Absolute), Addr(0x2005));
 
-    // enable rendering
-    b.inst(Lda(Immediate), 0b00001010);
-    b.inst(Sta(Absolute), Addr(0x2001)); // turn on background and left-background
+    // update state
+
+    // copy previous value so it can be cleared next frame
+    b.inst(Lda(ZeroPage), 0);
+    b.inst(Sta(ZeroPage), 2);
+    b.inst(Lda(ZeroPage), 1);
+    b.inst(Sta(ZeroPage), 3);
+
+    // test if current value needs to wrap around
+    // max value is 960, which is 0x03BF in hex
+    b.inst(Lda(ZeroPage), 0);
+    b.inst(Cmp(Immediate), 0xBF);
+    b.inst(Bne, LabelRelativeOffset("inc"));
+    b.inst(Lda(ZeroPage), 1);
+    b.inst(Cmp(Immediate), 0x03);
+    b.inst(Bne, LabelRelativeOffset("inc"));
+    b.inst(Lda(Immediate), 0);
+    b.inst(Sta(ZeroPage), 0);
+    b.inst(Sta(ZeroPage), 1);
+    b.inst(Jmp(Absolute), "incpost");
+    b.label("inc");
+    b.inst(Clc, ());
+    b.inst(Lda(ZeroPage), 0);
+    b.inst(Adc(Immediate), 1);
+    b.inst(Sta(ZeroPage), 0);
+    b.inst(Lda(ZeroPage), 1);
+    b.inst(Adc(Immediate), 0);
+    b.inst(Sta(ZeroPage), 1);
+    b.label("incpost");
+
+    b.inst(Jmp(Absolute), "mainloop");
 
     b.infinite_loop();
 
