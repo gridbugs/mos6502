@@ -52,12 +52,70 @@ fn program(b: &mut Block) {
     b.inst(Sta(Absolute), Addr(0x2007));
 
     // initialize state
-    b.inst(Lda(Immediate), 0x21);
+    b.inst(Lda(Immediate), 0x20);
     b.inst(Sta(ZeroPage), 0);
-    b.inst(Sta(ZeroPage), 2);
     b.inst(Lda(Immediate), 0x00);
     b.inst(Sta(ZeroPage), 1);
-    b.inst(Sta(ZeroPage), 3);
+    b.inst(Lda(Immediate), 40);
+    b.inst(Sta(ZeroPage), 2);
+    for i in 0..10 {
+        if i % 2 == 0 {
+            b.inst(Lda(Immediate), 0x55);
+        } else {
+            b.inst(Lda(Immediate), 0xAA);
+        }
+        for j in 0..4 {
+            b.inst(Sta(ZeroPage), i * 4 + j + 3);
+        }
+    }
+    b.inst(Lda(Immediate), 0x21);
+    b.inst(Sta(ZeroPage), 43);
+    b.inst(Lda(Immediate), 0xE0);
+    b.inst(Sta(ZeroPage), 44);
+    b.inst(Lda(Immediate), 4);
+    b.inst(Sta(ZeroPage), 45);
+    b.inst(Lda(Immediate), 0x55);
+    for j in 0..4 {
+        b.inst(Sta(ZeroPage), j + 46);
+    }
+
+    // initialize ppu memory
+    b.inst(Bit(Absolute), Addr(0x2002)); // read ppu status to clear address latch
+
+    b.inst(Ldx(Immediate), 0); // initialize x register
+
+    b.label("update-ppu-start");
+    b.inst(Lda(ZeroPageXIndexed), 0);
+    b.inst(Beq, LabelRelativeOffset("update-ppu-end"));
+    b.inst(Sta(Absolute), Addr(0x2006));
+    b.inst(Inx, ());
+    b.inst(Lda(ZeroPageXIndexed), 0);
+    b.inst(Sta(Absolute), Addr(0x2006)); // set ppu addr for current run
+
+    b.inst(Inx, ());
+    b.inst(Ldy(ZeroPageXIndexed), 0); // read length (bytes) of run into y register
+
+    b.label("byte-run-start");
+    b.inst(Dey, ());
+    b.inst(Bmi, LabelRelativeOffset("byte-run-end"));
+    b.inst(Inx, ());
+    b.inst(Lda(ZeroPageXIndexed), 0); // read next byte into accumulator
+    for i in 0..8 {
+        b.inst(Sta(Absolute), Addr(0x2007));
+        if i < 7 {
+            b.inst(Ror(Accumulator), ());
+        }
+    }
+    b.inst(Jmp(Absolute), "byte-run-start");
+    b.label("byte-run-end");
+
+    b.inst(Inx, ());
+    b.inst(Jmp(Absolute), "update-ppu-start");
+    b.label("update-ppu-end");
+
+    b.inst(Lda(Immediate), 0);
+    b.inst(Sta(Absolute), Addr(0x2005));
+    b.inst(Sta(Absolute), Addr(0x2005)); // fix scroll
 
     // enable rendering
     b.inst(Lda(Immediate), 0b00001010);
@@ -71,60 +129,6 @@ fn program(b: &mut Block) {
 
     // update display
     b.inst(Bit(Absolute), Addr(0x2002)); // read ppu status to clear address latch
-
-    // clear previous
-    b.inst(Lda(ZeroPage), 3);
-    b.inst(Ora(Immediate), 0x20);
-    b.inst(Sta(Absolute), Addr(0x2006));
-    b.inst(Lda(ZeroPage), 0x02);
-    b.inst(Sta(Absolute), Addr(0x2006));
-    b.inst(Lda(Immediate), 0);
-    b.inst(Sta(Absolute), Addr(0x2007));
-
-    // set current
-    b.inst(Lda(ZeroPage), 1);
-    b.inst(Ora(Immediate), 0x20);
-    b.inst(Sta(Absolute), Addr(0x2006));
-    b.inst(Lda(ZeroPage), 0x00);
-    b.inst(Sta(Absolute), Addr(0x2006));
-    b.inst(Lda(Immediate), 1);
-    b.inst(Sta(Absolute), Addr(0x2007));
-
-    // set scroll
-    b.inst(Bit(Absolute), Addr(0x2002)); // read ppu status to clear address latch
-    b.inst(Lda(Immediate), 0x00);
-    b.inst(Sta(Absolute), Addr(0x2005));
-    b.inst(Sta(Absolute), Addr(0x2005));
-
-    // update state
-
-    // copy previous value so it can be cleared next frame
-    b.inst(Lda(ZeroPage), 0);
-    b.inst(Sta(ZeroPage), 2);
-    b.inst(Lda(ZeroPage), 1);
-    b.inst(Sta(ZeroPage), 3);
-
-    // test if current value needs to wrap around
-    // max value is 960, which is 0x03BF in hex
-    b.inst(Lda(ZeroPage), 0);
-    b.inst(Cmp(Immediate), 0xBF);
-    b.inst(Bne, LabelRelativeOffset("inc"));
-    b.inst(Lda(ZeroPage), 1);
-    b.inst(Cmp(Immediate), 0x03);
-    b.inst(Bne, LabelRelativeOffset("inc"));
-    b.inst(Lda(Immediate), 0);
-    b.inst(Sta(ZeroPage), 0);
-    b.inst(Sta(ZeroPage), 1);
-    b.inst(Jmp(Absolute), "incpost");
-    b.label("inc");
-    b.inst(Clc, ());
-    b.inst(Lda(ZeroPage), 0);
-    b.inst(Adc(Immediate), 1);
-    b.inst(Sta(ZeroPage), 0);
-    b.inst(Lda(ZeroPage), 1);
-    b.inst(Adc(Immediate), 0);
-    b.inst(Sta(ZeroPage), 1);
-    b.label("incpost");
 
     b.inst(Jmp(Absolute), "mainloop");
 
@@ -141,8 +145,13 @@ fn program(b: &mut Block) {
 
 fn chr_rom() -> Vec<u8> {
     let mut chr_rom = vec![0; ines::CHR_ROM_BLOCK_BYTES];
-    for i in 0..8 {
-        chr_rom[16 + i] = 0xFF;
+    for tile_index in 0..256 {
+        if tile_index % 2 == 1 {
+            let byte_index = tile_index * 16;
+            for pixel_offset in 0..8 {
+                chr_rom[byte_index + pixel_offset] = 0xFF;
+            }
+        }
     }
     chr_rom
 }
