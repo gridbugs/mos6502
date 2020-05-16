@@ -162,6 +162,15 @@ version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "conway"
+version = "0.1.0"
+dependencies = [
+ "assembler 0.1.0",
+ "ines 0.1.0",
+ "mos6502 0.1.0",
+]
+
+[[package]]
 name = "copyless"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
