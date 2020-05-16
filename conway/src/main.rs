@@ -79,7 +79,24 @@ fn program(b: &mut Block) {
         b.inst(Sta(ZeroPage), j + 46);
     }
 
-    // initialize ppu memory
+    // enable rendering
+    b.inst(Lda(Immediate), 0b00001010);
+    b.inst(Sta(Absolute), Addr(0x2001)); // turn on background and left-background
+
+    b.label("mainloop");
+
+    b.label("vblankmain");
+    b.inst(Bit(Absolute), Addr(0x2002));
+    b.inst(Bpl, LabelRelativeOffset("vblankmain"));
+
+    // disable rendering so we can take longer than vblank to update the ppu
+    b.inst(Lda(Immediate), 0b00000000);
+    b.inst(Sta(Absolute), Addr(0x2001)); // turn on background and left-background
+
+    // update display
+    b.inst(Bit(Absolute), Addr(0x2002)); // read ppu status to clear address latch
+
+    // update ppu memory
     b.inst(Bit(Absolute), Addr(0x2002)); // read ppu status to clear address latch
 
     b.inst(Ldx(Immediate), 0); // initialize x register
@@ -121,14 +138,8 @@ fn program(b: &mut Block) {
     b.inst(Lda(Immediate), 0b00001010);
     b.inst(Sta(Absolute), Addr(0x2001)); // turn on background and left-background
 
-    b.label("mainloop");
-
-    b.label("vblankmain");
-    b.inst(Bit(Absolute), Addr(0x2002));
-    b.inst(Bpl, LabelRelativeOffset("vblankmain"));
-
-    // update display
-    b.inst(Bit(Absolute), Addr(0x2002)); // read ppu status to clear address latch
+    b.inst(Lda(Immediate), 0);
+    b.inst(Sta(ZeroPage), 0); // clear update buffer
 
     b.inst(Jmp(Absolute), "mainloop");
 
