@@ -34,6 +34,13 @@ impl ArgOperand for &'static str {
     }
 }
 
+impl ArgOperand for String {
+    type Operand = operand::Address;
+    fn program(self, block: &mut Block) {
+        block.label_offset_le(self);
+    }
+}
+
 impl ArgOperand for Address {
     type Operand = operand::Address;
     fn program(self, block: &mut Block) {
@@ -82,6 +89,7 @@ impl ArgOperand for () {
 pub struct LabelOffsetLo(pub &'static str);
 pub struct LabelOffsetHi(pub &'static str);
 pub struct LabelRelativeOffset(pub &'static str);
+pub struct LabelRelativeOffsetOwned(pub String);
 
 impl ArgOperand for LabelOffsetLo {
     type Operand = operand::Byte;
@@ -101,6 +109,13 @@ impl ArgOperand for LabelRelativeOffset {
     type Operand = operand::Byte;
     fn program(self, block: &mut Block) {
         block.label_relative_offset(self.0);
+    }
+}
+
+impl ArgOperand for LabelRelativeOffsetOwned {
+    type Operand = operand::Byte;
+    fn program(self, block: &mut Block) {
+        block.label_relative_offset(self.0.as_str());
     }
 }
 

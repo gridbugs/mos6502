@@ -1,10 +1,95 @@
-use assembler::{Addr, Block, LabelRelativeOffset};
+use assembler::{Addr, Block, LabelRelativeOffset, LabelRelativeOffsetOwned};
 use ines::Ines;
 use mos6502::{interrupt_vector, Address};
 
 pub const PRG_START: Address = 0xC000;
 pub const INTERRUPT_VECTOR_START_PC_OFFSET: Address = interrupt_vector::START_LO - PRG_START;
 pub const INTERRUPT_VECTOR_NMI_OFFSET: Address = interrupt_vector::NMI_LO - PRG_START;
+
+const TEST_IMAGE_0: &[&str] = &[
+    "################################",
+    "################################",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##..........#.#...............##",
+    "##..........#..#..............##",
+    "##.....###..#..#.###..........##",
+    "##....#...#..#.##...#.........##",
+    "##.....#...###.#....#.........##",
+    "##......#....###...#..........##",
+    "##.......##..##..##...........##",
+    "##.......#...##..#............##",
+    "##......#...##...#............##",
+    "##......#..#.#...#............##",
+    "##.......##..#..#.............##",
+    "##............##..............##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "################################",
+    "################################",
+];
+
+const TEST_IMAGE_1: &[&str] = &[
+    "################################",
+    "################################",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##..........#..#..............##",
+    "##..........#..#..............##",
+    "##...........#.#..............##",
+    "##.....#####.#.#.####.........##",
+    "##....#.....##.##....#........##",
+    "##....#......###.....#........##",
+    "##.....#.....##.....#.........##",
+    "##......#....##....#..........##",
+    "##.....#....##.....#..........##",
+    "##.....#....##.....#..........##",
+    "##......####.##...#...........##",
+    "##.............###............##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "##............................##",
+    "################################",
+    "################################",
+];
+
+fn test_image_bits(image: &[&str]) -> Vec<u8> {
+    let mut bits = Vec::new();
+    let mut byte = 0;
+    for row in image {
+        for (i, c) in row.chars().enumerate() {
+            if c == '#' {
+                byte |= 0x80;
+            }
+            if i % 8 == 7 {
+                bits.push(byte);
+                byte = 0;
+            } else {
+                byte = byte >> 1;
+            }
+        }
+    }
+    bits
+}
 
 fn program(b: &mut Block) {
     use mos6502::addressing_mode::*;
@@ -56,33 +141,29 @@ fn program(b: &mut Block) {
     b.inst(Sta(ZeroPage), 0);
     b.inst(Lda(Immediate), 120);
     b.inst(Sta(ZeroPage), 1);
-    for i in 0..30 {
-        if i % 2 == 0 {
-            b.inst(Lda(Immediate), 0x55);
-        } else {
-            b.inst(Lda(Immediate), 0xAA);
-        }
-        for j in 0..4 {
-            b.inst(Sta(ZeroPage), i * 4 + j + 2);
-        }
+    for (i, byte) in test_image_bits(TEST_IMAGE_0).into_iter().enumerate() {
+        b.inst(Lda(Immediate), byte);
+        b.inst(Sta(ZeroPage), i as u8 + 2);
     }
-    b.inst(Lda(Immediate), 60);
+    b.inst(Lda(Immediate), 0xFA);
     b.inst(Sta(ZeroPage), 122);
-    b.inst(Lda(Immediate), 60);
-    b.inst(Sta(ZeroPage), 123);
-    b.inst(Lda(Immediate), 0x55);
-    for i in 0..15 {
-        b.inst(Lda(Immediate), 0xFF);
-        for j in 0..4 {
-            b.inst(Sta(ZeroPage), i * 4 + j + 124);
-        }
+
+    for (i, byte) in test_image_bits(TEST_IMAGE_0).into_iter().enumerate() {
+        b.inst(Lda(Immediate), byte);
+        b.inst(Sta(Absolute), Addr(0x0200 + i as u16));
     }
-    b.inst(Lda(Immediate), 0xFF);
-    b.inst(Sta(ZeroPage), 184);
+
+    for (i, byte) in test_image_bits(TEST_IMAGE_1).into_iter().enumerate() {
+        b.inst(Lda(Immediate), byte);
+        b.inst(Sta(Absolute), Addr(0x0280 + i as u16));
+    }
 
     // enable rendering
     b.inst(Lda(Immediate), 0b00001010);
     b.inst(Sta(Absolute), Addr(0x2001)); // turn on background and left-background
+
+    b.inst(Lda(Immediate), 0);
+    b.inst(Sta(ZeroPage), 252); // direction
 
     b.label("mainloop");
 
@@ -164,7 +245,7 @@ fn program(b: &mut Block) {
     for i in 0..8 {
         b.inst(Sta(Absolute), Addr(0x2007));
         if i < 7 {
-            b.inst(Ror(Accumulator), ());
+            b.inst(Lsr(Accumulator), ());
         }
     }
     b.inst(Jmp(Absolute), "byte-run-start");
@@ -178,8 +259,117 @@ fn program(b: &mut Block) {
     b.inst(Sta(Absolute), Addr(0x2005));
     b.inst(Sta(Absolute), Addr(0x2005)); // fix scroll
 
-    b.inst(Lda(Immediate), 0xFF);
-    b.inst(Sta(ZeroPage), 0); // clear update buffer
+    fn enqueue_delta(b: &mut Block, from: u16, to: u16, prefix: &str) {
+        b.inst(Lda(Immediate), 0xFB);
+        b.inst(Sta(ZeroPage), 0); // clear update buffer
+
+        // write new draw queue by diffing previous and current images
+        b.inst(Ldx(Immediate), 0);
+        b.inst(Ldy(Immediate), 0);
+
+        b.inst(Stx(ZeroPage), 255); // not currently in a run
+        b.inst(Stx(ZeroPage), 254); // MSB of count is always 0, but needed to form address
+
+        b.label(format!("{}-diff-start", prefix));
+        b.inst(Txa, ());
+        b.inst(Cmp(Immediate), 120);
+        b.inst(
+            Beq,
+            LabelRelativeOffsetOwned(format!("{}-diff-end", prefix)),
+        );
+
+        b.inst(Lda(AbsoluteXIndexed), Addr(from));
+        b.inst(Eor(AbsoluteXIndexed), Addr(to));
+
+        b.inst(
+            Bne,
+            LabelRelativeOffsetOwned(format!("{}-add-diff-to-draw-queue", prefix)),
+        );
+
+        b.inst(Sta(ZeroPage), 255); // we know A is zero - no longer in a run
+        b.inst(Inx, ());
+        b.inst(Jmp(Absolute), format!("{}-diff-start", prefix));
+
+        b.label(format!("{}-add-diff-to-draw-queue", prefix));
+
+        b.inst(Lda(ZeroPage), 255);
+        b.inst(
+            Bne,
+            LabelRelativeOffsetOwned(format!("{}-increment-counter-append-byte", prefix)),
+        );
+
+        b.inst(Tya, ());
+        b.inst(
+            Beq,
+            LabelRelativeOffsetOwned(format!("{}-append-offset", prefix)),
+        );
+
+        b.inst(Lda(ZeroPage), 253);
+        b.inst(Sta(AbsoluteYIndexed), Addr(0)); // store the previous counter value at Y
+
+        b.inst(Tya, ());
+        b.inst(Clc, ());
+        b.inst(Adc(ZeroPage), 253);
+        b.inst(Tay, ());
+        b.inst(Iny, ()); // Y now points where the offset will go
+
+        b.label(format!("{}-append-offset", prefix));
+
+        b.inst(Stx(ZeroPageYIndexed), 0); // X contains the current offset
+        b.inst(Iny, ()); // Y now points where the length will go
+
+        b.inst(Lda(Immediate), 0);
+        b.inst(Sta(ZeroPage), 253); // clear current count LBS (MSB is always clear)
+
+        b.label(format!("{}-increment-counter-append-byte", prefix));
+
+        b.inst(Inc(ZeroPage), 253); // increment counter
+        b.inst(Lda(AbsoluteXIndexed), Addr(to)); // load byte from current image
+        b.inst(Sta(IndirectYIndexed), 253); // store at *(253) + Y
+
+        b.inst(Inx, ());
+        b.inst(Stx(ZeroPage), 255); // X can't be 0 at this point. Set flag to non-zero value.
+
+        b.inst(Jmp(Absolute), format!("{}-diff-start", prefix));
+        b.label(format!("{}-diff-end", prefix));
+
+        b.inst(Tya, ());
+        b.inst(Tax, ());
+        b.inst(Lda(ZeroPage), 253);
+        b.inst(Sta(ZeroPageXIndexed), 0); // store the previous counter value at Y (X is copied from Y)
+
+        b.inst(Txa, ());
+        b.inst(Clc, ());
+        b.inst(Adc(ZeroPage), 253);
+        b.inst(Tax, ());
+        b.inst(Inx, ()); // X now points where the terminator will go
+        b.inst(Lda(Immediate), 0xFC);
+        b.inst(Sta(ZeroPageXIndexed), 0);
+    }
+
+    b.inst(Lda(ZeroPage), 252);
+    b.inst(Eor(Immediate), 1);
+    b.inst(Sta(ZeroPage), 252);
+    b.inst(Beq, LabelRelativeOffset("enqueue-delta-b-to-a"));
+
+    enqueue_delta(b, 0x0200, 0x0280, "A");
+    b.inst(Jmp(Absolute), "post-enqueue-delta");
+
+    b.label("enqueue-delta-b-to-a");
+    enqueue_delta(b, 0x0280, 0x0200, "B");
+
+    b.label("post-enqueue-delta");
+
+    // wait a few frames
+    b.inst(Ldx(Immediate), 10);
+    b.label("wait-frames");
+    b.inst(Beq, LabelRelativeOffset("end-wait-frames"));
+    b.label("vblankwait3");
+    b.inst(Bit(Absolute), Addr(0x2002));
+    b.inst(Bpl, LabelRelativeOffset("vblankwait3"));
+    b.inst(Dex, ());
+    b.inst(Jmp(Absolute), "wait-frames");
+    b.label("end-wait-frames");
 
     b.inst(Jmp(Absolute), "mainloop");
 
