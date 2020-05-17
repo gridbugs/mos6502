@@ -15,5 +15,5 @@ members = [
     "nes_samples",
     "samples",
 
-    "conway",
+    "butterfly",
 ]
