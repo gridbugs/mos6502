@@ -1,5 +1,5 @@
 use ansi_term::{Colour::RGB, Style};
-use nes_palette::{Palette, NUM_COLOURS};
+use nes_palette::Palette;
 
 fn main() {
     let palette = Palette::basic();
