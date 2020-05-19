@@ -662,6 +662,7 @@ impl Ppu {
         self.vblank_flag = false;
         self.sprite_zero_hit = false;
         if self.show_background {
+            self.scroll_state.copy_horizontal_scroll();
             self.scroll_state.copy_vertical_scroll();
         }
     }
