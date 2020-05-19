@@ -123,7 +123,7 @@ impl ArgOperand for LabelRelativeOffsetOwned {
 pub enum Error {
     OffsetOutOfBounds,
     UndeclaredLabel(String),
-    BranchTargetOutOfRange,
+    BranchTargetOutOfRange(String),
 }
 
 impl Block {
@@ -273,7 +273,7 @@ impl Block {
                     if let Some(&label_offset) = self.labels.get(label) {
                         let delta = label_offset as i16 - offset as i16 - 1;
                         if delta < -128 || delta > 127 {
-                            return Err(Error::BranchTargetOutOfRange);
+                            return Err(Error::BranchTargetOutOfRange(label.clone()));
                         }
                         buffer[offset as usize] = (delta as i8) as u8;
                     } else {

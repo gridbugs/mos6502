@@ -47,6 +47,40 @@ const TEST_IMAGE_CONWAY: &[&str] = &[
     "................................",
     "................................",
     "................................",
+    "............#...................",
+    "............##..................",
+    "...........#.#..................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+    "................................",
+];
+
+const TEST_IMAGE_CONWAY2: &[&str] = &[
+    "................................",
+    "................................",
+    "................................",
+    "................................",
     "................................",
     ".......#........................",
     ".......##.......................",
@@ -257,17 +291,18 @@ fn program(b: &mut Block) {
 
     b.label("update-ppu-start");
     b.inst(Lda(ZeroPageXIndexed), 0);
-    b.inst(Bmi, LabelRelativeOffset("update-ppu-end"));
+    b.inst(Bmi, LabelRelativeOffset("update-ppu-end")); // a negative tile index indicates the end of the draw queue
 
-    b.inst(Sta(ZeroPage), 254);
+    b.inst(Sta(ZeroPage), 254); //  store current tile index
 
+    b.inst(Clc, ());
     b.inst(Lda(Immediate), 0x04);
     b.inst(Asl(ZeroPageXIndexed), 0);
     b.inst(Rol(Accumulator), ());
     b.inst(Asl(ZeroPageXIndexed), 0);
     b.inst(Rol(Accumulator), ());
     b.inst(Asl(ZeroPageXIndexed), 0);
-    b.inst(Rol(Accumulator), ());
+    b.inst(Rol(Accumulator), ()); // compute the ppu address for the current run
 
     b.inst(Sta(Absolute), Addr(0x2006));
     b.inst(Lda(ZeroPageXIndexed), 0);
@@ -276,9 +311,12 @@ fn program(b: &mut Block) {
     b.inst(Inx, ());
     b.inst(Ldy(ZeroPageXIndexed), 0); // read length (bytes) of run into y register
 
+    b.label("fuck");
+    b.inst(Beq, LabelRelativeOffset("fuck"));
+
     b.label("byte-run-start");
     b.inst(Dey, ());
-    b.inst(Bmi, LabelRelativeOffset("byte-run-end"));
+    b.inst(Bmi, LabelRelativeOffset("byte-run-end")); // if y was decremented to negative, the run is over
 
     b.inst(Dec(ZeroPage), 255); // spend gas
     b.inst(Bne, LabelRelativeOffset("post-vblank-wait"));
@@ -291,25 +329,26 @@ fn program(b: &mut Block) {
 
     b.label("vblankmain-gas");
     b.inst(Bit(Absolute), Addr(0x2002));
-    b.inst(Bpl, LabelRelativeOffset("vblankmain-gas"));
+    b.inst(Bpl, LabelRelativeOffset("vblankmain-gas")); // gas has run out, so wait until start of next vblank to continue
 
     b.inst(Bit(Absolute), Addr(0x2002)); // read ppu status to clear address latch
 
+    b.inst(Clc, ());
     b.inst(Lda(ZeroPage), 254);
     b.inst(Pha, ()); // back up offset
-    b.inst(Lda(Immediate), 0x04);
+    b.inst(Lda(Immediate), 0x04); // start at 0x04 so when multiplied by 8 ends up as 0x20XX
     b.inst(Asl(ZeroPage), 254);
     b.inst(Rol(Accumulator), ());
     b.inst(Asl(ZeroPage), 254);
     b.inst(Rol(Accumulator), ());
     b.inst(Asl(ZeroPage), 254);
-    b.inst(Rol(Accumulator), ());
+    b.inst(Rol(Accumulator), ()); // multiply by 8 to get byte address
 
     b.inst(Sta(Absolute), Addr(0x2006));
     b.inst(Lda(ZeroPage), 254);
     b.inst(Sta(Absolute), Addr(0x2006)); // restore ppuaddr
     b.inst(Pla, ());
-    b.inst(Sta(ZeroPage), 254); // restore offset
+    b.inst(Sta(ZeroPage), 254); // restore offset which was corrupted during above multiply
 
     b.label("post-vblank-wait");
 
@@ -544,6 +583,7 @@ fn program(b: &mut Block) {
 
         b.inst(Stx(ZeroPage), 255); // not currently in a run
         b.inst(Stx(ZeroPage), 254); // MSB of count is always 0, but needed to form address
+        b.inst(Stx(ZeroPage), 253); // LSB of count
 
         b.label(format!("{}-diff-start", prefix));
         b.inst(Txa, ());
@@ -611,6 +651,14 @@ fn program(b: &mut Block) {
         b.inst(Tya, ());
         b.inst(Tax, ());
         b.inst(Lda(ZeroPage), 253);
+        b.inst(
+            Bne,
+            LabelRelativeOffsetOwned(format!("{}-non-empty", prefix)),
+        );
+        b.inst(Lda(Immediate), 0xFA);
+        b.inst(Sta(ZeroPage), 0); // empty queue - place terminator at start of zero page
+        b.inst(Jmp(Absolute), format!("{}-end", prefix));
+        b.label(format!("{}-non-empty", prefix));
         b.inst(Sta(ZeroPageXIndexed), 0); // store the previous counter value at Y (X is copied from Y)
 
         b.inst(Txa, ());
@@ -620,6 +668,8 @@ fn program(b: &mut Block) {
         b.inst(Inx, ()); // X now points where the terminator will go
         b.inst(Lda(Immediate), 0xFC);
         b.inst(Sta(ZeroPageXIndexed), 0);
+
+        b.label(format!("{}-end", prefix));
     }
 
     b.inst(Lda(ZeroPage), 252);

@@ -16,4 +16,5 @@ members = [
     "samples",
 
     "butterfly",
+    "conway",
 ]
