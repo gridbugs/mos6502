@@ -49,8 +49,8 @@ fn program(b: &mut Block, initial_state: Vec<u8>) {
     b.inst(Bpl, LabelRelativeOffset("vblankwait2"));
 
     // set up palette
-    let universal_background = 0x2C;
-    let background_colour_1 = 0x14;
+    let universal_background = 0x10;
+    let background_colour_1 = 0x11;
     b.inst(Bit(Absolute), Addr(0x2002)); // read ppu status to clear address latch
     b.inst(Lda(Immediate), 0x3F);
     b.inst(Sta(Absolute), Addr(0x2006)); // write high byte of 0x3F00
