@@ -1,6 +1,9 @@
 use assembler::{Addr, Block, LabelRelativeOffset, LabelRelativeOffsetOwned};
 use ines::Ines;
 use mos6502::{address, interrupt_vector, Address};
+use rand::{Rng, SeedableRng};
+use rand_isaac::Isaac64Rng;
+use simon::Arg;
 
 const PRG_START: Address = 0xC000;
 const INTERRUPT_VECTOR_START_PC_OFFSET: Address = interrupt_vector::START_LO - PRG_START;
@@ -8,60 +11,12 @@ const INTERRUPT_VECTOR_NMI_OFFSET: Address = interrupt_vector::NMI_LO - PRG_STAR
 const OFFSET_TABLE_START: Address = 0xFC00;
 const OFFSET_TABLE_START_OFFSET: Address = OFFSET_TABLE_START - PRG_START;
 
-const TEST_IMAGE_CONWAY: &[&str] = &[
-    "................................",
-    "................................",
-    "................................",
-    "................................",
-    "................................",
-    ".......#........................",
-    ".......##.......................",
-    "......#.#.......................",
-    "................................",
-    "........#.......................",
-    ".........##.....................",
-    "........##......................",
-    "................................",
-    "................................",
-    "................................",
-    "................................",
-    "................................",
-    "................................",
-    "..............#.................",
-    ".............##.................",
-    ".............#.#................",
-    "................................",
-    "................................",
-    "................................",
-    "................................",
-    "................................",
-    "..........#.#...................",
-    "...........##...................",
-    "...........#....................",
-    "................................",
-    "................................",
-];
-
-fn test_image_bits(image: &[&str]) -> Vec<u8> {
-    let mut bits = Vec::new();
-    let mut byte = 0;
-    for row in image {
-        for (i, c) in row.chars().enumerate() {
-            if c == '#' {
-                byte |= 0x80;
-            }
-            if i % 8 == 7 {
-                bits.push(byte);
-                byte = 0;
-            } else {
-                byte = byte >> 1;
-            }
-        }
-    }
-    bits
+fn random_bits<R: Rng>(rng: &mut R) -> Vec<u8> {
+    const NUM_BYTES: usize = 120;
+    (0..NUM_BYTES).map(|_| rng.gen()).collect()
 }
 
-fn program(b: &mut Block) {
+fn program(b: &mut Block, initial_state: Vec<u8>) {
     use mos6502::addressing_mode::*;
     use mos6502::assembler_instruction::*;
 
@@ -111,19 +66,19 @@ fn program(b: &mut Block) {
     b.inst(Sta(ZeroPage), 0);
     b.inst(Lda(Immediate), 120);
     b.inst(Sta(ZeroPage), 1);
-    for (i, byte) in test_image_bits(TEST_IMAGE_CONWAY).into_iter().enumerate() {
+    for (i, &byte) in initial_state.iter().enumerate() {
         b.inst(Lda(Immediate), byte);
         b.inst(Sta(ZeroPage), i as u8 + 2);
     }
     b.inst(Lda(Immediate), 0xFA);
     b.inst(Sta(ZeroPage), 122);
 
-    for (i, byte) in test_image_bits(TEST_IMAGE_CONWAY).into_iter().enumerate() {
+    for (i, &byte) in initial_state.iter().enumerate() {
         b.inst(Lda(Immediate), byte);
         b.inst(Sta(Absolute), Addr(0x0200 + i as u16));
     }
 
-    for (i, byte) in test_image_bits(TEST_IMAGE_CONWAY).into_iter().enumerate() {
+    for (i, &byte) in initial_state.iter().enumerate() {
         b.inst(Lda(Immediate), byte);
         b.inst(Sta(Absolute), Addr(0x0280 + i as u16));
     }
@@ -639,9 +594,9 @@ fn chr_rom() -> Vec<u8> {
     chr_rom
 }
 
-fn prg_rom() -> Vec<u8> {
+fn prg_rom(initial_state: Vec<u8>) -> Vec<u8> {
     let mut block = Block::new();
-    program(&mut block);
+    program(&mut block, initial_state);
     let mut prg_rom = Vec::new();
     block
         .assemble(PRG_START, ines::PRG_ROM_BLOCK_BYTES, &mut prg_rom)
@@ -649,8 +604,31 @@ fn prg_rom() -> Vec<u8> {
     prg_rom
 }
 
+struct Args {
+    rng: Isaac64Rng,
+}
+
+impl Args {
+    fn arg() -> impl Arg<Item = Self> {
+        use simon::*;
+        args_map! {
+            let {
+                rng_seed = opt::<u64>("r", "rng-seed", "rng seed", "INT")
+                    .with_default_lazy(|| rand::thread_rng().gen());
+            } in {{
+                let rng = Isaac64Rng::seed_from_u64(rng_seed);
+                Self {
+                    rng,
+                }
+            }}
+        }
+    }
+}
+
 fn main() {
     use std::io::Write;
+    let Args { mut rng } = Args::arg().with_help_default().parse_env_or_exit();
+    let initial_state = random_bits(&mut rng);
     let ines = Ines {
         header: ines::Header {
             num_prg_rom_blocks: 1,
@@ -659,7 +637,7 @@ fn main() {
             mirroring: ines::Mirroring::Vertical,
             four_screen_vram: false,
         },
-        prg_rom: prg_rom(),
+        prg_rom: prg_rom(initial_state),
         chr_rom: chr_rom(),
     };
     let mut encoded = Vec::new();

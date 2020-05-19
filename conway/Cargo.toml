@@ -8,3 +8,6 @@ edition = "2018"
 assembler = { path = "../assembler" }
 mos6502 = { path = "../mos6502" }
 ines = { path = "../ines" }
+rand = "0.7"
+simon = "0.4"
+rand_isaac = "0.2"
