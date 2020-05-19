@@ -149,7 +149,7 @@ fn program(b: &mut Block) {
     // update ppu memory
     b.inst(Bit(Absolute), Addr(0x2002)); // read ppu status to clear address latch
 
-    let gas = 24;
+    let gas = 16;
     b.inst(Lda(Immediate), gas);
     b.inst(Sta(ZeroPage), 255); // store gas
 
@@ -552,7 +552,7 @@ fn program(b: &mut Block) {
     b.label("post-enqueue-delta");
 
     // wait a few frames
-    b.inst(Ldx(Immediate), 2);
+    b.inst(Ldx(Immediate), 1);
     b.label("wait-frames");
     b.inst(Beq, LabelRelativeOffset("end-wait-frames"));
     b.label("vblankwait3");
