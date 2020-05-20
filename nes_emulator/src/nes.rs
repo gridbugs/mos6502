@@ -392,6 +392,9 @@ impl<M: Mapper> Nes<M> {
             .mapper
             .load_persistent_state(persistent_state)
     }
+    pub fn ppu(&self) -> &Ppu {
+        &self.devices.devices.ppu
+    }
 }
 
 pub mod controller1 {

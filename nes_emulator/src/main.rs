@@ -535,6 +535,12 @@ fn run_nes_for_frame<M: Mapper, O: RenderOutput>(
         } else {
             nes.run_for_frame(&mut render_output, name_table_frame);
         }
+        #[cfg(feature = "ppu_debug")]
+        {
+            for ((x, y), age) in nes.ppu().debug().pixel_ages() {
+                gif_frame.set_background_pixel_age(x, y, age);
+            }
+        }
         gif_renderer.add(&gif_frame);
     } else {
         if config.debug {

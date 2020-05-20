@@ -11,6 +11,8 @@ mod depth {
 pub struct Frame {
     indices: [u8; nes_specs::SCREEN_TOTAL_PX as usize],
     depths: [u8; nes_specs::SCREEN_TOTAL_PX as usize],
+    #[cfg(feature = "background_pixel_ages")]
+    background_pixel_ages: [u64; nes_specs::SCREEN_TOTAL_PX as usize],
 }
 
 impl Frame {
@@ -18,6 +20,8 @@ impl Frame {
         Self {
             indices: [0; nes_specs::SCREEN_TOTAL_PX as usize],
             depths: [depth::EMPTY; nes_specs::SCREEN_TOTAL_PX as usize],
+            #[cfg(feature = "background_pixel_ages")]
+            background_pixel_ages: [0; nes_specs::SCREEN_TOTAL_PX as usize],
         }
     }
     pub fn clear(&mut self) {
@@ -25,6 +29,10 @@ impl Frame {
     }
     pub fn indices(&self) -> &[u8] {
         &self.indices
+    }
+    #[cfg(feature = "background_pixel_ages")]
+    pub fn background_pixel_ages(&self) -> &[u64] {
+        &self.background_pixel_ages
     }
     fn set_pixel_colour(&mut self, x: u16, y: u16, colour_index: u8, depth: u8) {
         let offset = (y * nes_specs::SCREEN_WIDTH_PX + x) as usize;
@@ -45,6 +53,11 @@ impl Frame {
     }
     pub fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
         self.set_pixel_colour(x, y, colour_index, depth::UNIVERSAL_BACKGROUND);
+    }
+    #[cfg(feature = "background_pixel_ages")]
+    pub fn set_background_pixel_age(&mut self, x: u16, y: u16, age: u64) {
+        let offset = (y * nes_specs::SCREEN_WIDTH_PX + x) as usize;
+        self.background_pixel_ages[offset] = age;
     }
 }
 

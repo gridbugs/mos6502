@@ -524,6 +524,8 @@ pub struct Ppu {
     show_sprites_left_8_pixels: bool,
     sprite_zero_hit: bool,
     scroll_state: ScrollState,
+    #[cfg(feature = "ppu_debug")]
+    ppu_debug: PpuDebug,
 }
 
 pub type PpuAddress = u16;
@@ -589,6 +591,45 @@ impl SpriteZeroRow {
     }
 }
 
+#[cfg(feature = "ppu_debug")]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PpuDebug {
+    frame_count: u64,
+    name_table_0_last_frame: Vec<u64>,
+}
+
+#[cfg(feature = "ppu_debug")]
+impl PpuDebug {
+    fn new() -> Self {
+        Self {
+            frame_count: 0,
+            name_table_0_last_frame: vec![0; ATTRIBUTE_TABLE_START_INDEX],
+        }
+    }
+    fn name_table_0_write(&mut self, offset: PpuAddress) {
+        self.name_table_0_last_frame[offset as usize] = self.frame_count;
+    }
+    fn end_of_frame(&mut self) {
+        self.frame_count += 1;
+    }
+    pub fn pixel_ages<'a>(&'a self) -> impl 'a + Iterator<Item = ((u16, u16), u64)> {
+        let self_frame_count = self.frame_count;
+        self.name_table_0_last_frame
+            .iter()
+            .enumerate()
+            .flat_map(move |(index, &frame_count)| {
+                let age = self_frame_count - frame_count;
+                let tile_x = index as u16 % SCREEN_WIDTH_TILES;
+                let tile_y = index as u16 / SCREEN_WIDTH_TILES;
+                let pixel_base_x = tile_x * TILE_SIZE_PX;
+                let pixel_base_y = tile_y * TILE_SIZE_PX;
+                (0..TILE_SIZE_PX).flat_map(move |y| {
+                    (0..TILE_SIZE_PX).map(move |x| ((pixel_base_x + x, pixel_base_y + y), age))
+                })
+            })
+    }
+}
+
 impl Ppu {
     pub fn new() -> Self {
         Self {
@@ -606,7 +647,13 @@ impl Ppu {
             show_sprites_left_8_pixels: false,
             sprite_zero_hit: false,
             scroll_state: ScrollState::new(),
+            #[cfg(feature = "ppu_debug")]
+            ppu_debug: PpuDebug::new(),
         }
+    }
+    #[cfg(feature = "ppu_debug")]
+    pub fn debug(&self) -> &PpuDebug {
+        &self.ppu_debug
     }
     pub fn is_vblank_nmi_enabled(&self) -> bool {
         self.vblank_nmi
@@ -665,6 +712,8 @@ impl Ppu {
             self.scroll_state.copy_horizontal_scroll();
             self.scroll_state.copy_vertical_scroll();
         }
+        #[cfg(feature = "ppu_debug")]
+        self.ppu_debug.end_of_frame();
     }
     pub fn write_oam_address(&mut self, data: u8) {
         self.oam_address = data;
@@ -685,6 +734,14 @@ impl Ppu {
         self.scroll_state.write_address(data);
     }
     pub fn write_data<M: PpuMapper>(&mut self, memory: &mut M, data: u8) {
+        #[cfg(feature = "ppu_debug")]
+        {
+            let address = self.scroll_state.ppu_address();
+            if address >= 0x2000 && address < 0x2400 {
+                let offset = address - 0x2000;
+                self.ppu_debug.name_table_0_write(offset);
+            }
+        }
         memory.ppu_write_u8(self.scroll_state.ppu_address(), data);
         self.scroll_state
             .increment_ppu_address(self.address_increment);
