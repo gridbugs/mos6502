@@ -1,9 +1,6 @@
 use assembler::{Addr, Block, LabelRelativeOffset, LabelRelativeOffsetOwned};
 use ines::Ines;
 use mos6502::{address, interrupt_vector, Address};
-use rand::{Rng, SeedableRng};
-use rand_isaac::Isaac64Rng;
-use simon::Arg;
 
 const PRG_START: Address = 0xC000;
 const INTERRUPT_VECTOR_START_PC_OFFSET: Address = interrupt_vector::START_LO - PRG_START;
@@ -11,12 +8,7 @@ const INTERRUPT_VECTOR_NMI_OFFSET: Address = interrupt_vector::NMI_LO - PRG_STAR
 const OFFSET_TABLE_START: Address = 0xFC00;
 const OFFSET_TABLE_START_OFFSET: Address = OFFSET_TABLE_START - PRG_START;
 
-fn random_bits<R: Rng>(rng: &mut R) -> Vec<u8> {
-    const NUM_BYTES: usize = 120;
-    (0..NUM_BYTES).map(|_| rng.gen()).collect()
-}
-
-fn program(b: &mut Block, initial_state: Vec<u8>) {
+fn program(b: &mut Block) {
     use mos6502::addressing_mode::*;
     use mos6502::assembler_instruction::*;
 
@@ -62,31 +54,8 @@ fn program(b: &mut Block, initial_state: Vec<u8>) {
     b.inst(Sta(Absolute), Addr(0x2007));
 
     // initialize state
-    b.inst(Lda(Immediate), 0);
-    b.inst(Sta(ZeroPage), 0);
-    b.inst(Lda(Immediate), 120);
-    b.inst(Sta(ZeroPage), 1);
-    for (i, &byte) in initial_state.iter().enumerate() {
-        b.inst(Lda(Immediate), byte);
-        b.inst(Sta(ZeroPage), i as u8 + 2);
-    }
-    b.inst(Lda(Immediate), 0xFA);
-    b.inst(Sta(ZeroPage), 122);
-
-    for (i, &byte) in initial_state.iter().enumerate() {
-        b.inst(Lda(Immediate), byte);
-        b.inst(Sta(Absolute), Addr(0x0200 + i as u16));
-    }
-
-    for (i, &byte) in initial_state.iter().enumerate() {
-        b.inst(Lda(Immediate), byte);
-        b.inst(Sta(Absolute), Addr(0x0280 + i as u16));
-    }
-
-    // zero out 120th byte of each state buffer
-    b.inst(Lda(Immediate), 0);
-    b.inst(Sta(Absolute), Addr(0x0200 + 120));
-    b.inst(Sta(Absolute), Addr(0x0280 + 120));
+    b.inst(Jsr(Absolute), "rng-init");
+    b.inst(Jsr(Absolute), "rng-new-state");
 
     // enable rendering
     b.inst(Lda(Immediate), 0b00001010);
@@ -96,6 +65,14 @@ fn program(b: &mut Block, initial_state: Vec<u8>) {
     b.inst(Sta(ZeroPage), 252); // direction
 
     b.label("mainloop");
+
+    b.inst(Jsr(Absolute), "rng-increment");
+
+    b.inst(Jsr(Absolute), "controller-to-255");
+
+    b.inst(Lda(ZeroPage), 255);
+    b.inst(Beq, LabelRelativeOffset("vblankmain"));
+    b.inst(Jsr(Absolute), "rng-new-state");
 
     b.label("vblankmain");
     b.inst(Bit(Absolute), Addr(0x2002));
@@ -506,17 +483,6 @@ fn program(b: &mut Block, initial_state: Vec<u8>) {
 
     b.label("post-enqueue-delta");
 
-    // wait a few frames
-    b.inst(Ldx(Immediate), 1);
-    b.label("wait-frames");
-    b.inst(Beq, LabelRelativeOffset("end-wait-frames"));
-    b.label("vblankwait3");
-    b.inst(Bit(Absolute), Addr(0x2002));
-    b.inst(Bpl, LabelRelativeOffset("vblankwait3"));
-    b.inst(Dex, ());
-    b.inst(Jmp(Absolute), "wait-frames");
-    b.label("end-wait-frames");
-
     b.inst(Jmp(Absolute), "mainloop");
 
     b.infinite_loop();
@@ -529,6 +495,126 @@ fn program(b: &mut Block, initial_state: Vec<u8>) {
     b.label("fn-b-to-a");
     conway_update(b, 0x0280, 0x0200, "B");
     enqueue_delta(b, 0x0280, 0x0200, "B");
+    b.inst(Rts, ());
+
+    b.label("rng-init");
+    b.inst(Lda(Immediate), 0);
+    b.inst(Sta(ZeroPage), 251);
+    b.inst(Sta(ZeroPage), 250);
+    b.inst(Sta(ZeroPage), 249);
+    b.inst(Sta(ZeroPage), 248);
+    b.inst(Rts, ());
+
+    b.label("rng-increment");
+    b.inst(Clc, ());
+    b.inst(Lda(ZeroPage), 248);
+    b.inst(Adc(Immediate), 1);
+    b.inst(Sta(ZeroPage), 248);
+    b.inst(Lda(ZeroPage), 249);
+    b.inst(Adc(Immediate), 0);
+    b.inst(Sta(ZeroPage), 249);
+    b.inst(Lda(ZeroPage), 250);
+    b.inst(Adc(Immediate), 0);
+    b.inst(Sta(ZeroPage), 250);
+    b.inst(Lda(ZeroPage), 251);
+    b.inst(Adc(Immediate), 0);
+    b.inst(Sta(ZeroPage), 251);
+    b.inst(Rts, ());
+
+    b.label("rng-generate");
+    b.inst(Lda(ZeroPage), 248);
+    b.inst(Ora(Immediate), 1); // make sure the seed is not 0
+    b.inst(Sta(ZeroPage), 248);
+
+    fn rng_generate_copy(b: &mut Block) {
+        for i in 248..=251 {
+            b.inst(Lda(ZeroPage), i);
+            b.inst(Sta(ZeroPage), i - 4);
+        }
+    }
+
+    fn rng_generate_xor(b: &mut Block) {
+        for i in 248..=251 {
+            b.inst(Lda(ZeroPage), i);
+            b.inst(Eor(ZeroPage), i - 4);
+            b.inst(Sta(ZeroPage), i);
+        }
+    }
+
+    fn rng_generate_left_shift(b: &mut Block, n: u8) {
+        for _ in 0..n {
+            b.inst(Asl(ZeroPage), 244);
+            b.inst(Rol(ZeroPage), 245);
+            b.inst(Rol(ZeroPage), 246);
+            b.inst(Rol(ZeroPage), 247);
+        }
+    }
+
+    fn rng_generate_right_shift(b: &mut Block, n: u8) {
+        for _ in 0..n {
+            b.inst(Lsr(ZeroPage), 247);
+            b.inst(Ror(ZeroPage), 246);
+            b.inst(Ror(ZeroPage), 245);
+            b.inst(Ror(ZeroPage), 244);
+        }
+    }
+
+    rng_generate_copy(b);
+    rng_generate_left_shift(b, 13);
+    rng_generate_xor(b);
+
+    rng_generate_copy(b);
+    rng_generate_right_shift(b, 17);
+    rng_generate_xor(b);
+
+    rng_generate_copy(b);
+    rng_generate_left_shift(b, 5);
+    rng_generate_xor(b);
+
+    b.inst(Rts, ());
+
+    b.label("rng-new-state");
+    b.inst(Lda(Immediate), 0);
+    b.inst(Sta(ZeroPage), 0);
+    b.inst(Lda(Immediate), 120);
+    b.inst(Sta(ZeroPage), 1); // initialize draw queue
+    for y in 0..30u8 {
+        b.inst(Jsr(Absolute), "rng-generate");
+        for x in 0..4u8 {
+            let index = y * 4 + x;
+            b.inst(Lda(ZeroPage), 248 + x); // load random byte
+            b.inst(Sta(ZeroPage), index + 2); // write pattern to draw queue
+            b.inst(Sta(Absolute), Addr(0x0200 + index as u16));
+            b.inst(Sta(Absolute), Addr(0x0280 + index as u16)); // write pattern to state
+        }
+    }
+
+    // zero out 120th byte of each state buffer
+    b.inst(Lda(Immediate), 0);
+    b.inst(Sta(Absolute), Addr(0x0200 + 120));
+    b.inst(Sta(Absolute), Addr(0x0280 + 120));
+
+    // terminate draw queue
+    b.inst(Lda(Immediate), 0xFA);
+    b.inst(Sta(ZeroPage), 122);
+
+    b.inst(Rts, ());
+
+    b.label("controller-to-255");
+    b.inst(Lda(Immediate), 1);
+    b.inst(Sta(Absolute), Addr(0x4016)); // set controller strobe
+    b.inst(Sta(ZeroPage), 255); // store a 1 at 255 - used to check when all bits are read
+    b.inst(Lsr(Accumulator), ()); // clear accumulator
+    b.inst(Sta(Absolute), Addr(0x4016)); // clear controller strobe
+
+    b.label("controller-to-255-loop");
+    b.inst(Lda(Absolute), Addr(0x4016)); // load single bit into LBS of acculumator
+    b.inst(Lsr(Accumulator), ()); // shift bit into carry flag
+    b.inst(Rol(ZeroPage), 255); // shift carry flag into 255, and MSB of 255 into carry flag
+
+    // if that set the carry flag, this was the 8th iteration
+    b.inst(Bcc, LabelRelativeOffset("controller-to-255-loop"));
+
     b.inst(Rts, ());
 
     b.label("nmi");
@@ -594,9 +680,9 @@ fn chr_rom() -> Vec<u8> {
     chr_rom
 }
 
-fn prg_rom(initial_state: Vec<u8>) -> Vec<u8> {
+fn prg_rom() -> Vec<u8> {
     let mut block = Block::new();
-    program(&mut block, initial_state);
+    program(&mut block);
     let mut prg_rom = Vec::new();
     block
         .assemble(PRG_START, ines::PRG_ROM_BLOCK_BYTES, &mut prg_rom)
@@ -604,31 +690,8 @@ fn prg_rom(initial_state: Vec<u8>) -> Vec<u8> {
     prg_rom
 }
 
-struct Args {
-    rng: Isaac64Rng,
-}
-
-impl Args {
-    fn arg() -> impl Arg<Item = Self> {
-        use simon::*;
-        args_map! {
-            let {
-                rng_seed = opt::<u64>("r", "rng-seed", "rng seed", "INT")
-                    .with_default_lazy(|| rand::thread_rng().gen());
-            } in {{
-                let rng = Isaac64Rng::seed_from_u64(rng_seed);
-                Self {
-                    rng,
-                }
-            }}
-        }
-    }
-}
-
 fn main() {
     use std::io::Write;
-    let Args { mut rng } = Args::arg().with_help_default().parse_env_or_exit();
-    let initial_state = random_bits(&mut rng);
     let ines = Ines {
         header: ines::Header {
             num_prg_rom_blocks: 1,
@@ -637,7 +700,7 @@ fn main() {
             mirroring: ines::Mirroring::Vertical,
             four_screen_vram: false,
         },
-        prg_rom: prg_rom(initial_state),
+        prg_rom: prg_rom(),
         chr_rom: chr_rom(),
     };
     let mut encoded = Vec::new();
