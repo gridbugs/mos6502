@@ -1,3 +1,4 @@
+#[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
 pub mod bit {
@@ -22,7 +23,9 @@ pub mod flag {
     pub const NEGATIVE: u8 = 1 << bit::NEGATIVE;
 }
 const MASK: u8 = !(flag::BRK | flag::EXPANSION);
-#[derive(Clone, Serialize, Deserialize)]
+
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+#[derive(Clone)]
 pub struct Register {
     raw: u8,
 }
