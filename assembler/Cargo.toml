@@ -12,4 +12,4 @@ documentation = "https://docs.rs/mos6502_assembler"
 
 
 [dependencies]
-mos6502_model = { path = "../model" }
+mos6502_model = { version = "0.1", path = "../model" }
