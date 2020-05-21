@@ -1,5 +1,5 @@
 [package]
-name = "nes-conway"
+name = "conway-nes"
 description = "Generate a NES rom containing Conway's Game of Life"
 version = "0.1.0"
 authors = ["Stephen Sherratt <stephen@sherra.tt>"]

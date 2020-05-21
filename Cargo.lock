@@ -164,6 +164,15 @@ version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "conway-nes"
+version = "0.1.0"
+dependencies = [
+ "ines 0.1.1",
+ "mos6502_assembler 0.1.0",
+ "mos6502_model 0.1.0",
+]
+
+[[package]]
 name = "copyless"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -680,15 +689,6 @@ name = "mos6502_model"
 version = "0.1.0"
 dependencies = [
  "serde 1.0.110 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "nes-conway"
-version = "0.1.0"
-dependencies = [
- "ines 0.1.1",
- "mos6502_assembler 0.1.0",
- "mos6502_model 0.1.0",
 ]
 
 [[package]]
