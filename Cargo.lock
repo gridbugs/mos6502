@@ -100,7 +100,7 @@ name = "butterfly"
 version = "0.1.0"
 dependencies = [
  "assembler 0.1.0",
- "ines 0.1.0",
+ "ines 0.1.1",
  "mos6502 0.1.0",
 ]
 
@@ -175,7 +175,7 @@ name = "conway"
 version = "0.1.0"
 dependencies = [
  "assembler 0.1.0",
- "ines 0.1.0",
+ "ines 0.1.1",
  "mos6502 0.1.0",
 ]
 
@@ -523,7 +523,7 @@ dependencies = [
 
 [[package]]
 name = "ines"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "instant"
@@ -699,7 +699,7 @@ dependencies = [
  "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "gif_renderer 0.1.0",
  "graphical_frontend 0.1.0",
- "ines 0.1.0",
+ "ines 0.1.1",
  "mos6502 0.1.0",
  "nes_headless_frame 0.1.0",
  "nes_name_table_debug 0.1.0",
@@ -738,7 +738,7 @@ name = "nes_samples"
 version = "0.1.0"
 dependencies = [
  "assembler 0.1.0",
- "ines 0.1.0",
+ "ines 0.1.1",
  "mos6502 0.1.0",
  "samples 0.1.0",
 ]
