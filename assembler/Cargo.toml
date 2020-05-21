@@ -1,8 +1,15 @@
 [package]
 name = "mos6502_assembler"
+description = "DSL for MOS6502 assembly"
 version = "0.1.0"
 authors = ["Stephen Sherratt <stephen@sherra.tt>"]
+license = "MIT"
+readme = "README.md"
 edition = "2018"
+homepage = "https://gitlab.com/stevebob/mos6502.git"
+repository = "https://gitlab.com/stevebob/mos6502.git"
+documentation = "https://docs.rs/mos6502_assembler"
+
 
 [dependencies]
 mos6502_model = { path = "../model" }
