@@ -1,8 +1,8 @@
 [package]
-name = "assembler"
+name = "mos6502_assembler"
 version = "0.1.0"
 authors = ["Stephen Sherratt <stephen@sherra.tt>"]
 edition = "2018"
 
 [dependencies]
-mos6502 = { path = "../mos6502" }
+mos6502_model = { path = "../model" }

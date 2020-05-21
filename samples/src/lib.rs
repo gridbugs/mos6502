@@ -1,5 +1,5 @@
-use assembler::Block;
-pub use mos6502::machine::{Address, Cpu, MemoryReadOnly};
+use mos6502_assembler::Block;
+pub use mos6502_model::machine::{Address, Cpu, MemoryReadOnly};
 
 #[cfg(test)]
 pub mod test;
@@ -43,9 +43,9 @@ pub trait Sample {
 
 pub(crate) mod prelude {
     pub use super::{Sample, PRG_START};
-    pub use assembler::*;
-    pub use mos6502::addressing_mode::*;
-    pub use mos6502::assembler_instruction::*;
-    pub use mos6502::interrupt_vector;
-    pub use mos6502::machine::{status, Address, Cpu, MemoryReadOnly};
+    pub use mos6502_assembler::*;
+    pub use mos6502_model::addressing_mode::*;
+    pub use mos6502_model::assembler_instruction::*;
+    pub use mos6502_model::interrupt_vector;
+    pub use mos6502_model::machine::{status, Address, Cpu, MemoryReadOnly};
 }

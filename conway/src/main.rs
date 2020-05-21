@@ -1,6 +1,6 @@
-use assembler::{Addr, Block, LabelRelativeOffset, LabelRelativeOffsetOwned};
 use ines::Ines;
-use mos6502::{address, interrupt_vector, Address};
+use mos6502_assembler::{Addr, Block, LabelRelativeOffset, LabelRelativeOffsetOwned};
+use mos6502_model::{address, interrupt_vector, Address};
 
 const PRG_START: Address = 0xC000;
 const INTERRUPT_VECTOR_START_PC_OFFSET: Address = interrupt_vector::START_LO - PRG_START;
@@ -9,8 +9,8 @@ const OFFSET_TABLE_START: Address = 0xFC00;
 const OFFSET_TABLE_START_OFFSET: Address = OFFSET_TABLE_START - PRG_START;
 
 fn program(b: &mut Block) {
-    use mos6502::addressing_mode::*;
-    use mos6502::assembler_instruction::*;
+    use mos6502_model::addressing_mode::*;
+    use mos6502_model::assembler_instruction::*;
 
     b.label("reset");
 

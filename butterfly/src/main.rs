@@ -1,6 +1,6 @@
-use assembler::{Addr, Block, LabelRelativeOffset, LabelRelativeOffsetOwned};
 use ines::Ines;
-use mos6502::{interrupt_vector, Address};
+use mos6502_assembler::{Addr, Block, LabelRelativeOffset, LabelRelativeOffsetOwned};
+use mos6502_model::{interrupt_vector, Address};
 
 pub const PRG_START: Address = 0xC000;
 pub const INTERRUPT_VECTOR_START_PC_OFFSET: Address = interrupt_vector::START_LO - PRG_START;
@@ -92,8 +92,8 @@ fn test_image_bits(image: &[&str]) -> Vec<u8> {
 }
 
 fn program(b: &mut Block) {
-    use mos6502::addressing_mode::*;
-    use mos6502::assembler_instruction::*;
+    use mos6502_model::addressing_mode::*;
+    use mos6502_model::assembler_instruction::*;
 
     b.label("reset");
 

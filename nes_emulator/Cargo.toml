@@ -9,7 +9,7 @@ ppu_debug = ["gif_renderer/background_pixel_ages"]
 
 [dependencies]
 simon = "0.4"
-mos6502 = { path = "../mos6502", features = ["serialize"] }
+mos6502_model = { path = "../model", features = ["serialize"] }
 ines = { path = "../ines" }
 nes_specs = { path = "../nes_specs" }
 analyser = { path = "../analyser" }

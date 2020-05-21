@@ -6,7 +6,7 @@ members = [
     "gif_renderer",
     "graphical_frontend",
     "ines",
-    "mos6502",
+    "model",
     "nes_specs",
     "nes_emulator",
     "nes_headless_frame",

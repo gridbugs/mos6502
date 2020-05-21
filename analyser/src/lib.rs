@@ -1,7 +1,7 @@
-use mos6502::debug::{AddressingMode, InstructionType, InstructionWithOperand};
-use mos6502::machine::MemoryReadOnly;
-use mos6502::opcode;
-use mos6502::Address;
+use mos6502_model::debug::{AddressingMode, InstructionType, InstructionWithOperand};
+use mos6502_model::machine::MemoryReadOnly;
+use mos6502_model::opcode;
+use mos6502_model::Address;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 

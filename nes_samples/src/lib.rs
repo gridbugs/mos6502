@@ -1,8 +1,8 @@
 pub mod single_block {
     pub use addressing_mode::*;
-    pub use assembler::*;
     pub use assembler_instruction::*;
-    pub use mos6502::*;
+    pub use mos6502_assembler::*;
+    pub use mos6502_model::*;
     pub use samples::*;
     use std::io::{self, Write};
 

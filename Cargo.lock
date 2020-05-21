@@ -4,7 +4,7 @@
 name = "analyser"
 version = "0.1.0"
 dependencies = [
- "mos6502 0.1.0",
+ "mos6502_model 0.1.0",
 ]
 
 [[package]]
@@ -55,13 +55,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "assembler"
-version = "0.1.0"
-dependencies = [
- "mos6502 0.1.0",
-]
-
-[[package]]
 name = "atom"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -99,9 +92,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "butterfly"
 version = "0.1.0"
 dependencies = [
- "assembler 0.1.0",
  "ines 0.1.1",
- "mos6502 0.1.0",
+ "mos6502_assembler 0.1.0",
+ "mos6502_model 0.1.0",
 ]
 
 [[package]]
@@ -174,9 +167,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "conway"
 version = "0.1.0"
 dependencies = [
- "assembler 0.1.0",
  "ines 0.1.1",
- "mos6502 0.1.0",
+ "mos6502_assembler 0.1.0",
+ "mos6502_model 0.1.0",
 ]
 
 [[package]]
@@ -685,7 +678,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "mos6502"
+name = "mos6502_assembler"
+version = "0.1.0"
+dependencies = [
+ "mos6502_model 0.1.0",
+]
+
+[[package]]
+name = "mos6502_model"
 version = "0.1.0"
 dependencies = [
  "serde 1.0.110 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -700,7 +700,7 @@ dependencies = [
  "gif_renderer 0.1.0",
  "graphical_frontend 0.1.0",
  "ines 0.1.1",
- "mos6502 0.1.0",
+ "mos6502_model 0.1.0",
  "nes_headless_frame 0.1.0",
  "nes_name_table_debug 0.1.0",
  "nes_specs 0.1.0",
@@ -737,9 +737,9 @@ dependencies = [
 name = "nes_samples"
 version = "0.1.0"
 dependencies = [
- "assembler 0.1.0",
  "ines 0.1.1",
- "mos6502 0.1.0",
+ "mos6502_assembler 0.1.0",
+ "mos6502_model 0.1.0",
  "samples 0.1.0",
 ]
 
@@ -977,8 +977,8 @@ dependencies = [
 name = "samples"
 version = "0.1.0"
 dependencies = [
- "assembler 0.1.0",
- "mos6502 0.1.0",
+ "mos6502_assembler 0.1.0",
+ "mos6502_model 0.1.0",
 ]
 
 [[package]]

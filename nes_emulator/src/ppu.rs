@@ -1,6 +1,6 @@
 use crate::mapper::{NameTableChoice, PatternTableChoice, PpuMapper};
-use mos6502::address;
-use mos6502::machine::{Address, Memory};
+use mos6502_model::address;
+use mos6502_model::machine::{Address, Memory};
 use nes_name_table_debug::NameTableFrame;
 use nes_specs;
 use serde::{Deserialize, Serialize};

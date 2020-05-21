@@ -1,4 +1,4 @@
-use mos6502::*;
+use mos6502_model::*;
 use std::collections::HashMap;
 
 enum Data {
