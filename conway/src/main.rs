@@ -601,14 +601,18 @@ fn program(b: &mut Block) {
     b.inst(Rts, ());
 
     b.label("controller-to-255");
+    const CONTROLLER_REG: Addr = Addr(0x4016);
+
+    // toggle the controller strobe bit to copy its current value into shift register
     b.inst(Lda(Immediate), 1);
-    b.inst(Sta(Absolute), Addr(0x4016)); // set controller strobe
+    b.inst(Sta(Absolute), CONTROLLER_REG); // set controller strobe
     b.inst(Sta(ZeroPage), 255); // store a 1 at 255 - used to check when all bits are read
     b.inst(Lsr(Accumulator), ()); // clear accumulator
-    b.inst(Sta(Absolute), Addr(0x4016)); // clear controller strobe
+    b.inst(Sta(Absolute), CONTROLLER_REG); // clear controller strobe
 
+    // shift each of the 8 bits of controller state from the shift register into address 255
     b.label("controller-to-255-loop");
-    b.inst(Lda(Absolute), Addr(0x4016)); // load single bit into LBS of acculumator
+    b.inst(Lda(Absolute), CONTROLLER_REG); // load single bit into LBS of acculumator
     b.inst(Lsr(Accumulator), ()); // shift bit into carry flag
     b.inst(Rol(ZeroPage), 255); // shift carry flag into 255, and MSB of 255 into carry flag
 
