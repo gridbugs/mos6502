@@ -1,6 +1,6 @@
 use crate::*;
-use mos6502::interrupt_vector;
-use mos6502::machine::*;
+use mos6502_model::interrupt_vector;
+use mos6502_model::machine::*;
 
 const RAM_BYTES: usize = 0x800;
 const ROM_BYTES: usize = 0x4000;
