@@ -109,9 +109,6 @@ fn program(b: &mut Block) {
     b.inst(Inx, ());
     b.inst(Ldy(ZeroPageXIndexed), 0); // read length (bytes) of run into y register
 
-    b.label("fuck");
-    b.inst(Beq, LabelRelativeOffset("fuck"));
-
     b.label("byte-run-start");
     b.inst(Dey, ());
     b.inst(Bmi, LabelRelativeOffset("byte-run-end")); // if y was decremented to negative, the run is over
