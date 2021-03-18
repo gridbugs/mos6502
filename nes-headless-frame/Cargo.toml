@@ -8,5 +8,5 @@ edition = "2018"
 background_pixel_ages = []
 
 [dependencies]
-nes_specs = { path = "../nes_specs" }
-nes_palette = { path = "../nes_palette" }
+nes_specs = { path = "../nes-specs" }
+nes_palette = { path = "../nes-palette" }

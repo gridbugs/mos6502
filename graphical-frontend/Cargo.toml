@@ -7,5 +7,5 @@ edition = "2018"
 [dependencies]
 pixels = "0.2"
 winit = "0.24"
-nes_specs = { path = "../nes_specs" }
-nes_palette = { path = "../nes_palette" }
+nes_specs = { path = "../nes-specs" }
+nes_palette = { path = "../nes-palette" }

@@ -7,4 +7,4 @@ test:cargo:
 
 test:instr_test-v5:
     script:
-    - ./hash_test.sh test_assets/instr_test-v5/all_instrs.nes 2500 165389765023306834
+    - ./hash-test.sh test_assets/instr_test-v5/all_instrs.nes 2500 165389765023306834

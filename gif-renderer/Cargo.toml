@@ -8,8 +8,8 @@ edition = "2018"
 background_pixel_ages = ["nes_headless_frame/background_pixel_ages"]
 
 [dependencies]
-nes_headless_frame = { path = "../nes_headless_frame" }
-nes_specs = { path = "../nes_specs" }
-nes_palette = { path = "../nes_palette" }
-nes_name_table_debug = { path = "../nes_name_table_debug" }
+nes_headless_frame = { path = "../nes-headless-frame" }
+nes_specs = { path = "../nes-specs" }
+nes_palette = { path = "../nes-palette" }
+nes_name_table_debug = { path = "../nes-name-table-debug" }
 gif = "0.11"
