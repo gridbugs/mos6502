@@ -1,4 +1,3 @@
-use gif::SetParameter;
 use std::borrow::Cow;
 use std::io;
 
@@ -52,7 +51,7 @@ impl<W: io::Write> Renderer<W> {
             &palette,
         )
         .unwrap();
-        encoder.set(gif::Repeat::Infinite).unwrap();
+        encoder.set_repeat(gif::Repeat::Infinite).unwrap();
         Self { encoder }
     }
     pub fn add(&mut self, frame: &Frame) {
@@ -104,7 +103,7 @@ impl<W: io::Write> NameTableRenderer<W> {
             &palette,
         )
         .unwrap();
-        encoder.set(gif::Repeat::Infinite).unwrap();
+        encoder.set_repeat(gif::Repeat::Infinite).unwrap();
         Self { encoder }
     }
     pub fn add_name_table_frame(&mut self, frame: &NameTableFrame) {

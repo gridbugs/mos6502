@@ -12,4 +12,4 @@ nes_headless_frame = { path = "../nes_headless_frame" }
 nes_specs = { path = "../nes_specs" }
 nes_palette = { path = "../nes_palette" }
 nes_name_table_debug = { path = "../nes_name_table_debug" }
-gif = "0.10"
+gif = "0.11"
