@@ -8,17 +8,14 @@ edition = "2018"
 ppu_debug = ["gif_renderer/background_pixel_ages"]
 
 [dependencies]
-meap = "0.4"  # { path = "/home/steve/src/meap" } # "0.4"
+meap = "0.4"
 env_logger = "0.8"
 log = "0.4"
-mos6502_model = { path = "../model", features = ["serialize"] }
 ines = { path = "../ines" }
-nes_specs = { path = "../nes-specs" }
-analyser = { path = "../analyser" }
 graphical_frontend = { path = "../graphical-frontend" }
 gif_renderer = { path = "../gif-renderer" }
 nes_name_table_debug = { path = "../nes-name-table-debug" }
 serde = { version = "1.0", features = ["serde_derive"] }
-serde-big-array = "0.3"
 bincode = "1.1"
 nes_headless_frame = { path = "../nes-headless-frame" }
+nes_emulator_core = { path = "../nes-emulator-core" }

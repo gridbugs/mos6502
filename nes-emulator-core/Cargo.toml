@@ -1,0 +1,19 @@
+[package]
+name = "nes_emulator_core"
+version = "0.1.0"
+authors = ["Stephen Sherratt <stephen@sherra.tt>"]
+edition = "2018"
+
+[features]
+ppu_debug = []
+
+[dependencies]
+log = "0.4"
+mos6502_model = { path = "../model", features = ["serialize"] }
+ines = { path = "../ines" }
+nes_specs = { path = "../nes-specs" }
+analyser = { path = "../analyser" }
+nes_name_table_debug = { path = "../nes-name-table-debug" }
+serde = { version = "1.0", features = ["serde_derive"] }
+serde-big-array = "0.3"
+bincode = "1.1"

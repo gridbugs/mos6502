@@ -1034,7 +1034,6 @@ checksum = "c44922cb3dbb1c70b5e5f443d63b64363a898564d739ba5198e3a9138442868d"
 name = "nes_emulator"
 version = "0.1.0"
 dependencies = [
- "analyser",
  "bincode",
  "env_logger",
  "gif_renderer",
@@ -1042,8 +1041,21 @@ dependencies = [
  "ines",
  "log",
  "meap",
- "mos6502_model",
+ "nes_emulator_core",
  "nes_headless_frame",
+ "nes_name_table_debug",
+ "serde",
+]
+
+[[package]]
+name = "nes_emulator_core"
+version = "0.1.0"
+dependencies = [
+ "analyser",
+ "bincode",
+ "ines",
+ "log",
+ "mos6502_model",
  "nes_name_table_debug",
  "nes_specs",
  "serde",

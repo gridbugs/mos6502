@@ -1,16 +1,12 @@
-mod apu;
-mod mapper;
-mod nes;
-mod ppu;
-mod timing;
-
 use gif_renderer::Rgb24;
 use ines::Ines;
-use mapper::{mmc1, nrom, Mapper, PersistentState, PersistentStateError};
-use nes::Nes;
+use nes_emulator_core::{
+    mapper::{Mapper, PersistentState},
+    nes::{self, Nes},
+    ppu::RenderOutput,
+    DynamicNes, Error,
+};
 use nes_name_table_debug::NameTableFrame;
-use ppu::RenderOutput;
-use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
 use std::hash::{Hash, Hasher};
@@ -112,33 +108,56 @@ impl Args {
     }
 }
 
-impl RenderOutput for nes_headless_frame::Frame {
+#[derive(Hash)]
+struct NesHeadlessOutput(nes_headless_frame::Frame);
+struct NesGraphicalOutput<'a>(graphical_frontend::Pixels<'a>);
+struct NesGifOutput(gif_renderer::Frame);
+
+impl RenderOutput for NesHeadlessOutput {
     fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour_sprite_back(x, y, colour_index);
+        self.0.set_pixel_colour_sprite_back(x, y, colour_index);
     }
     fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour_sprite_front(x, y, colour_index);
+        self.0.set_pixel_colour_sprite_front(x, y, colour_index);
     }
     fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour_background(x, y, colour_index);
+        self.0.set_pixel_colour_background(x, y, colour_index);
     }
     fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour_universal_background(x, y, colour_index);
+        self.0
+            .set_pixel_colour_universal_background(x, y, colour_index);
     }
 }
 
-impl<'a> RenderOutput for graphical_frontend::Pixels<'a> {
+impl<'a> RenderOutput for NesGraphicalOutput<'a> {
     fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour_sprite_back(x, y, colour_index);
+        self.0.set_pixel_colour_sprite_back(x, y, colour_index);
     }
     fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour_sprite_front(x, y, colour_index);
+        self.0.set_pixel_colour_sprite_front(x, y, colour_index);
     }
     fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour_background(x, y, colour_index);
+        self.0.set_pixel_colour_background(x, y, colour_index);
     }
     fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour_universal_background(x, y, colour_index);
+        self.0
+            .set_pixel_colour_universal_background(x, y, colour_index);
+    }
+}
+
+impl RenderOutput for NesGifOutput {
+    fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.0.set_pixel_colour_sprite_back(x, y, colour_index);
+    }
+    fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.0.set_pixel_colour_sprite_front(x, y, colour_index);
+    }
+    fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.0.set_pixel_colour_background(x, y, colour_index);
+    }
+    fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.0
+            .set_pixel_colour_universal_background(x, y, colour_index);
     }
 }
 
@@ -187,85 +206,30 @@ impl RenderOutput for NoRenderOutput {
     fn set_pixel_colour_universal_background(&mut self, _x: u16, _y: u16, _colour_index: u8) {}
 }
 
-#[derive(Serialize, Deserialize)]
-pub enum DynamicNes {
-    NromHorizontal(Nes<nrom::Nrom<nrom::Horizontal>>),
-    NromVertical(Nes<nrom::Nrom<nrom::Vertical>>),
-    Mmc1(Nes<mmc1::Mmc1>),
-}
-
-#[derive(Debug)]
-pub enum Error {
-    UnexpectedFormat(mapper::Error),
-    InesParseError(ines::Error),
-    DeserializeError(bincode::Error),
-}
-
-impl From<mapper::Error> for Error {
-    fn from(e: mapper::Error) -> Self {
-        Error::UnexpectedFormat(e)
-    }
-}
-
-impl DynamicNes {
-    fn from_ines(ines: &Ines) -> Result<Self, Error> {
-        let &Ines {
-            ref header,
-            ref prg_rom,
-            ref chr_rom,
-        } = ines;
-        use ines::Mapper::*;
-        use ines::Mirroring::*;
-        use mmc1::Mmc1;
-        use nrom::Nrom;
-        use DynamicNes as D;
-        let mapper = header.mapper;
-        let mirroring = header.mirroring;
-        let dynamic_nes = match mapper {
-            Nrom => match mirroring {
-                Horizontal => {
-                    D::NromHorizontal(Nes::new(Nrom::new(nrom::Horizontal, &prg_rom, &chr_rom)?))
-                }
-                Vertical => {
-                    D::NromVertical(Nes::new(Nrom::new(nrom::Vertical, &prg_rom, &chr_rom)?))
-                }
-            },
-            Mmc1 => D::Mmc1(Nes::new(Mmc1::new(&prg_rom, &chr_rom)?)),
-        };
-        Ok(dynamic_nes)
-    }
-    fn from_args(args: &Args) -> Result<Self, Error> {
-        let rom_buffer = match &args.input {
-            Input::Stdin => {
-                let mut buffer = Vec::new();
-                let stdin = io::stdin();
-                let mut handle = stdin.lock();
-                handle
-                    .read_to_end(&mut buffer)
-                    .expect("Failed to read rom from stdin");
-                buffer
-            }
-            Input::RomFile(rom_filename) => {
-                let mut buffer = Vec::new();
-                let mut rom_file = File::open(rom_filename).expect("Failed to open rom file");
-                rom_file
-                    .read_to_end(&mut buffer)
-                    .expect("Failed to read rom file");
-                buffer
-            }
-            Input::StateFile(state_filename) => {
-                return load(&state_filename).map_err(Error::DeserializeError);
-            }
-        };
-        Self::from_ines(&Ines::parse(&rom_buffer).map_err(Error::InesParseError)?)
-    }
-    fn load_persistent_state(&mut self, ps: &PersistentState) -> Result<(), PersistentStateError> {
-        match self {
-            DynamicNes::NromHorizontal(n) => n.load_persistent_state(ps),
-            DynamicNes::NromVertical(n) => n.load_persistent_state(ps),
-            DynamicNes::Mmc1(n) => n.load_persistent_state(ps),
+fn dynamic_nes_from_args(args: &Args) -> Result<DynamicNes, Error> {
+    let rom_buffer = match &args.input {
+        Input::Stdin => {
+            let mut buffer = Vec::new();
+            let stdin = io::stdin();
+            let mut handle = stdin.lock();
+            handle
+                .read_to_end(&mut buffer)
+                .expect("Failed to read rom from stdin");
+            buffer
         }
-    }
+        Input::RomFile(rom_filename) => {
+            let mut buffer = Vec::new();
+            let mut rom_file = File::open(rom_filename).expect("Failed to open rom file");
+            rom_file
+                .read_to_end(&mut buffer)
+                .expect("Failed to read rom file");
+            buffer
+        }
+        Input::StateFile(state_filename) => {
+            return load(&state_filename).map_err(Error::DeserializeError);
+        }
+    };
+    DynamicNes::from_ines(&Ines::parse(&rom_buffer).map_err(Error::InesParseError)?)
 }
 
 #[derive(Clone)]
@@ -534,7 +498,7 @@ fn run_nes_for_frame<M: Mapper, O: RenderOutput>(
         .as_mut()
         .map(|r| r.frame.deref_mut());
     if let Some(gif_renderer) = gif_renderer {
-        let mut gif_frame = gif_renderer::Frame::new();
+        let mut gif_frame = NesGifOutput(gif_renderer::Frame::new());
         let mut render_output = RenderOutputPair::new(pixels, &mut gif_frame);
         if config.debug {
             nes.run_for_frame_debug(&mut render_output, name_table_frame);
@@ -547,7 +511,7 @@ fn run_nes_for_frame<M: Mapper, O: RenderOutput>(
                 gif_frame.set_background_pixel_age(x, y, age);
             }
         }
-        gif_renderer.add(&gif_frame);
+        gif_renderer.add(&gif_frame.0);
     } else {
         if config.debug {
             nes.run_for_frame_debug(pixels, name_table_frame);
@@ -577,7 +541,7 @@ impl RunGraphicalMeta {
     fn tick_gen<M: Mapper + serde::ser::Serialize>(
         &mut self,
         nes: &mut Nes<M>,
-        mut pixels: graphical_frontend::Pixels,
+        pixels: graphical_frontend::Pixels,
     ) -> Option<graphical_frontend::ControlFlow> {
         let realtime_frame_timing = self
             .config
@@ -591,8 +555,9 @@ impl RunGraphicalMeta {
                 save(&nes, Some(&autosave_config.filename));
             }
         }
+        let mut pixels = NesGraphicalOutput(pixels);
         if self.print_info {
-            let mut memory_only_frame = nes_headless_frame::Frame::new();
+            let mut memory_only_frame = NesHeadlessOutput(nes_headless_frame::Frame::new());
             let mut render_output = RenderOutputPair::new(&mut pixels, &mut memory_only_frame);
             run_nes_for_frame(
                 nes,
@@ -669,7 +634,7 @@ fn run_headless_hashing_final_frame_gen<M: Mapper>(mut nes: Nes<M>, num_frames: 
             nes.run_for_frame(&mut NoRenderOutput, None);
         }
     }
-    let mut frame = nes_headless_frame::Frame::new();
+    let mut frame = NesHeadlessOutput(nes_headless_frame::Frame::new());
     nes.run_for_frame(&mut frame, None);
     let mut hasher = DefaultHasher::new();
     frame.hash(&mut hasher);
@@ -689,7 +654,7 @@ fn main() {
     env_logger::init();
     let args = Args::parser().with_help_default().parse_env_or_exit();
     let config = Config::from_args(&args);
-    let mut dynamic_nes = DynamicNes::from_args(&args).unwrap();
+    let mut dynamic_nes = dynamic_nes_from_args(&args).unwrap();
     let Args { frontend, .. } = args;
     match frontend {
         Frontend::HeadlessPrintingFinalFrameHash { num_frames } => {

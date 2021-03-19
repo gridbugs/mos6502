@@ -9,6 +9,7 @@ members = [
     "model",
     "nes-specs",
     "nes-emulator",
+    "nes-emulator-core",
     "nes-headless-frame",
     "nes-name-table-debug",
     "nes-palette",
