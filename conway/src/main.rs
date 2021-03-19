@@ -693,6 +693,7 @@ fn prg_rom() -> Vec<u8> {
 
 fn main() {
     use std::io::Write;
+    env_logger::init();
     let ines = Ines {
         header: ines::Header {
             num_prg_rom_blocks: 1,
@@ -708,6 +709,6 @@ fn main() {
     ines.encode(&mut encoded);
     std::io::stdout()
         .lock()
-        .write(&encoded)
+        .write_all(&encoded)
         .expect("Failed to write encoded rom to stdout");
 }

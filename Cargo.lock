@@ -212,6 +212,7 @@ checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 name = "conway-nes"
 version = "0.1.0"
 dependencies = [
+ "env_logger",
  "ines",
  "mos6502_assembler",
  "mos6502_model",

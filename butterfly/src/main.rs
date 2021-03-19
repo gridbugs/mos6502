@@ -424,6 +424,6 @@ fn main() {
     ines.encode(&mut encoded);
     std::io::stdout()
         .lock()
-        .write(&encoded)
+        .write_all(&encoded)
         .expect("Failed to write encoded rom to stdout");
 }

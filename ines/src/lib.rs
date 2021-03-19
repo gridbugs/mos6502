@@ -84,10 +84,10 @@ impl Header {
         buffer[6] = mapper_number << 4;
         buffer[7] = mapper_number & 0xF0;
         match self.mirroring {
-            Mirroring::Horizontal => {
+            Mirroring::Vertical => {
                 buffer[6] |= 1 << 0;
             }
-            Mirroring::Vertical => {
+            Mirroring::Horizontal => {
                 buffer[6] &= !(1 << 0);
             }
         }
@@ -110,7 +110,8 @@ impl Ines {
         let header_raw = &buffer[0..HEADER_BYTES];
         let data = &buffer[HEADER_BYTES..];
         let header = Header::parse(header_raw)?;
-        log::info!("Ines Header:\n{:#?}", header);
+        log::info!("INES Header:\n{:#?}", header);
+        log::info!("Size (bytes): 0x{:X} ({})", data.len(), data.len());
         let prg_rom_bytes = header.prg_rom_bytes();
         let chr_rom_bytes = header.chr_rom_bytes();
         let prg_rom = data[0..prg_rom_bytes].to_vec();
@@ -122,9 +123,15 @@ impl Ines {
         })
     }
     pub fn encode(&self, buffer: &mut Vec<u8>) {
+        log::info!("INES Header:\n{:#?}", self.header);
         buffer.resize(
             HEADER_BYTES + self.header.prg_rom_bytes() + self.header.chr_rom_bytes(),
             0,
+        );
+        log::info!(
+            "Encoding into buffer of size (bytes): 0x{:X} ({})",
+            buffer.len(),
+            buffer.len()
         );
         self.header.encode(buffer);
         let prg_start = HEADER_BYTES;

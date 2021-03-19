@@ -10,6 +10,7 @@ homepage = "https://gitlab.com/stevebob/mos6502/-/tree/master/conway"
 repository = "https://gitlab.com/stevebob/mos6502.git"
 
 [dependencies]
+env_logger = "0.8"
 mos6502_assembler = { version = "0.1", path = "../assembler" }
 mos6502_model = { version = "0.1", path = "../model" }
 ines = { version = "0.1", path = "../ines" }
