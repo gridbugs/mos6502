@@ -1,3 +1,5 @@
+use nes_render_output::RenderOutput;
+
 pub mod input {
     pub use winit::event::{ElementState, Event as WinitEvent, VirtualKeyCode, WindowEvent};
     pub type Event<'a> = WinitEvent<'a, ()>;
@@ -147,16 +149,19 @@ impl<'a> Pixels<'a> {
             self.frame[base_index + 3] = 255;
         }
     }
-    pub fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
+}
+
+impl<'a> RenderOutput for Pixels<'a> {
+    fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
         self.set_pixel_colour(x, y, colour_index, depth::SPRITE_BACK);
     }
-    pub fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
+    fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
         self.set_pixel_colour(x, y, colour_index, depth::SPRITE_FRONT);
     }
-    pub fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
+    fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
         self.set_pixel_colour(x, y, colour_index, depth::BACKGROUND);
     }
-    pub fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
+    fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
         self.set_pixel_colour(x, y, colour_index, depth::UNIVERSAL_BACKGROUND);
     }
 }

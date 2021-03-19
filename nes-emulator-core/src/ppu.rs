@@ -2,6 +2,7 @@ use crate::mapper::{NameTableChoice, PatternTableChoice, PpuMapper};
 use mos6502_model::address;
 use mos6502_model::machine::{Address, Memory};
 use nes_name_table_debug::NameTableFrame;
+use nes_render_output::RenderOutput;
 use nes_specs;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -530,13 +531,6 @@ pub struct Ppu {
 
 pub type PpuAddress = u16;
 pub const PALETTE_START: PpuAddress = 0x3F00;
-
-pub trait RenderOutput {
-    fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8);
-    fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8);
-    fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8);
-    fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8);
-}
 
 #[derive(Debug)]
 pub struct SpriteZero {

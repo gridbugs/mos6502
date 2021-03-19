@@ -1,3 +1,4 @@
+use nes_render_output::RenderOutput;
 use std::hash::{Hash, Hasher};
 
 mod depth {
@@ -42,18 +43,6 @@ impl Frame {
             self.indices[offset] = colour_index & nes_palette::COLOUR_MASK;
         }
     }
-    pub fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour(x, y, colour_index, depth::SPRITE_BACK);
-    }
-    pub fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour(x, y, colour_index, depth::SPRITE_FRONT);
-    }
-    pub fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour(x, y, colour_index, depth::BACKGROUND);
-    }
-    pub fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.set_pixel_colour(x, y, colour_index, depth::UNIVERSAL_BACKGROUND);
-    }
     #[cfg(feature = "background_pixel_ages")]
     pub fn set_background_pixel_age(&mut self, x: u16, y: u16, age: u64) {
         let offset = (y * nes_specs::SCREEN_WIDTH_PX + x) as usize;
@@ -65,5 +54,20 @@ impl Hash for Frame {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.indices.iter().for_each(|i| i.hash(state));
         self.depths.iter().for_each(|d| d.hash(state));
+    }
+}
+
+impl RenderOutput for Frame {
+    fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour(x, y, colour_index, depth::SPRITE_BACK);
+    }
+    fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour(x, y, colour_index, depth::SPRITE_FRONT);
+    }
+    fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour(x, y, colour_index, depth::BACKGROUND);
+    }
+    fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
+        self.set_pixel_colour(x, y, colour_index, depth::UNIVERSAL_BACKGROUND);
     }
 }

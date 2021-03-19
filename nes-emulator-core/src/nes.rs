@@ -1,11 +1,12 @@
 use crate::apu::Apu;
 use crate::mapper::{Mapper, PersistentState, PersistentStateError};
-use crate::ppu::{Oam, Ppu, RenderOutput, ScanlineIter};
+use crate::ppu::{Oam, Ppu, ScanlineIter};
 use crate::timing;
 use crate::DynamicNes;
 use mos6502_model::debug::InstructionWithOperand;
 use mos6502_model::machine::{Address, Cpu, Memory, MemoryReadOnly};
 use nes_name_table_debug::NameTableFrame;
+use nes_render_output::RenderOutput;
 use serde::{Deserialize, Serialize};
 use serde_big_array::big_array;
 use std::io::{self, Write};

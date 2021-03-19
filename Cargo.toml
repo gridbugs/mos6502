@@ -12,6 +12,7 @@ members = [
     "nes-emulator-core",
     "nes-headless-frame",
     "nes-name-table-debug",
+    "nes-render-output",
     "nes-palette",
     "nes-samples",
     "samples",

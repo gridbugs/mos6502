@@ -3,10 +3,10 @@ use ines::Ines;
 use nes_emulator_core::{
     mapper::{Mapper, PersistentState},
     nes::{self, Nes},
-    ppu::RenderOutput,
     DynamicNes, Error,
 };
 use nes_name_table_debug::NameTableFrame;
+use nes_render_output::RenderOutput;
 use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
 use std::hash::{Hash, Hasher};
@@ -105,59 +105,6 @@ impl Args {
                 }
             }
         }
-    }
-}
-
-#[derive(Hash)]
-struct NesHeadlessOutput(nes_headless_frame::Frame);
-struct NesGraphicalOutput<'a>(graphical_frontend::Pixels<'a>);
-struct NesGifOutput(gif_renderer::Frame);
-
-impl RenderOutput for NesHeadlessOutput {
-    fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.0.set_pixel_colour_sprite_back(x, y, colour_index);
-    }
-    fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.0.set_pixel_colour_sprite_front(x, y, colour_index);
-    }
-    fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.0.set_pixel_colour_background(x, y, colour_index);
-    }
-    fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.0
-            .set_pixel_colour_universal_background(x, y, colour_index);
-    }
-}
-
-impl<'a> RenderOutput for NesGraphicalOutput<'a> {
-    fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.0.set_pixel_colour_sprite_back(x, y, colour_index);
-    }
-    fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.0.set_pixel_colour_sprite_front(x, y, colour_index);
-    }
-    fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.0.set_pixel_colour_background(x, y, colour_index);
-    }
-    fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.0
-            .set_pixel_colour_universal_background(x, y, colour_index);
-    }
-}
-
-impl RenderOutput for NesGifOutput {
-    fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.0.set_pixel_colour_sprite_back(x, y, colour_index);
-    }
-    fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.0.set_pixel_colour_sprite_front(x, y, colour_index);
-    }
-    fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.0.set_pixel_colour_background(x, y, colour_index);
-    }
-    fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.0
-            .set_pixel_colour_universal_background(x, y, colour_index);
     }
 }
 
@@ -498,7 +445,7 @@ fn run_nes_for_frame<M: Mapper, O: RenderOutput>(
         .as_mut()
         .map(|r| r.frame.deref_mut());
     if let Some(gif_renderer) = gif_renderer {
-        let mut gif_frame = NesGifOutput(gif_renderer::Frame::new());
+        let mut gif_frame = gif_renderer::Frame::new();
         let mut render_output = RenderOutputPair::new(pixels, &mut gif_frame);
         if config.debug {
             nes.run_for_frame_debug(&mut render_output, name_table_frame);
@@ -511,7 +458,7 @@ fn run_nes_for_frame<M: Mapper, O: RenderOutput>(
                 gif_frame.set_background_pixel_age(x, y, age);
             }
         }
-        gif_renderer.add(&gif_frame.0);
+        gif_renderer.add(&gif_frame);
     } else {
         if config.debug {
             nes.run_for_frame_debug(pixels, name_table_frame);
@@ -541,7 +488,7 @@ impl RunGraphicalMeta {
     fn tick_gen<M: Mapper + serde::ser::Serialize>(
         &mut self,
         nes: &mut Nes<M>,
-        pixels: graphical_frontend::Pixels,
+        mut pixels: graphical_frontend::Pixels,
     ) -> Option<graphical_frontend::ControlFlow> {
         let realtime_frame_timing = self
             .config
@@ -555,9 +502,8 @@ impl RunGraphicalMeta {
                 save(&nes, Some(&autosave_config.filename));
             }
         }
-        let mut pixels = NesGraphicalOutput(pixels);
         if self.print_info {
-            let mut memory_only_frame = NesHeadlessOutput(nes_headless_frame::Frame::new());
+            let mut memory_only_frame = nes_headless_frame::Frame::new();
             let mut render_output = RenderOutputPair::new(&mut pixels, &mut memory_only_frame);
             run_nes_for_frame(
                 nes,
@@ -634,7 +580,7 @@ fn run_headless_hashing_final_frame_gen<M: Mapper>(mut nes: Nes<M>, num_frames: 
             nes.run_for_frame(&mut NoRenderOutput, None);
         }
     }
-    let mut frame = NesHeadlessOutput(nes_headless_frame::Frame::new());
+    let mut frame = nes_headless_frame::Frame::new();
     nes.run_for_frame(&mut frame, None);
     let mut hasher = DefaultHasher::new();
     frame.hash(&mut hasher);

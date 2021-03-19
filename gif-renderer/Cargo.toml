@@ -12,4 +12,5 @@ nes_headless_frame = { path = "../nes-headless-frame" }
 nes_specs = { path = "../nes-specs" }
 nes_palette = { path = "../nes-palette" }
 nes_name_table_debug = { path = "../nes-name-table-debug" }
+nes_render_output = { path = "../nes-render-output" }
 gif = "0.11"

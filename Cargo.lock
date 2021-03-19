@@ -708,6 +708,7 @@ dependencies = [
  "nes_headless_frame",
  "nes_name_table_debug",
  "nes_palette",
+ "nes_render_output",
  "nes_specs",
 ]
 
@@ -716,6 +717,7 @@ name = "graphical_frontend"
 version = "0.1.0"
 dependencies = [
  "nes_palette",
+ "nes_render_output",
  "nes_specs",
  "pixels",
  "winit",
@@ -1044,6 +1046,7 @@ dependencies = [
  "nes_emulator_core",
  "nes_headless_frame",
  "nes_name_table_debug",
+ "nes_render_output",
  "serde",
 ]
 
@@ -1057,6 +1060,7 @@ dependencies = [
  "log",
  "mos6502_model",
  "nes_name_table_debug",
+ "nes_render_output",
  "nes_specs",
  "serde",
  "serde-big-array",
@@ -1067,6 +1071,7 @@ name = "nes_headless_frame"
 version = "0.1.0"
 dependencies = [
  "nes_palette",
+ "nes_render_output",
  "nes_specs",
 ]
 
@@ -1085,6 +1090,10 @@ dependencies = [
  "ansi_term",
  "rgb24",
 ]
+
+[[package]]
+name = "nes_render_output"
+version = "0.1.0"
 
 [[package]]
 name = "nes_samples"

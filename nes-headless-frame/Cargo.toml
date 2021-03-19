@@ -10,3 +10,4 @@ background_pixel_ages = []
 [dependencies]
 nes_specs = { path = "../nes-specs" }
 nes_palette = { path = "../nes-palette" }
+nes_render_output = { path = "../nes-render-output" }
