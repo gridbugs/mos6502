@@ -26,7 +26,7 @@ impl Frontend {
     fn parser() -> impl meap::Parser<Item = Self> {
         use meap::prelude::*;
         opt_opt::<u64, _>("INT", 'e')
-            .name("num-headless-frames")
+            .name("headless-num-frames")
             .desc("run with headless frontend, exiting after a specified number of frames")
             .map(|maybe_num_frames| {
                 maybe_num_frames
