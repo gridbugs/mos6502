@@ -238,7 +238,7 @@ impl Mmc1 {
     fn write_chr_bank1(&mut self, data: u8) {
         match self.chr_rom_bank_mode {
             ChrRomBankMode::SwitchSeperate => {
-                self.chr_rom_bank0 = data as usize;
+                self.chr_rom_bank1 = data as usize;
             }
             ChrRomBankMode::SwitchTogether => (),
         }
