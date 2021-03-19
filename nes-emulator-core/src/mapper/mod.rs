@@ -1,5 +1,5 @@
+use crate::dynamic_nes::DynamicNes;
 use crate::nes::Nes;
-use crate::DynamicNes;
 use mos6502_model::Address;
 use serde::{Deserialize, Serialize};
 

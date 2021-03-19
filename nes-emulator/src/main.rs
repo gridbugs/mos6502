@@ -1,12 +1,12 @@
 use gif_renderer::Rgb24;
 use ines::Ines;
 use nes_emulator_core::{
+    dynamic_nes::{DynamicNes, Error},
     mapper::{Mapper, PersistentState},
     nes::{self, Nes},
-    DynamicNes, Error,
 };
 use nes_name_table_debug::NameTableFrame;
-use nes_render_output::RenderOutput;
+use nes_render_output::{NoRenderOutput, RenderOutput, RenderOutputPair};
 use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
 use std::hash::{Hash, Hasher};
@@ -106,51 +106,6 @@ impl Args {
             }
         }
     }
-}
-
-struct RenderOutputPair<'a, A, B> {
-    a: &'a mut A,
-    b: &'a mut B,
-}
-
-impl<'a, A, B> RenderOutputPair<'a, A, B> {
-    fn new(a: &'a mut A, b: &'a mut B) -> Self {
-        Self { a, b }
-    }
-}
-
-impl<'a, A, B> RenderOutput for RenderOutputPair<'a, A, B>
-where
-    A: RenderOutput,
-    B: RenderOutput,
-{
-    fn set_pixel_colour_sprite_back(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.a.set_pixel_colour_sprite_back(x, y, colour_index);
-        self.b.set_pixel_colour_sprite_back(x, y, colour_index);
-    }
-    fn set_pixel_colour_sprite_front(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.a.set_pixel_colour_sprite_front(x, y, colour_index);
-        self.b.set_pixel_colour_sprite_front(x, y, colour_index);
-    }
-    fn set_pixel_colour_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.a.set_pixel_colour_background(x, y, colour_index);
-        self.b.set_pixel_colour_background(x, y, colour_index);
-    }
-    fn set_pixel_colour_universal_background(&mut self, x: u16, y: u16, colour_index: u8) {
-        self.a
-            .set_pixel_colour_universal_background(x, y, colour_index);
-        self.b
-            .set_pixel_colour_universal_background(x, y, colour_index);
-    }
-}
-
-struct NoRenderOutput;
-
-impl RenderOutput for NoRenderOutput {
-    fn set_pixel_colour_sprite_back(&mut self, _x: u16, _y: u16, _colour_index: u8) {}
-    fn set_pixel_colour_sprite_front(&mut self, _x: u16, _y: u16, _colour_index: u8) {}
-    fn set_pixel_colour_background(&mut self, _x: u16, _y: u16, _colour_index: u8) {}
-    fn set_pixel_colour_universal_background(&mut self, _x: u16, _y: u16, _colour_index: u8) {}
 }
 
 fn dynamic_nes_from_args(args: &Args) -> Result<DynamicNes, Error> {

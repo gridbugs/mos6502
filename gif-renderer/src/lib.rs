@@ -26,6 +26,7 @@ fn buffer_from_frame(frame: &Frame) -> Cow<[u8]> {
     }
     cow
 }
+
 impl<W: io::Write> Renderer<W> {
     pub fn new(output: W) -> Self {
         let palette_normal = Palette::basic();

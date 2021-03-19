@@ -1530,6 +1530,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tetris-analyser"
+version = "0.1.0"
+dependencies = [
+ "gif_renderer",
+ "ines",
+ "meap",
+ "nes_emulator_core",
+ "nes_render_output",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"

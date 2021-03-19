@@ -1,3 +1,4 @@
+use crate::dynamic_nes::DynamicNes;
 use crate::mapper::Error;
 use crate::mapper::PpuAddress;
 use crate::mapper::PATTERN_TABLE_BYTES;
@@ -6,7 +7,6 @@ use crate::mapper::{NameTableChoice, PaletteRam, PatternTableChoice};
 use crate::mapper::{PersistentState, PersistentStateError};
 use crate::nes::Nes;
 use crate::ppu::{name_table_mirroring, NAME_TABLE_BYTES};
-use crate::DynamicNes;
 use mos6502_model::Address;
 use serde::{Deserialize, Serialize};
 use serde_big_array::big_array;

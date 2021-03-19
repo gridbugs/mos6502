@@ -1,8 +1,8 @@
 use crate::apu::Apu;
+use crate::dynamic_nes::DynamicNes;
 use crate::mapper::{Mapper, PersistentState, PersistentStateError};
 use crate::ppu::{Oam, Ppu, ScanlineIter};
 use crate::timing;
-use crate::DynamicNes;
 use mos6502_model::debug::InstructionWithOperand;
 use mos6502_model::machine::{Address, Cpu, Memory, MemoryReadOnly};
 use nes_name_table_debug::NameTableFrame;
@@ -32,7 +32,7 @@ struct NesDevicesWithOam<M: Mapper> {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct Controller {
+pub struct Controller {
     current_state: u8,
     shift_register: u8,
     strobe: bool,
@@ -82,52 +82,52 @@ impl Controller {
         self.shift_register = self.shift_register.wrapping_shr(1);
         masked
     }
-    fn set_a(&mut self) {
+    pub fn set_a(&mut self) {
         self.current_state |= controller::flag::A;
     }
-    fn set_b(&mut self) {
+    pub fn set_b(&mut self) {
         self.current_state |= controller::flag::B;
     }
-    fn set_select(&mut self) {
+    pub fn set_select(&mut self) {
         self.current_state |= controller::flag::SELECT;
     }
-    fn set_start(&mut self) {
+    pub fn set_start(&mut self) {
         self.current_state |= controller::flag::START;
     }
-    fn set_left(&mut self) {
+    pub fn set_left(&mut self) {
         self.current_state |= controller::flag::LEFT;
     }
-    fn set_right(&mut self) {
+    pub fn set_right(&mut self) {
         self.current_state |= controller::flag::RIGHT;
     }
-    fn set_up(&mut self) {
+    pub fn set_up(&mut self) {
         self.current_state |= controller::flag::UP;
     }
-    fn set_down(&mut self) {
+    pub fn set_down(&mut self) {
         self.current_state |= controller::flag::DOWN;
     }
-    fn clear_a(&mut self) {
+    pub fn clear_a(&mut self) {
         self.current_state &= !controller::flag::A;
     }
-    fn clear_b(&mut self) {
+    pub fn clear_b(&mut self) {
         self.current_state &= !controller::flag::B;
     }
-    fn clear_select(&mut self) {
+    pub fn clear_select(&mut self) {
         self.current_state &= !controller::flag::SELECT;
     }
-    fn clear_start(&mut self) {
+    pub fn clear_start(&mut self) {
         self.current_state &= !controller::flag::START;
     }
-    fn clear_left(&mut self) {
+    pub fn clear_left(&mut self) {
         self.current_state &= !controller::flag::LEFT;
     }
-    fn clear_right(&mut self) {
+    pub fn clear_right(&mut self) {
         self.current_state &= !controller::flag::RIGHT;
     }
-    fn clear_up(&mut self) {
+    pub fn clear_up(&mut self) {
         self.current_state &= !controller::flag::UP;
     }
-    fn clear_down(&mut self) {
+    pub fn clear_down(&mut self) {
         self.current_state &= !controller::flag::DOWN;
     }
 }
@@ -395,6 +395,9 @@ impl<M: Mapper> Nes<M> {
     }
     pub fn ppu(&self) -> &Ppu {
         &self.devices.devices.ppu
+    }
+    pub fn controller1_mut(&mut self) -> &mut Controller {
+        &mut self.devices.devices.controller1
     }
 }
 
