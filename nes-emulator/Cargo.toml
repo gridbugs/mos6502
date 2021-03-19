@@ -8,7 +8,8 @@ edition = "2018"
 ppu_debug = ["gif_renderer/background_pixel_ages"]
 
 [dependencies]
-simon = "0.4"
+meap = "0.4"  # { path = "/home/steve/src/meap" } # "0.4"
+env_logger = "0.8"
 mos6502_model = { path = "../model", features = ["serialize"] }
 ines = { path = "../ines" }
 nes_specs = { path = "../nes-specs" }

@@ -110,6 +110,7 @@ impl Ines {
         let header_raw = &buffer[0..HEADER_BYTES];
         let data = &buffer[HEADER_BYTES..];
         let header = Header::parse(header_raw)?;
+        log::info!("Ines Header:\n{:#?}", header);
         let prg_rom_bytes = header.prg_rom_bytes();
         let chr_rom_bytes = header.chr_rom_bytes();
         let prg_rom = data[0..prg_rom_bytes].to_vec();

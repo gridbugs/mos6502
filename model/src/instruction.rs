@@ -151,7 +151,7 @@ pub mod adc {
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
         if cpu.status.is_decimal() {
-            eprintln!("decimal addition attempted");
+            log::warn!("decimal addition attempted");
         }
         adc_common(cpu, data);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
@@ -223,7 +223,6 @@ pub mod alr {
         cpu.pc = cpu.pc.wrapping_add(Immediate::instruction_bytes());
         2
     }
-
 }
 pub mod arr {
     use super::*;
@@ -2877,7 +2876,6 @@ pub mod sax {
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());
         A::num_cycles()
     }
-
 }
 pub mod sbc {
     use super::*;
@@ -3007,7 +3005,7 @@ pub mod sbc {
     pub fn interpret<A: AddressingMode, M: Memory>(_: A, cpu: &mut Cpu, memory: &mut M) -> u8 {
         let DataWithCycles { data, cycles } = A::read_data_with_cycles(cpu, memory);
         if cpu.status.is_decimal() {
-            eprintln!("decimal subtraction attempted");
+            log::warn!("decimal subtraction attempted");
         }
         adc_common(cpu, !data);
         cpu.pc = cpu.pc.wrapping_add(A::instruction_bytes());

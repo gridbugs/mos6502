@@ -11,7 +11,6 @@ use nes::Nes;
 use nes_name_table_debug::NameTableFrame;
 use ppu::RenderOutput;
 use serde::{Deserialize, Serialize};
-use simon::{args_map, Arg};
 use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
 use std::hash::{Hash, Hasher};
@@ -28,15 +27,16 @@ enum Frontend {
 }
 
 impl Frontend {
-    fn arg() -> impl Arg<Item = Self> {
-        simon::opt(
-            "e",
-            "headless-num-frames",
-            "run with headless frontend, exiting after a specified number of frames",
-            "INT",
-        )
-        .option_map(|num_frames| Frontend::HeadlessPrintingFinalFrameHash { num_frames })
-        .with_default(Frontend::Graphical)
+    fn parser() -> impl meap::Parser<Item = Self> {
+        use meap::prelude::*;
+        opt_opt::<u64, _>("INT", 'e')
+            .name("nes-headless-frame")
+            .desc("run with headless frontend, exiting after a specified number of frames")
+            .map(|maybe_num_frames| {
+                maybe_num_frames
+                    .map(|num_frames| Self::HeadlessPrintingFinalFrameHash { num_frames })
+                    .unwrap_or(Self::Graphical)
+            })
     }
 }
 
@@ -48,12 +48,18 @@ enum Input {
 }
 
 impl Input {
-    fn arg() -> impl Arg<Item = Self> {
-        let rom_file = simon::opt("r", "rom-file", "rom file (ines format) to load", "PATH")
-            .option_map(Input::RomFile);
-        let load_state_file = simon::opt("l", "load-state-file", "state file to load", "PATH")
-            .option_map(Input::StateFile);
-        rom_file.choice(load_state_file).with_default(Input::Stdin)
+    fn parser() -> impl meap::Parser<Item = Self> {
+        meap::choose_at_most_one!(
+            opt_opt::<String, _>("PATH", 'r')
+                .name("rom-file")
+                .desc("rom file (ines format) to load")
+                .map(|path| path.map(Self::RomFile)),
+            opt_opt::<String, _>("PATH", 'l')
+                .name("load-state-file")
+                .desc("state file to load")
+                .map(|path| path.map(Self::StateFile)),
+        )
+        .with_default_general(Self::Stdin)
     }
 }
 
@@ -72,21 +78,21 @@ struct Args {
 }
 
 impl Args {
-    fn arg() -> impl Arg<Item = Self> {
-        args_map! {
+    fn parser() -> impl meap::Parser<Item = Self> {
+        meap::let_map! {
             let {
-                input = Input::arg();
-                autosave_after_frames = simon::opt("a", "autosave-after-frames", "save state after this many frames", "INT");
-                kill_after_frames = simon::opt("k", "kill-after-frames", "exit after this many frames", "INT");
-                frame_duration = simon::opt("f", "frame-duration-ms", "frame duration in milliseconds", "INT")
-                    .option_map(Duration::from_millis);
-                save_state_filename = simon::opt("s", "save-state-file", "state file to save", "PATH");
-                gif_filename = simon::opt("g", "gif", "gif file to record into", "PATH");
-                name_table_gif_filename = simon::opt("n", "name-table-gif", "gif file to record name tables into", "PATH");
-                frontend = Frontend::arg();
-                debug = simon::flag("d", "debug", "enable debugging printouts");
-                persistent_state_filename = simon::opt("p", "persistent-state-filename", "file to store persistent state", "PATH");
-                zoom = simon::opt("z", "zoom", "real pixels per nes pixel", "FLOAT").with_default(1.);
+                input = Input::parser();
+                autosave_after_frames = opt_opt::<u64, _>("INT", 'a').name("autosave-after-frames").desc("save state after this many frames");
+                kill_after_frames = opt_opt::<u64, _>("INT", 'k').name("kill-after-frames").desc("exit after this many frames");
+                frame_duration = opt_opt::<u64, _>("INT", 'f').name("frame-duration-ms").desc("frame duration in milliseconds")
+                    .map(|maybe_ms| maybe_ms.map(Duration::from_millis));
+                save_state_filename = opt_opt::<String, _>("PATH", 's').name("save-state-file").desc("state file to save");
+                gif_filename = opt_opt::<String, _>("PATH", 'g').name("gif").desc("gif file to record");
+                name_table_gif_filename = opt_opt::<String, _>("PATH", 'n').name("name-table-gif").desc("gif file to record name tables into");
+                frontend = Frontend::parser();
+                debug = flag('d').name("debug").desc("enable debugging printouts");
+                persistent_state_filename = opt_opt::<String, _>("PATH", 'p').name("persistent-state-filename").desc("file to store persistent state");
+                zoom = opt_opt::<f64, _>("FLOAT", 'z').name("zoom").desc("real pixels per pixel").with_default(1.);
             } in {
                 Self {
                     input,
@@ -679,7 +685,9 @@ fn run_headless_hashing_final_frame(dynamic_nes: DynamicNes, num_frames: u64) ->
 }
 
 fn main() {
-    let args = Args::arg().with_help_default().parse_env_or_exit();
+    use meap::Parser;
+    env_logger::init();
+    let args = Args::parser().with_help_default().parse_env_or_exit();
     let config = Config::from_args(&args);
     let mut dynamic_nes = DynamicNes::from_args(&args).unwrap();
     let Args { frontend, .. } = args;
