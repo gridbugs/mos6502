@@ -25,7 +25,7 @@ mod registers {
     pub const PRG_BANK: u8 = 3;
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum Mirroring {
     SingleScreenLower,
     SingleScreenUpper,
@@ -68,14 +68,14 @@ struct ChrRomBank {
     rom: [u8; CHR_ROM_BANK_BYTES],
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 enum PrgRomBankMode {
     SwitchBoth,
     SwitchLower,
     SwitchUpper,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 enum ChrRomBankMode {
     SwitchTogether,
     SwitchSeperate,
@@ -169,6 +169,8 @@ impl Mmc1 {
     pub fn new(prg_rom_raw: &[u8], chr_rom_raw: &[u8]) -> Result<Self, Error> {
         let prg_rom_banks = Self::make_prg_rom_banks(prg_rom_raw)?;
         let chr_rom_banks = Self::make_chr_rom_banks(chr_rom_raw)?;
+        log::debug!("Num PRG ROM Banks: {}", prg_rom_banks.len());
+        log::debug!("Num CHR ROM Banks: {}", chr_rom_banks.len());
         let palette_ram = PaletteRam::default();
         let prg_ram = [0; PRG_RAM_BYTES];
         let name_table_ram = [0; NAME_TABLE_RAM_BYTES];
@@ -199,6 +201,7 @@ impl Mmc1 {
         })
     }
     fn write_control_register(&mut self, data: u8) {
+        log::debug!("Write Control Register: 0x{:X}", data);
         self.mirroring = match data & 3 {
             0 => Mirroring::SingleScreenLower,
             1 => Mirroring::SingleScreenUpper,
@@ -223,8 +226,12 @@ impl Mmc1 {
             1 => ChrRomBankMode::SwitchSeperate,
             _ => unreachable!(),
         };
+        log::debug!("Mirroring: {:?}", self.mirroring);
+        log::debug!("PRG ROM Bank Mode: {:?}", self.prg_rom_bank_mode);
+        log::debug!("CHR ROM Bank Mode: {:?}", self.chr_rom_bank_mode);
     }
     fn write_chr_bank0(&mut self, data: u8) {
+        log::debug!("Write CHR Bank 0: 0x{:X}", data);
         match self.chr_rom_bank_mode {
             ChrRomBankMode::SwitchSeperate => {
                 self.chr_rom_bank0 = data as usize;
@@ -236,6 +243,7 @@ impl Mmc1 {
         }
     }
     fn write_chr_bank1(&mut self, data: u8) {
+        log::debug!("Write CHR Bank 1: 0x{:X}", data);
         match self.chr_rom_bank_mode {
             ChrRomBankMode::SwitchSeperate => {
                 self.chr_rom_bank1 = data as usize;
@@ -244,6 +252,7 @@ impl Mmc1 {
         }
     }
     fn write_prg_bank(&mut self, data: u8) {
+        log::debug!("Write PRG Bank: 0x{:X}", data);
         let bank = data & 0xF;
         match self.prg_rom_bank_mode {
             PrgRomBankMode::SwitchBoth => {
@@ -259,6 +268,7 @@ impl Mmc1 {
         }
     }
     fn write_register(&mut self, register: u8, data: u8) {
+        log::debug!("Write Register 0x{:X}: 0x{:X}", register, data);
         match register {
             registers::CONTROL => self.write_control_register(data),
             registers::CHR_BANK0 => self.write_chr_bank0(data),
@@ -343,9 +353,10 @@ impl CpuMapper for Mmc1 {
         match address {
             0x6000..=0x7FFF => self.prg_ram[address as usize % 0x2000] = data,
             0x8000..=0xFFFF => self.write_u8(address, data),
-            other => eprintln!(
+            other => log::warn!(
                 "unexpected cartridge write of {:X} to address {:X}",
-                data, other
+                data,
+                other
             ),
         }
     }
@@ -359,7 +370,7 @@ impl CpuMapper for Mmc1 {
                 self.prg_rom_banks[self.prg_rom_bank1].rom[(address as usize) % 0x4000]
             }
             other => {
-                eprintln!("unexpected cartridge read from address {:X}", other);
+                log::warn!("unexpected cartridge read from address {:X}", other);
                 0
             }
         }

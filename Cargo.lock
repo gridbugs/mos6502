@@ -1040,6 +1040,7 @@ dependencies = [
  "gif_renderer",
  "graphical_frontend",
  "ines",
+ "log",
  "meap",
  "mos6502_model",
  "nes_headless_frame",
