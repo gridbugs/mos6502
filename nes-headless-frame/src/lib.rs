@@ -9,6 +9,7 @@ mod depth {
     pub const SPRITE_FRONT: u8 = 4;
 }
 
+#[derive(Clone, PartialEq, Eq)]
 pub struct Frame {
     indices: [u8; nes_specs::SCREEN_TOTAL_PX as usize],
     depths: [u8; nes_specs::SCREEN_TOTAL_PX as usize],

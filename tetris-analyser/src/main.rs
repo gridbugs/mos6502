@@ -66,9 +66,6 @@ fn start_game(nes: &mut DynamicNes, rng_bump: u32) {
         nes.run_for_frame(&mut NoRenderOutput);
     }
     nes.controller1_mut().clear_start();
-    for _ in 0..10 {
-        nes.run_for_frame(&mut NoRenderOutput);
-    }
 }
 
 fn main() {
@@ -78,8 +75,9 @@ fn main() {
     let mut nes = DynamicNes::from_ines(&ines).unwrap();
     start_game(&mut nes, 0);
     let mut renderer = GifRenderer::new(File::create(args.gif_path.as_str()).unwrap());
+    let mut frame = GifFrame::new();
     for _ in 0..1000 {
-        let mut frame = GifFrame::new();
+        frame.clear();
         nes.run_for_frame(&mut frame);
         renderer.add(&frame);
     }

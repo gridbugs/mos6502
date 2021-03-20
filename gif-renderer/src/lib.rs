@@ -6,7 +6,13 @@ pub use nes_name_table_debug::NameTableFrame;
 use nes_palette::Palette;
 pub use nes_palette::Rgb24;
 
+struct FrameDelay {
+    frame: Frame,
+    delay: u16,
+}
+
 pub struct Renderer<W: io::Write> {
+    previous_frame_delay: Option<FrameDelay>,
     encoder: gif::Encoder<W>,
 }
 
@@ -52,22 +58,55 @@ impl<W: io::Write> Renderer<W> {
         )
         .unwrap();
         encoder.set_repeat(gif::Repeat::Infinite).unwrap();
-        Self { encoder }
+        Self {
+            previous_frame_delay: None,
+            encoder,
+        }
     }
     pub fn add(&mut self, frame: &Frame) {
-        let mut gif_frame = gif::Frame::default();
+        if let Some(mut previous_frame_delay) = self.previous_frame_delay.take() {
+            if &previous_frame_delay.frame == frame {
+                previous_frame_delay.delay += Self::frame_delay();
+                self.previous_frame_delay = Some(previous_frame_delay);
+            } else {
+                self.write_frame(previous_frame_delay);
+                self.previous_frame_delay = Some(FrameDelay {
+                    frame: frame.clone(),
+                    delay: Self::frame_delay(),
+                });
+            }
+        } else {
+            self.previous_frame_delay = Some(FrameDelay {
+                frame: frame.clone(),
+                delay: Self::frame_delay(),
+            });
+        }
+    }
+    fn frame_delay() -> u16 {
         #[cfg(feature = "background_pixel_ages")]
         {
-            gif_frame.delay = 10;
+            10
         }
         #[cfg(not(feature = "background_pixel_ages"))]
         {
-            gif_frame.delay = 2;
+            2
         }
+    }
+    fn write_frame(&mut self, frame_delay: FrameDelay) {
+        let mut gif_frame = gif::Frame::default();
+        gif_frame.delay = frame_delay.delay;
         gif_frame.width = nes_specs::SCREEN_WIDTH_PX;
         gif_frame.height = nes_specs::SCREEN_HEIGHT_PX;
-        gif_frame.buffer = buffer_from_frame(frame);
+        gif_frame.buffer = buffer_from_frame(&frame_delay.frame);
         self.encoder.write_frame(&gif_frame).unwrap();
+    }
+}
+
+impl<W: io::Write> Drop for Renderer<W> {
+    fn drop(&mut self) {
+        if let Some(previous_frame_delay) = self.previous_frame_delay.take() {
+            self.write_frame(previous_frame_delay);
+        }
     }
 }
 
