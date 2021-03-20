@@ -3,7 +3,7 @@ use crate::dynamic_nes::DynamicNes;
 use crate::mapper::{Mapper, PersistentState, PersistentStateError};
 use crate::ppu::{Oam, Ppu, ScanlineIter};
 use crate::timing;
-use mos6502_model::debug::{InstructionType, InstructionWithOperand};
+use mos6502_model::debug::InstructionWithOperand;
 use mos6502_model::machine::{Address, Cpu, Memory, MemoryReadOnly};
 use nes_name_table_debug::NameTableFrame;
 use nes_render_output::RenderOutput;
@@ -244,110 +244,7 @@ pub trait RunForCycles {
     );
 }
 
-mod trace_run {
-    use super::RunForCycles;
-    use mos6502_model::debug::{InstructionType, InstructionWithOperand};
-    use mos6502_model::machine::{Address, Cpu, Memory, MemoryReadOnly};
-    use serde::{Deserialize, Serialize};
-    use std::collections::BTreeMap;
-    use std::fmt;
-
-    #[derive(Clone, Debug, Serialize, Deserialize)]
-    struct Histogram<T: Ord> {
-        counts: BTreeMap<T, u64>,
-    }
-
-    impl<T: Ord> Histogram<T> {
-        fn new() -> Self {
-            Self {
-                counts: BTreeMap::new(),
-            }
-        }
-        fn insert(&mut self, t: T) {
-            *self.counts.entry(t).or_insert(0) += 1;
-        }
-    }
-
-    #[derive(Clone, Debug, Serialize, Deserialize)]
-    pub struct TraceRun {
-        nmi_address_histogram: Histogram<Address>,
-        function_call_histogram: Histogram<Address>,
-    }
-
-    impl TraceRun {
-        fn new() -> Self {
-            Self {
-                nmi_address_histogram: Histogram::new(),
-                function_call_histogram: Histogram::new(),
-            }
-        }
-    }
-
-    impl Default for TraceRun {
-        fn default() -> Self {
-            Self::new()
-        }
-    }
-
-    impl RunForCycles for TraceRun {
-        fn run_for_cycles<M: Memory + MemoryReadOnly>(
-            &mut self,
-            cpu: &mut Cpu,
-            memory: &mut M,
-            num_cycles: u32,
-        ) {
-            if let Some(address) = cpu.retrieve_nmi_return_address_during_nmi(memory) {
-                self.nmi_address_histogram.insert(address);
-            }
-            let mut count = 0;
-            while count < num_cycles {
-                if let Ok(instruction_with_operand) = InstructionWithOperand::next(cpu, memory) {
-                    match instruction_with_operand.instruction().instruction_type() {
-                        InstructionType::Jsr => {
-                            let function_address =
-                                instruction_with_operand.operand_u16_le().unwrap();
-                            match function_address {
-                                //                                0x9969 => println!("a"),
-                                //                                0x9907 => println!("b"),
-                                //                                0x98EB => println!("c"),
-                                0x9D17 => println!("d"),
-                                0x9CAF => println!("e"),
-                                _ => (),
-                            }
-                            self.function_call_histogram.insert(function_address);
-                        }
-                        _ => (),
-                    }
-                }
-                count += cpu.step(memory).unwrap() as u32;
-            }
-        }
-    }
-
-    impl fmt::Display for TraceRun {
-        fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-            writeln!(fmt, "Addresses interrupted by NMI:")?;
-            for (address, count) in self.nmi_address_histogram.counts.iter() {
-                writeln!(fmt, "0x{:X}: {}", address, count)?;
-            }
-            writeln!(fmt, "\nFunction calls by frequency:")?;
-            let mut calls = self
-                .function_call_histogram
-                .counts
-                .iter()
-                .collect::<Vec<_>>();
-            calls.sort_by_key(|(_, count)| *count);
-            calls.reverse();
-            for (address, count) in calls {
-                writeln!(fmt, "0x{:X}: {}", address, count)?;
-            }
-            Ok(())
-        }
-    }
-}
-
-#[derive(Clone, Default, Serialize, Deserialize)]
-pub struct RunForCyclesRegular(trace_run::TraceRun);
+pub struct RunForCyclesRegular;
 
 pub struct RunForCyclesDebug;
 
@@ -358,7 +255,7 @@ impl RunForCycles for RunForCyclesRegular {
         memory: &mut M,
         num_cycles: u32,
     ) {
-        self.0.run_for_cycles(cpu, memory, num_cycles);
+        cpu.run_for_cycles(memory, num_cycles as usize).unwrap();
     }
 }
 
@@ -385,7 +282,6 @@ impl RunForCycles for RunForCyclesDebug {
 pub struct Nes<M: Mapper> {
     cpu: Cpu,
     devices: NesDevicesWithOam<M>,
-    run: Option<RunForCyclesRegular>,
 }
 
 impl<M: Mapper> Nes<M> {
@@ -405,7 +301,6 @@ impl<M: Mapper> Nes<M> {
                 },
                 oam: Oam::new(),
             },
-            run: Some(RunForCyclesRegular::default()),
         };
         nes.start();
         nes
@@ -490,16 +385,7 @@ impl<M: Mapper> Nes<M> {
         pixels: &mut O,
         name_table_frame: Option<&mut NameTableFrame>,
     ) {
-        /*
-        let mut run = self.run.take().unwrap();
-        self.run_for_frame_general(&mut run, pixels, name_table_frame);
-
-        use std::fs::File;
-        let mut trace = File::create("/tmp/trace.txt").unwrap();
-        write!(&mut trace, "{}", run.0).unwrap();
-
-        self.run = Some(run); */
-        self.run_for_frame_general(&mut RunForCyclesDebug, pixels, name_table_frame);
+        self.run_for_frame_general(&mut RunForCyclesRegular, pixels, name_table_frame);
     }
     pub fn run_for_frame_debug<O: RenderOutput>(
         &mut self,

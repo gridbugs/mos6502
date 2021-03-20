@@ -76,7 +76,6 @@ impl Oam {
     }
     pub fn dma<M: Memory>(&mut self, memory: &mut M, start_address_hi: u8) {
         let start_address = address::from_u8_lo_hi(0, start_address_hi);
-        println!("OAM DMA from 0x{:X}", start_address);
         for (address, oam_byte) in (start_address..start_address.wrapping_add(OAM_BYTES as Address))
             .zip(self.ram.iter_mut())
         {
@@ -712,10 +711,8 @@ impl Ppu {
     }
     pub fn write_oam_address(&mut self, data: u8) {
         self.oam_address = data;
-        println!("OAM Address write: 0x{:X}", self.oam_address);
     }
     pub fn write_oam_data(&mut self, data: u8, oam: &mut Oam) {
-        println!("OAM Data write: 0x{:X} = 0x{:X}", self.oam_address, data);
         oam.ram[self.oam_address as usize] = data;
         self.oam_address = self.oam_address.wrapping_add(1);
     }
@@ -745,7 +742,6 @@ impl Ppu {
             .increment_ppu_address(self.address_increment);
     }
     pub fn read_data<M: PpuMapper>(&mut self, memory: &M) -> u8 {
-        panic!();
         let address = self.scroll_state.ppu_address();
         let value_from_vram = memory.ppu_read_u8(address);
         let value_for_cpu = if address < PALETTE_START {

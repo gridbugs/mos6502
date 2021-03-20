@@ -78,7 +78,7 @@ impl DynamicNes {
     }
 
     pub fn run_for_frame<RO: RenderOutput>(&mut self, render_output: &mut RO) {
-        //        self.run_for_frame_general(&mut RunForCyclesRegular, render_output);
+        self.run_for_frame_general(&mut RunForCyclesRegular, render_output);
     }
 
     pub fn controller1_mut(&mut self) -> &mut Controller {
