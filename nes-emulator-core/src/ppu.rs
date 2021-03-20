@@ -736,7 +736,6 @@ impl Ppu {
                 self.ppu_debug.name_table_0_write(offset);
             }
         }
-        println!("writing ppu data: 0x{:X}", data);
         memory.ppu_write_u8(self.scroll_state.ppu_address(), data);
         self.scroll_state
             .increment_ppu_address(self.address_increment);
