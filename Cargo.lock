@@ -1543,6 +1543,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tetris-hard-drop-patcher"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "ines",
+ "log",
+ "mos6502_assembler",
+ "mos6502_model",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"

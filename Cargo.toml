@@ -19,4 +19,5 @@ members = [
     "butterfly",
     "conway",
     "tetris-analyser",
+    "tetris-hard-drop-patcher",
 ]

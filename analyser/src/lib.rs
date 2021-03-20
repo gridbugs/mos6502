@@ -103,7 +103,6 @@ impl FunctionStep {
 #[derive(Debug)]
 pub struct FunctionTrace {
     steps: Vec<FunctionStep>,
-    seen: BTreeSet<Address>,
 }
 
 impl fmt::Display for FunctionTrace {
@@ -157,6 +156,7 @@ fn trace_function_definition<M: MemoryReadOnly>(
                     InstructionType::Rts => (),
                     InstructionType::Rti => (),
                     InstructionType::Bcc
+                    | InstructionType::Bcs
                     | InstructionType::Beq
                     | InstructionType::Bmi
                     | InstructionType::Bne
@@ -201,7 +201,8 @@ fn trace_function_definition<M: MemoryReadOnly>(
             }
         }
     }
-    FunctionTrace { steps, seen }
+    steps.sort_by_key(|s| s.address());
+    FunctionTrace { steps }
 }
 
 #[derive(Debug)]
@@ -258,8 +259,14 @@ impl CallGraph {
         }
     }
     fn insert_empty(&mut self, address: Address) {
-        self.by_caller.0.insert(address, BTreeSet::new());
-        self.by_callee.0.insert(address, BTreeSet::new());
+        self.by_caller
+            .0
+            .entry(address)
+            .or_insert_with(BTreeSet::new);
+        self.by_callee
+            .0
+            .entry(address)
+            .or_insert_with(BTreeSet::new);
     }
     fn insert(&mut self, caller: Address, callee: Address) {
         self.by_caller
@@ -345,5 +352,11 @@ impl Analysis {
 
     pub fn call_graph(&self) -> &CallGraph {
         &self.call_graph
+    }
+
+    pub fn function_traces(&self) -> impl Iterator<Item = (Address, &FunctionTrace)> {
+        self.function_traces_by_definition_address
+            .iter()
+            .map(|(&address, trace)| (address, trace))
     }
 }

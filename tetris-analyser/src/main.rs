@@ -7,6 +7,7 @@ use nes_render_output::NoRenderOutput;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fs::File;
+use std::io::Write;
 
 struct Args {
     rom_path: String,
@@ -103,6 +104,12 @@ impl TraceRun {
     }
 }
 
+impl Default for TraceRun {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RunForCycles for TraceRun {
     fn run_for_cycles<M: Memory + MemoryReadOnly>(
         &mut self,
@@ -169,29 +176,56 @@ fn main() {
     }
     println!("{}", trace_run);
     let analysis = nes.analyse();
-    let (&likely_idle_address, _) = trace_run
-        .nmi_address_histogram
-        .counts
-        .iter()
-        .max_by_key(|(_address, count)| *count)
-        .unwrap();
-    let functions_containing_idle_address = analysis
-        .functions_containing_address(likely_idle_address)
-        .collect::<Vec<_>>();
-    println!("Functions containing idle address:",);
-    for address in &functions_containing_idle_address {
-        println!("0x{:X}", address);
+    {
+        /*
+        let (&likely_idle_address, _) = trace_run
+            .nmi_address_histogram
+            .counts
+            .iter()
+            .max_by_key(|(_address, count)| *count)
+            .unwrap();
+        let functions_containing_idle_address = analysis
+            .functions_containing_address(likely_idle_address)
+            .collect::<Vec<_>>();
+        println!("Functions containing idle address:",);
+        for address in &functions_containing_idle_address {
+            println!("0x{:X}", address);
+        }
+        let mut called_by_idle = File::create("/tmp/called-by-idle.dot").unwrap();
+        write!(
+            &mut called_by_idle,
+            "{}",
+            analysis
+                .call_graph()
+                .by_caller()
+                .descendants_of(functions_containing_idle_address[0])
+                .dot_string()
+        )
+        .unwrap(); */
     }
-    use std::io::Write;
-    let mut called_by_idle = File::create("/tmp/called-by-idle.dot").unwrap();
-    write!(
-        &mut called_by_idle,
-        "{}",
-        analysis
-            .call_graph()
-            .by_caller()
-            .descendants_of(functions_containing_idle_address[0])
-            .dot_string()
-    )
-    .unwrap();
+    {
+        let mut file = File::create("/tmp/physics.dot").unwrap();
+        write!(
+            &mut file,
+            "{}",
+            analysis
+                .call_graph()
+                .by_caller()
+                .descendants_of(0x9D17)
+                .dot_string()
+        )
+        .unwrap();
+    }
+    {
+        let mut file = File::create("/tmp/functions.txt").unwrap();
+        for (address, trace) in analysis.function_traces() {
+            write!(&mut file, "0x{:X}:\n{}\n", address, trace).unwrap();
+        }
+    }
+    {
+        for i in 0..256 {
+            let byte = nes.read_u8_read_only(0x8A9C + i);
+            println!("{:X}", byte);
+        }
+    }
 }
