@@ -385,7 +385,7 @@ impl<M: Mapper> Nes<M> {
         pixels: &mut O,
         name_table_frame: Option<&mut NameTableFrame>,
     ) {
-        self.run_for_frame_general(&mut RunForCyclesDebug, pixels, name_table_frame);
+        self.run_for_frame_general(&mut RunForCyclesRegular, pixels, name_table_frame);
     }
     pub fn run_for_frame_debug<O: RenderOutput>(
         &mut self,
