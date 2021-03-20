@@ -2,37 +2,89 @@ use ines::Ines;
 use mos6502_assembler::{Addr, Block, LabelRelativeOffset, LabelRelativeOffsetOwned};
 use mos6502_model::{address, interrupt_vector, Address};
 
-const HINT_PATTERN_INDEX: usize = 0xFA;
+const HINT_PATTERN_INDEX: u8 = 0xFA;
+const SHAPE_TABLE: Address = 0x8A9C;
+const ZP_PIECE_COORD_X: u8 = 0x40;
+const ZP_PIECE_COORD_Y: u8 = 0x41;
+const ZP_PIECE_SHAPE: u8 = 0x42;
+const BOARD_TILES: Address = 0x0400;
+const EMPTY_TILE: u8 = 0xEF;
+const BOARD_HEIGHT: u8 = 20;
 
 fn program_oam_dma_page_update(b: &mut Block, original_function_address: Address) {
     use mos6502_model::addressing_mode::*;
     use mos6502_model::assembler_instruction::*;
     b.inst(Jsr(Absolute), original_function_address);
-    b.inst(Ldx(Immediate), 32);
-    b.inst(Lda(Immediate), 0x80);
-    b.inst(Sta(AbsoluteXIndexed), Addr(0x200));
+
+    // Multiply the shape by 12 to make an offset into the shape table, storing the result in X
+    b.inst(Lda(ZeroPage), ZP_PIECE_SHAPE);
+    b.inst(Clc, ());
+    b.inst(Rol(Accumulator), ());
+    b.inst(Rol(Accumulator), ());
+    b.inst(Sta(ZeroPage), 0x20);
+    b.inst(Rol(Accumulator), ());
+    b.inst(Adc(ZeroPage), 0x20);
+    b.inst(Tax, ());
+
+    // Store absolute X,Y coords of each tile by reading relative coordinates from shape table
+    // and adding the piece offset, storing the result in zero page 0x20..=0x27
+    for i in 0..4 {
+        b.inst(Lda(AbsoluteXIndexed), Addr(SHAPE_TABLE)); // 1 Y
+        b.inst(Clc, ());
+        b.inst(Adc(ZeroPage), ZP_PIECE_COORD_Y);
+        b.inst(Sta(ZeroPage), 0x21 + (i * 2));
+        b.inst(Inx, ()); // skip the tile index
+        b.inst(Inx, ());
+        b.inst(Lda(AbsoluteXIndexed), Addr(SHAPE_TABLE)); // 1 X
+        b.inst(Clc, ());
+        b.inst(Adc(ZeroPage), ZP_PIECE_COORD_X);
+        b.inst(Sta(ZeroPage), 0x20 + (i * 2));
+        b.inst(Inx, ());
+    }
+
+    b.inst(Ldx(Immediate), 0);
+    b.label("start-hint-depth-loop");
+    for i in 0..4 {
+        // Increment the Y component of the coordinate
+        b.inst(Inc(ZeroPage), 0x21 + (i * 2));
+
+        // Check that we haven't gone off the bottom of the board
+        b.inst(Lda(ZeroPage), 0x21 + (i * 2));
+        b.inst(Cmp(Immediate), BOARD_HEIGHT);
+        b.inst(Bpl, LabelRelativeOffset("end-hint-depth-loop"));
+
+        // Multiply the Y component of the coordinate by 10 (the number of columns)
+        b.inst(Asl(Accumulator), ());
+        b.inst(Sta(ZeroPage), 0x28); // store Y * 2
+        b.inst(Asl(Accumulator), ());
+        b.inst(Asl(Accumulator), ()); // accumulator now contains Y * 8
+        b.inst(Clc, ());
+        b.inst(Adc(ZeroPage), 0x28); // accumulator now contains Y * 10
+
+        // Now add the X component to get the row-major index of the cell
+        b.inst(Adc(ZeroPage), 0x20 + (i * 2));
+
+        // Load the tile at that coordinate
+        b.inst(Tay, ());
+        b.inst(Lda(AbsoluteYIndexed), BOARD_TILES);
+
+        // Test whether the tile is empty, breaking out of the loop if it is not
+        b.inst(Cmp(Immediate), EMPTY_TILE);
+        b.inst(Bne, LabelRelativeOffset("end-hint-depth-loop"));
+    }
+    // Increment counter
     b.inst(Inx, ());
-    b.inst(Lda(Immediate), 0xFA);
-    b.inst(Sta(AbsoluteXIndexed), Addr(0x200));
-    b.inst(Inx, ());
-    b.inst(Lda(Immediate), 0x02);
-    b.inst(Sta(AbsoluteXIndexed), Addr(0x200));
-    b.inst(Inx, ());
-    b.inst(Lda(Immediate), 0x80);
-    b.inst(Sta(AbsoluteXIndexed), Addr(0x200));
-    b.inst(Inx, ());
-    b.inst(Lda(Immediate), 0x80);
-    b.inst(Sta(AbsoluteXIndexed), Addr(0x200));
-    b.inst(Inx, ());
-    b.inst(Lda(Immediate), 0xFA);
-    b.inst(Sta(AbsoluteXIndexed), Addr(0x200));
-    b.inst(Inx, ());
-    b.inst(Lda(Immediate), 0x02);
-    b.inst(Sta(AbsoluteXIndexed), Addr(0x200));
-    b.inst(Inx, ());
-    b.inst(Lda(Immediate), 0x88);
-    b.inst(Sta(AbsoluteXIndexed), Addr(0x200));
-    b.inst(Inx, ());
+    b.inst(Jmp(Absolute), "start-hint-depth-loop");
+
+    b.label("end-hint-depth-loop");
+
+    // Pass the depth as an argument to render-hint
+    b.inst(Txa, ());
+    b.inst(Beq, LabelRelativeOffset("after-render-hint"));
+    b.inst(Sta(ZeroPage), 0x28);
+    b.inst(Jsr(Absolute), "render-hint");
+    b.label("after-render-hint");
+
     b.inst(Rts, ());
 
     program_render_hint(b, "render-hint");
@@ -42,7 +94,7 @@ fn program_render_hint(b: &mut Block, label: &str) {
     use mos6502_model::addressing_mode::*;
     use mos6502_model::assembler_instruction::*;
     b.label(label);
-    b.inst(Lda(ZeroPage), 0x40);
+    b.inst(Lda(ZeroPage), 0x40); // X coord of current piece
     b.inst(Asl(Accumulator), ());
     b.inst(Asl(Accumulator), ());
     b.inst(Asl(Accumulator), ());
@@ -53,7 +105,7 @@ fn program_render_hint(b: &mut Block, label: &str) {
     b.inst(Beq, LabelRelativeOffsetOwned(format!("{}-1", label)));
     b.inst(Lda(ZeroPage), 0xAA);
     b.inst(Sec, ());
-    b.inst(Sbc(Immediate), 0x40);
+    b.inst(Sbc(Immediate), ZP_PIECE_COORD_X);
     b.inst(Sta(ZeroPage), 0xAA);
     b.inst(Lda(ZeroPage), 0xB7);
     b.inst(Cmp(Immediate), 0x01);
@@ -63,13 +115,14 @@ fn program_render_hint(b: &mut Block, label: &str) {
     b.inst(Sta(ZeroPage), 0xAA);
     b.label(format!("{}-1", label));
     b.inst(Clc, ());
-    b.inst(Lda(ZeroPage), 0x41);
+    b.inst(Lda(ZeroPage), ZP_PIECE_COORD_Y); // Y coord of current piece
+    b.inst(Adc(ZeroPage), 0x28); // add vertical offset
     b.inst(Rol(Accumulator), ());
     b.inst(Rol(Accumulator), ());
     b.inst(Rol(Accumulator), ());
     b.inst(Adc(Immediate), 0x2F);
     b.inst(Sta(ZeroPage), 0xAB);
-    b.inst(Lda(ZeroPage), 0x42);
+    b.inst(Lda(ZeroPage), ZP_PIECE_SHAPE); // shape and rotation of current piece
     b.inst(Sta(ZeroPage), 0xAC);
     b.inst(Clc, ());
     b.inst(Lda(ZeroPage), 0xAC);
@@ -83,7 +136,7 @@ fn program_render_hint(b: &mut Block, label: &str) {
     b.inst(Lda(Immediate), 0x04);
     b.inst(Sta(ZeroPage), 0xA9);
     b.label(format!("{}-3", label));
-    b.inst(Lda(AbsoluteXIndexed), Addr(0x8A9C));
+    b.inst(Lda(AbsoluteXIndexed), Addr(SHAPE_TABLE));
     b.inst(Asl(Accumulator), ());
     b.inst(Asl(Accumulator), ());
     b.inst(Asl(Accumulator), ());
@@ -94,7 +147,7 @@ fn program_render_hint(b: &mut Block, label: &str) {
     b.inst(Inc(ZeroPage), 0xB3);
     b.inst(Iny, ());
     b.inst(Inx, ());
-    b.inst(Lda(Immediate), 0xFA);
+    b.inst(Lda(Immediate), HINT_PATTERN_INDEX);
     b.inst(Sta(AbsoluteYIndexed), Addr(0x0200));
     b.inst(Inc(ZeroPage), 0xB3);
     b.inst(Iny, ());
@@ -116,7 +169,7 @@ fn program_render_hint(b: &mut Block, label: &str) {
     b.label(format!("{}-2", label));
     b.inst(Inc(ZeroPage), 0xB3);
     b.inst(Iny, ());
-    b.inst(Lda(AbsoluteXIndexed), Addr(0x8A9C));
+    b.inst(Lda(AbsoluteXIndexed), Addr(SHAPE_TABLE));
     b.inst(Asl(Accumulator), ());
     b.inst(Asl(Accumulator), ());
     b.inst(Asl(Accumulator), ());
@@ -137,7 +190,7 @@ fn add_hint_chr(ines: &mut Ines) {
     const WHICH_PATTERN_TABLE: usize = 3;
     const PATTERN_SIZE: usize = 16;
     const PATTERN_BYTE_INDEX: usize =
-        (PATTERN_TABLE_SIZE * WHICH_PATTERN_TABLE) + (HINT_PATTERN_INDEX * PATTERN_SIZE);
+        (PATTERN_TABLE_SIZE * WHICH_PATTERN_TABLE) + (HINT_PATTERN_INDEX as usize * PATTERN_SIZE);
     let chr_slice = &mut ines.chr_rom[PATTERN_BYTE_INDEX..(PATTERN_BYTE_INDEX + PATTERN_SIZE)];
     chr_slice[0] = 0b10101010;
     chr_slice[1] = 0b00000000;
@@ -151,7 +204,7 @@ fn add_hint_chr(ines: &mut Ines) {
 
 fn modify_rom(ines: &mut Ines) {
     let mut block = Block::new();
-    const SIZE: usize = 256;
+    const SIZE: usize = 512;
     const BASE: Address = 0xD6E0;
     const FUNCTION_TO_REDIRECT: Address = 0x8A0A;
     let (code_to_replace, code_to_replace_with) = {
