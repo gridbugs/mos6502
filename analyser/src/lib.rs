@@ -6,7 +6,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 pub trait MemoryMap {
-    fn normalize_function_call<M: MemoryReadOnly>(
+    /// Takes the address of a JSR opcode and returns the address of the beginning of the function
+    /// being called.
+    fn normalise_function_call<M: MemoryReadOnly>(
         &self,
         jsr_opcode_address: Address,
         memory: &M,
@@ -21,7 +23,7 @@ fn enumerate_function_definition_addresses<MRO: MemoryReadOnly, MM: MemoryMap>(
     for address in 0..=0xFFFF {
         let byte = memory.read_u8_read_only(address);
         if byte == opcode::jsr::ABSOLUTE {
-            if let Some(function_address) = memory_map.normalize_function_call(address, memory) {
+            if let Some(function_address) = memory_map.normalise_function_call(address, memory) {
                 function_definition_addresses.insert(function_address);
             }
         }
@@ -101,6 +103,7 @@ impl FunctionStep {
 #[derive(Debug)]
 pub struct FunctionTrace {
     steps: Vec<FunctionStep>,
+    seen: BTreeSet<Address>,
 }
 
 impl fmt::Display for FunctionTrace {
@@ -133,97 +136,150 @@ fn trace_function_definition<M: MemoryReadOnly>(
     let mut seen = BTreeSet::new();
     let mut to_visit = vec![function_definition_address];
     while let Some(visited_address) = to_visit.pop() {
-        if seen.contains(&visited_address) {
-            continue;
-        }
-        seen.insert(visited_address);
-        if let Ok(instruction_with_operand) =
-            InstructionWithOperand::decode(visited_address, memory)
-        {
-            let instruction = instruction_with_operand.instruction();
-            match instruction.instruction_type() {
-                InstructionType::Jmp => match instruction.addressing_mode() {
-                    AddressingMode::Absolute => {
-                        let address = memory.read_u16_le_read_only(visited_address.wrapping_add(1));
-                        to_visit.push(address);
-                    }
-                    AddressingMode::Indirect => {
-                        steps.push(FunctionStep::JumpIndirect(instruction_with_operand));
-                        continue;
-                    }
-                    _ => panic!("Invalid addressing mode"),
-                },
-                InstructionType::Rts => (),
-                InstructionType::Rti => (),
-                InstructionType::Bcc
-                | InstructionType::Beq
-                | InstructionType::Bmi
-                | InstructionType::Bne
-                | InstructionType::Bpl
-                | InstructionType::Bvc
-                | InstructionType::Bvs => {
-                    let offset = memory.read_u8_read_only(visited_address.wrapping_add(1)) as i8;
-                    let absolute_target = ((visited_address + instruction.size() as Address) as i16
-                        + offset as i16) as Address;
-                    to_visit.push(absolute_target);
-                    let next_address = visited_address.wrapping_add(instruction.size() as Address);
-                    to_visit.push(next_address);
-                    steps.push(FunctionStep::Branch {
-                        instruction_with_operand,
-                        absolute_target,
-                        relative_target: offset,
-                    });
-                    continue;
-                }
-                other => {
-                    let next_address = visited_address.wrapping_add(instruction.size() as Address);
-                    to_visit.push(next_address);
-                    if let InstructionType::Jsr = other {
-                        steps.push(FunctionStep::FunctionCall {
-                            callee: instruction_with_operand.operand_u16_le().unwrap(),
+        if seen.insert(visited_address) {
+            if let Ok(instruction_with_operand) =
+                InstructionWithOperand::decode(visited_address, memory)
+            {
+                let instruction = instruction_with_operand.instruction();
+                match instruction.instruction_type() {
+                    InstructionType::Jmp => match instruction.addressing_mode() {
+                        AddressingMode::Absolute => {
+                            let address =
+                                memory.read_u16_le_read_only(visited_address.wrapping_add(1));
+                            to_visit.push(address);
+                        }
+                        AddressingMode::Indirect => {
+                            steps.push(FunctionStep::JumpIndirect(instruction_with_operand));
+                            continue;
+                        }
+                        _ => panic!("Invalid addressing mode"),
+                    },
+                    InstructionType::Rts => (),
+                    InstructionType::Rti => (),
+                    InstructionType::Bcc
+                    | InstructionType::Beq
+                    | InstructionType::Bmi
+                    | InstructionType::Bne
+                    | InstructionType::Bpl
+                    | InstructionType::Bvc
+                    | InstructionType::Bvs => {
+                        let offset =
+                            memory.read_u8_read_only(visited_address.wrapping_add(1)) as i8;
+                        let absolute_target =
+                            ((visited_address + instruction.size() as Address) as i16
+                                + offset as i16) as Address;
+                        to_visit.push(absolute_target);
+                        let next_address =
+                            visited_address.wrapping_add(instruction.size() as Address);
+                        to_visit.push(next_address);
+                        steps.push(FunctionStep::Branch {
                             instruction_with_operand,
+                            absolute_target,
+                            relative_target: offset,
                         });
                         continue;
                     }
+                    other => {
+                        let next_address =
+                            visited_address.wrapping_add(instruction.size() as Address);
+                        to_visit.push(next_address);
+                        if let InstructionType::Jsr = other {
+                            steps.push(FunctionStep::FunctionCall {
+                                callee: instruction_with_operand.operand_u16_le().unwrap(),
+                                instruction_with_operand,
+                            });
+                            continue;
+                        }
+                    }
                 }
+                steps.push(FunctionStep::TracedInstruction(instruction_with_operand));
+            } else {
+                steps.push(FunctionStep::InvalidOpcode {
+                    address: visited_address,
+                    opcode: memory.read_u8_read_only(visited_address),
+                });
             }
-            steps.push(FunctionStep::TracedInstruction(instruction_with_operand));
-        } else {
-            steps.push(FunctionStep::InvalidOpcode {
-                address: visited_address,
-                opcode: memory.read_u8_read_only(visited_address),
-            });
         }
     }
-    FunctionTrace { steps }
+    FunctionTrace { steps, seen }
 }
 
 #[derive(Debug)]
-struct CallGraph {
-    by_caller: BTreeMap<Address, BTreeSet<Address>>,
-    by_callee: BTreeMap<Address, BTreeSet<Address>>,
+pub struct CallGraph {
+    by_caller: AddressGraph,
+    by_callee: AddressGraph,
+}
+
+#[derive(Debug, Clone)]
+pub struct AddressGraph(BTreeMap<Address, BTreeSet<Address>>);
+
+impl AddressGraph {
+    pub fn get(&self, address: Address) -> Option<&BTreeSet<Address>> {
+        self.0.get(&address)
+    }
+
+    pub fn dot_string(&self) -> String {
+        use std::fmt::Write;
+        let mut s = String::new();
+        writeln!(&mut s, "digraph {{").unwrap();
+        for (caller, callees) in self.0.iter() {
+            for callee in callees {
+                writeln!(&mut s, "  f0x{:X} -> f0x{:X};", caller, callee).unwrap();
+            }
+        }
+        writeln!(&mut s, "}}").unwrap();
+        s
+    }
+
+    pub fn descendants_of(&self, address: Address) -> Self {
+        let mut to_visit = vec![address];
+        let mut seen = BTreeSet::new();
+        seen.insert(address);
+        let mut graph = BTreeMap::new();
+        while let Some(address) = to_visit.pop() {
+            if let Some(callees) = self.get(address) {
+                graph.insert(address, callees.clone());
+                for &callee in callees {
+                    if seen.insert(callee) {
+                        to_visit.push(callee);
+                    }
+                }
+            }
+        }
+        Self(graph)
+    }
 }
 
 impl CallGraph {
     fn new() -> Self {
         Self {
-            by_caller: BTreeMap::new(),
-            by_callee: BTreeMap::new(),
+            by_caller: AddressGraph(BTreeMap::new()),
+            by_callee: AddressGraph(BTreeMap::new()),
         }
     }
     fn insert_empty(&mut self, address: Address) {
-        self.by_caller.insert(address, BTreeSet::new());
-        self.by_callee.insert(address, BTreeSet::new());
+        self.by_caller.0.insert(address, BTreeSet::new());
+        self.by_callee.0.insert(address, BTreeSet::new());
     }
     fn insert(&mut self, caller: Address, callee: Address) {
         self.by_caller
+            .0
             .entry(caller)
             .or_insert_with(BTreeSet::new)
             .insert(callee);
         self.by_callee
+            .0
             .entry(callee)
             .or_insert_with(BTreeSet::new)
             .insert(caller);
+    }
+
+    pub fn by_caller(&self) -> &AddressGraph {
+        &self.by_caller
+    }
+
+    pub fn by_callee(&self) -> &AddressGraph {
+        &self.by_callee
     }
 }
 
@@ -283,7 +339,11 @@ impl Analysis {
     ) -> Option<impl 'a + Iterator<Item = Address>> {
         self.call_graph
             .by_callee
-            .get(&function_definition_address)
+            .get(function_definition_address)
             .map(|s| s.iter().cloned())
+    }
+
+    pub fn call_graph(&self) -> &CallGraph {
+        &self.call_graph
     }
 }

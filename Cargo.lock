@@ -1533,9 +1533,11 @@ dependencies = [
 name = "tetris-analyser"
 version = "0.1.0"
 dependencies = [
+ "analyser",
  "gif_renderer",
  "ines",
  "meap",
+ "mos6502_model",
  "nes_emulator_core",
  "nes_render_output",
 ]

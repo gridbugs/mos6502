@@ -27,6 +27,18 @@ impl Cpu {
             status: StatusRegister::new(),
         }
     }
+    pub fn retrieve_nmi_return_address_during_nmi<MRO: MemoryReadOnly>(
+        &self,
+        memory: &MRO,
+    ) -> Option<Address> {
+        if self.pc == memory.read_u16_le_read_only(crate::interrupt_vector::NMI_LO) {
+            let lo = memory.read_u8_stack_read_only(self.sp.wrapping_add(2));
+            let hi = memory.read_u8_stack_read_only(self.sp.wrapping_add(3));
+            Some(address::from_u8_lo_hi(lo, hi))
+        } else {
+            None
+        }
+    }
     pub fn nmi<M: Memory>(&mut self, memory: &mut M) {
         self.push_stack_u8(memory, address::hi(self.pc));
         self.push_stack_u8(memory, address::lo(self.pc));
@@ -443,6 +455,9 @@ pub trait MemoryReadOnly {
         let lo = self.read_u8_read_only(address);
         let hi = self.read_u8_read_only(address + 1);
         ((hi as u16) << 8) | lo as u16
+    }
+    fn read_u8_stack_read_only(&self, stack_pointer: u8) -> u8 {
+        self.read_u8_read_only(address::from_u8_lo_hi(stack_pointer, STACK_ADDRESS_HI))
     }
 }
 

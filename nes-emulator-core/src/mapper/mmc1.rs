@@ -6,7 +6,8 @@ use crate::mapper::{NameTableChoice, PaletteRam, PatternTableChoice};
 use crate::mapper::{PersistentState, PersistentStateError};
 use crate::nes::Nes;
 use crate::ppu::{name_table_mirroring, NAME_TABLE_BYTES};
-use mos6502_model::Address;
+use analyser::MemoryMap;
+use mos6502_model::{machine::MemoryReadOnly, Address};
 use serde::{Deserialize, Serialize};
 use serde_big_array::big_array;
 
@@ -392,5 +393,25 @@ impl Mapper for Mmc1 {
             PersistentState::BatteryBackedRam(data) => self.prg_ram.copy_from_slice(&data),
         }
         Ok(())
+    }
+}
+
+impl MemoryMap for Mmc1 {
+    fn normalise_function_call<MRO: MemoryReadOnly>(
+        &self,
+        jsr_opcode_address: Address,
+        memory: &MRO,
+    ) -> Option<Address> {
+        if jsr_opcode_address >= 0x8000 {
+            let function_definition_address =
+                memory.read_u16_le_read_only(jsr_opcode_address.wrapping_add(1));
+            if function_definition_address >= 0x8000 {
+                Some(function_definition_address)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 }

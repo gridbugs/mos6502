@@ -10,3 +10,5 @@ ines = { version = "0.1", path = "../ines" }
 nes_emulator_core = { path = "../nes-emulator-core" }
 nes_render_output = { path = "../nes-render-output" }
 gif_renderer = { path = "../gif-renderer" }
+mos6502_model = { path = "../model", features = ["serialize"] }
+analyser = { path = "../analyser" }

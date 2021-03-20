@@ -26,7 +26,7 @@ struct NesDevices<M: Mapper> {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-struct NesDevicesWithOam<M: Mapper> {
+pub struct NesDevicesWithOam<M: Mapper> {
     devices: NesDevices<M>,
     oam: Oam,
 }
@@ -235,21 +235,36 @@ impl<M: Mapper> MemoryReadOnly for NesDevicesWithOam<M> {
     }
 }
 
-trait RunForCycles {
-    fn run_for_cycles<M: Memory + MemoryReadOnly>(cpu: &mut Cpu, memory: &mut M, num_cycles: u32);
+pub trait RunForCycles {
+    fn run_for_cycles<M: Memory + MemoryReadOnly>(
+        &mut self,
+        cpu: &mut Cpu,
+        memory: &mut M,
+        num_cycles: u32,
+    );
 }
 
-struct RunForCyclesRegular;
-struct RunForCyclesDebug;
+pub struct RunForCyclesRegular;
+pub struct RunForCyclesDebug;
 
 impl RunForCycles for RunForCyclesRegular {
-    fn run_for_cycles<M: Memory + MemoryReadOnly>(cpu: &mut Cpu, memory: &mut M, num_cycles: u32) {
+    fn run_for_cycles<M: Memory + MemoryReadOnly>(
+        &mut self,
+        cpu: &mut Cpu,
+        memory: &mut M,
+        num_cycles: u32,
+    ) {
         cpu.run_for_cycles(memory, num_cycles as usize).unwrap();
     }
 }
 
 impl RunForCycles for RunForCyclesDebug {
-    fn run_for_cycles<M: Memory + MemoryReadOnly>(cpu: &mut Cpu, memory: &mut M, num_cycles: u32) {
+    fn run_for_cycles<M: Memory + MemoryReadOnly>(
+        &mut self,
+        cpu: &mut Cpu,
+        memory: &mut M,
+        num_cycles: u32,
+    ) {
         let mut count = 0;
         while count < num_cycles {
             if let Ok(instruction_with_operand) = InstructionWithOperand::next(cpu, memory) {
@@ -289,14 +304,14 @@ impl<M: Mapper> Nes<M> {
         nes.start();
         nes
     }
-    fn run_for_frame_general<R: RunForCycles, O: RenderOutput>(
+    pub fn run_for_frame_general<R: RunForCycles, O: RenderOutput>(
         &mut self,
-        _: R,
+        run: &mut R,
         pixels: &mut O,
         mut name_table_frame: Option<&mut NameTableFrame>,
     ) {
         // pre-render scanline
-        R::run_for_cycles(
+        run.run_for_cycles(
             &mut self.cpu,
             &mut self.devices,
             timing::ntsc::APPROX_CPU_CYCLES_PER_SCANLINE,
@@ -325,7 +340,7 @@ impl<M: Mapper> Nes<M> {
                     self.devices.devices.ppu.scroll_y(),
                 );
             }
-            R::run_for_cycles(
+            run.run_for_cycles(
                 &mut self.cpu,
                 &mut self.devices,
                 timing::ntsc::APPROX_CPU_CYCLES_PER_SCANLINE,
@@ -340,7 +355,7 @@ impl<M: Mapper> Nes<M> {
                     nes_specs::SCREEN_WIDTH_PX - sprite_zero_hit.screen_pixel_x() as u16;
                 let approx_cpu_cycles_after_sprite_zero_hit = pixels_after_sprite_zero_hit as u32
                     / timing::ntsc::NUM_PPU_CYCLES_PER_CPU_CYCLE;
-                R::run_for_cycles(
+                run.run_for_cycles(
                     &mut self.cpu,
                     &mut self.devices,
                     approx_cpu_cycles_after_sprite_zero_hit,
@@ -348,7 +363,7 @@ impl<M: Mapper> Nes<M> {
             }
         }
         // post-render scanline
-        R::run_for_cycles(
+        run.run_for_cycles(
             &mut self.cpu,
             &mut self.devices,
             timing::ntsc::APPROX_CPU_CYCLES_PER_SCANLINE,
@@ -357,7 +372,7 @@ impl<M: Mapper> Nes<M> {
             self.cpu.nmi(&mut self.devices);
         }
         self.devices.devices.ppu.before_vblank();
-        R::run_for_cycles(
+        run.run_for_cycles(
             &mut self.cpu,
             &mut self.devices,
             timing::ntsc::APPROX_CPU_CYCLES_PER_VBLANK,
@@ -369,14 +384,14 @@ impl<M: Mapper> Nes<M> {
         pixels: &mut O,
         name_table_frame: Option<&mut NameTableFrame>,
     ) {
-        self.run_for_frame_general(RunForCyclesRegular, pixels, name_table_frame);
+        self.run_for_frame_general(&mut RunForCyclesRegular, pixels, name_table_frame);
     }
     pub fn run_for_frame_debug<O: RenderOutput>(
         &mut self,
         pixels: &mut O,
         name_table_frame: Option<&mut NameTableFrame>,
     ) {
-        self.run_for_frame_general(RunForCyclesDebug, pixels, name_table_frame);
+        self.run_for_frame_general(&mut RunForCyclesDebug, pixels, name_table_frame);
     }
     pub fn clone_dynamic_nes(&self) -> DynamicNes {
         M::clone_dynamic_nes(self)
@@ -398,6 +413,12 @@ impl<M: Mapper> Nes<M> {
     }
     pub fn controller1_mut(&mut self) -> &mut Controller {
         &mut self.devices.devices.controller1
+    }
+    pub fn mapper(&self) -> &M {
+        &self.devices.devices.mapper
+    }
+    pub fn devices_with_oam(&self) -> &NesDevicesWithOam<M> {
+        &self.devices
     }
 }
 

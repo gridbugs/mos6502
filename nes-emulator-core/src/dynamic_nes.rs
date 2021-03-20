@@ -1,6 +1,8 @@
 use crate::mapper::{self, mmc1, nrom, PersistentState, PersistentStateError};
-use crate::nes::{Controller, Nes};
+use crate::nes::{Controller, Nes, RunForCycles, RunForCyclesRegular};
+use analyser::{Analysis, MemoryMap};
 use ines::Ines;
+use mos6502_model::{machine::MemoryReadOnly, Address};
 use nes_render_output::RenderOutput;
 use serde::{Deserialize, Serialize};
 
@@ -63,12 +65,20 @@ impl DynamicNes {
         }
     }
 
-    pub fn run_for_frame<RO: RenderOutput>(&mut self, render_output: &mut RO) {
+    pub fn run_for_frame_general<R: RunForCycles, O: RenderOutput>(
+        &mut self,
+        run: &mut R,
+        render_output: &mut O,
+    ) {
         match self {
-            DynamicNes::NromHorizontal(n) => n.run_for_frame(render_output, None),
-            DynamicNes::NromVertical(n) => n.run_for_frame(render_output, None),
-            DynamicNes::Mmc1(n) => n.run_for_frame(render_output, None),
+            DynamicNes::NromHorizontal(n) => n.run_for_frame_general(run, render_output, None),
+            DynamicNes::NromVertical(n) => n.run_for_frame_general(run, render_output, None),
+            DynamicNes::Mmc1(n) => n.run_for_frame_general(run, render_output, None),
         }
+    }
+
+    pub fn run_for_frame<RO: RenderOutput>(&mut self, render_output: &mut RO) {
+        self.run_for_frame_general(&mut RunForCyclesRegular, render_output);
     }
 
     pub fn controller1_mut(&mut self) -> &mut Controller {
@@ -76,6 +86,30 @@ impl DynamicNes {
             DynamicNes::NromHorizontal(n) => n.controller1_mut(),
             DynamicNes::NromVertical(n) => n.controller1_mut(),
             DynamicNes::Mmc1(n) => n.controller1_mut(),
+        }
+    }
+
+    pub fn analyse(&self) -> Analysis {
+        Analysis::analyse(self, self, None)
+    }
+}
+
+impl MemoryMap for DynamicNes {
+    fn normalise_function_call<MRO: MemoryReadOnly>(&self, a: Address, m: &MRO) -> Option<Address> {
+        match self {
+            DynamicNes::NromHorizontal(n) => n.mapper().normalise_function_call(a, m),
+            DynamicNes::NromVertical(n) => n.mapper().normalise_function_call(a, m),
+            DynamicNes::Mmc1(n) => n.mapper().normalise_function_call(a, m),
+        }
+    }
+}
+
+impl MemoryReadOnly for DynamicNes {
+    fn read_u8_read_only(&self, a: Address) -> u8 {
+        match self {
+            DynamicNes::NromHorizontal(n) => n.devices_with_oam().read_u8_read_only(a),
+            DynamicNes::NromVertical(n) => n.devices_with_oam().read_u8_read_only(a),
+            DynamicNes::Mmc1(n) => n.devices_with_oam().read_u8_read_only(a),
         }
     }
 }
