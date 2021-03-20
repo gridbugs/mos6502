@@ -105,6 +105,9 @@ fn program_controls(b: &mut Block, label: &str, original_function_address: Addre
     b.inst(Adc(ZeroPage), ZP_PIECE_COORD_Y);
     b.inst(Sta(ZeroPage), ZP_PIECE_COORD_Y);
 
+    b.inst(Lda(ZeroPage), 0xAF);
+    b.inst(Sta(ZeroPage), 0x45);
+
     b.label("controller-end");
 
     b.inst(Rts, ());
