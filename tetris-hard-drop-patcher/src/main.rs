@@ -1,6 +1,6 @@
 use ines::Ines;
 use mos6502_assembler::{Addr, Block, LabelRelativeOffset, LabelRelativeOffsetOwned};
-use mos6502_model::{address, interrupt_vector, Address};
+use mos6502_model::Address;
 
 const HINT_PATTERN_INDEX: u8 = 0xFA;
 const SHAPE_TABLE: Address = 0x8A9C;
@@ -10,11 +10,14 @@ const ZP_PIECE_SHAPE: u8 = 0x42;
 const BOARD_TILES: Address = 0x0400;
 const EMPTY_TILE: u8 = 0xEF;
 const BOARD_HEIGHT: u8 = 20;
+const CONTROLLER_STATE: u8 = 0xB6;
+const CONTROLLER_BIT_UP: u8 = 0x08;
 
-fn program_oam_dma_page_update(b: &mut Block, original_function_address: Address) {
+fn compute_hard_drop_distance(b: &mut Block, label: &str) {
     use mos6502_model::addressing_mode::*;
     use mos6502_model::assembler_instruction::*;
-    b.inst(Jsr(Absolute), original_function_address);
+
+    b.label(label);
 
     // Multiply the shape by 12 to make an offset into the shape table, storing the result in X
     b.inst(Lda(ZeroPage), ZP_PIECE_SHAPE);
@@ -78,8 +81,46 @@ fn program_oam_dma_page_update(b: &mut Block, original_function_address: Address
 
     b.label("end-hint-depth-loop");
 
-    // Pass the depth as an argument to render-hint
+    // Return depth via accumulator
     b.inst(Txa, ());
+    b.inst(Rts, ());
+}
+
+fn program_controls(b: &mut Block, label: &str, original_function_address: Address) {
+    use mos6502_model::addressing_mode::*;
+    use mos6502_model::assembler_instruction::*;
+
+    b.label(label);
+
+    b.inst(Jsr(Absolute), original_function_address);
+
+    b.inst(Lda(ZeroPage), CONTROLLER_STATE);
+    b.inst(And(Immediate), CONTROLLER_BIT_UP);
+    b.inst(Beq, LabelRelativeOffset("controller-end"));
+
+    b.inst(Jsr(Absolute), "compute-hard-drop-distance");
+
+    // The distance will now be in the accumulator
+    b.inst(Clc, ());
+    b.inst(Adc(ZeroPage), ZP_PIECE_COORD_Y);
+    b.inst(Sta(ZeroPage), ZP_PIECE_COORD_Y);
+
+    b.label("controller-end");
+
+    b.inst(Rts, ());
+}
+
+fn program_oam_dma_page_update(b: &mut Block, label: &str, original_function_address: Address) {
+    use mos6502_model::addressing_mode::*;
+    use mos6502_model::assembler_instruction::*;
+
+    b.label(label);
+
+    b.inst(Jsr(Absolute), original_function_address);
+
+    b.inst(Jsr(Absolute), "compute-hard-drop-distance");
+
+    // The distance will now be in the accumulator
     b.inst(Beq, LabelRelativeOffset("after-render-hint"));
     b.inst(Sta(ZeroPage), 0x28);
     b.inst(Jsr(Absolute), "render-hint");
@@ -206,40 +247,89 @@ fn modify_rom(ines: &mut Ines) {
     let mut block = Block::new();
     const SIZE: usize = 512;
     const BASE: Address = 0xD6E0;
-    const FUNCTION_TO_REDIRECT: Address = 0x8A0A;
-    let (code_to_replace, code_to_replace_with) = {
-        use mos6502_model::addressing_mode::*;
-        use mos6502_model::assembler_instruction::*;
-        let mut code_to_replace_block = Block::new();
-        code_to_replace_block.inst(Jsr(Absolute), FUNCTION_TO_REDIRECT);
-        let mut code_to_replace = Vec::new();
-        code_to_replace_block
-            .assemble(0, 3, &mut code_to_replace)
-            .unwrap();
-        let mut code_to_replace_with_block = Block::new();
-        code_to_replace_with_block.inst(Jsr(Absolute), BASE);
-        let mut code_to_replace_with = Vec::new();
-        code_to_replace_with_block
-            .assemble(0, 3, &mut code_to_replace_with)
-            .unwrap();
-        (code_to_replace, code_to_replace_with)
-    };
-    log::info!("Calls to redirect: {:X?}", code_to_replace);
-    let addresses_of_calls_to_replace = vec![0x8192, 0x817A];
-    for &address in &addresses_of_calls_to_replace {
-        let base = address as usize - 0x8000;
-        assert!(&ines.prg_rom[base..(base + code_to_replace.len())] == &code_to_replace);
-        &mut ines.prg_rom[base..(base + code_to_replace.len())]
-            .copy_from_slice(&code_to_replace_with);
-        log::info!(
-            "Replacing call at 0x{:X} with {:X?}",
-            address,
-            code_to_replace_with
-        );
-    }
-    program_oam_dma_page_update(&mut block, FUNCTION_TO_REDIRECT);
+    const EXISTING_DMA_PAGE_UPDATE_FUNCTION: Address = 0x8A0A;
+    const EXISTING_CONTROL_FUNCTION: Address = 0x89AE;
+    compute_hard_drop_distance(&mut block, "compute-hard-drop-distance");
+    program_oam_dma_page_update(
+        &mut block,
+        "oam-dma-page-update",
+        EXISTING_DMA_PAGE_UPDATE_FUNCTION,
+    );
+    program_controls(&mut block, "controls", EXISTING_CONTROL_FUNCTION);
     let mut code_buffer = Vec::new();
-    block.assemble(BASE, SIZE, &mut code_buffer).unwrap();
+    let assembled_block = block.assemble(BASE, SIZE, &mut code_buffer).unwrap();
+    {
+        let (code_to_replace, code_to_replace_with) = {
+            use mos6502_model::addressing_mode::*;
+            use mos6502_model::assembler_instruction::*;
+            let mut code_to_replace_block = Block::new();
+            code_to_replace_block.inst(Jsr(Absolute), EXISTING_DMA_PAGE_UPDATE_FUNCTION);
+            let mut code_to_replace = Vec::new();
+            code_to_replace_block
+                .assemble(0, 3, &mut code_to_replace)
+                .unwrap();
+            let mut code_to_replace_with_block = Block::new();
+            code_to_replace_with_block.inst(
+                Jsr(Absolute),
+                assembled_block
+                    .address_of_label("oam-dma-page-update")
+                    .unwrap(),
+            );
+            let mut code_to_replace_with = Vec::new();
+            code_to_replace_with_block
+                .assemble(0, 3, &mut code_to_replace_with)
+                .unwrap();
+            (code_to_replace, code_to_replace_with)
+        };
+        log::info!("Calls to redirect: {:X?}", code_to_replace);
+        let addresses_of_calls_to_replace = vec![0x8192, 0x817A];
+        for &address in &addresses_of_calls_to_replace {
+            let base = address as usize - 0x8000;
+            assert!(&ines.prg_rom[base..(base + code_to_replace.len())] == &code_to_replace);
+            &mut ines.prg_rom[base..(base + code_to_replace.len())]
+                .copy_from_slice(&code_to_replace_with);
+            log::info!(
+                "Replacing call at 0x{:X} with {:X?}",
+                address,
+                code_to_replace_with
+            );
+        }
+    }
+    {
+        let (code_to_replace, code_to_replace_with) = {
+            use mos6502_model::addressing_mode::*;
+            use mos6502_model::assembler_instruction::*;
+            let mut code_to_replace_block = Block::new();
+            code_to_replace_block.inst(Jsr(Absolute), EXISTING_CONTROL_FUNCTION);
+            let mut code_to_replace = Vec::new();
+            code_to_replace_block
+                .assemble(0, 3, &mut code_to_replace)
+                .unwrap();
+            let mut code_to_replace_with_block = Block::new();
+            code_to_replace_with_block.inst(
+                Jsr(Absolute),
+                assembled_block.address_of_label("controls").unwrap(),
+            );
+            let mut code_to_replace_with = Vec::new();
+            code_to_replace_with_block
+                .assemble(0, 3, &mut code_to_replace_with)
+                .unwrap();
+            (code_to_replace, code_to_replace_with)
+        };
+        log::info!("Calls to redirect: {:X?}", code_to_replace);
+        let addresses_of_calls_to_replace = vec![0x81CF];
+        for &address in &addresses_of_calls_to_replace {
+            let base = address as usize - 0x8000;
+            assert!(&ines.prg_rom[base..(base + code_to_replace.len())] == &code_to_replace);
+            &mut ines.prg_rom[base..(base + code_to_replace.len())]
+                .copy_from_slice(&code_to_replace_with);
+            log::info!(
+                "Replacing call at 0x{:X} with {:X?}",
+                address,
+                code_to_replace_with
+            );
+        }
+    }
     let prg_start = BASE as usize - 0x8000;
     let to_replace_slice = &mut ines.prg_rom[prg_start..(prg_start + SIZE)];
     to_replace_slice.copy_from_slice(&code_buffer);

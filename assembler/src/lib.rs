@@ -213,7 +213,16 @@ impl Block {
         self.literal_byte(assembler_instruction::Jmp::<addressing_mode::Absolute>::opcode());
         self.literal_offset_le(offset);
     }
-    pub fn assemble(&self, base: Address, size: usize, buffer: &mut Vec<u8>) -> Result<(), Error> {
+    pub fn assemble(
+        &self,
+        base: Address,
+        size: usize,
+        buffer: &mut Vec<u8>,
+    ) -> Result<AssembledBlock, Error> {
+        let mut labels = HashMap::new();
+        for (label, address) in self.labels.iter() {
+            labels.insert(label.clone(), address + base);
+        }
         buffer.resize(size, 0);
         for &DataAtOffset { offset, ref data } in self.program.iter() {
             match data {
@@ -282,6 +291,16 @@ impl Block {
                 }
             }
         }
-        Ok(())
+        Ok(AssembledBlock { labels })
+    }
+}
+
+pub struct AssembledBlock {
+    labels: HashMap<String, Address>,
+}
+
+impl AssembledBlock {
+    pub fn address_of_label(&self, label: &str) -> Option<Address> {
+        self.labels.get(label).cloned()
     }
 }
