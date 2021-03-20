@@ -1821,6 +1821,7 @@ pub mod lda {
         fn read_data_with_cycles<M: Memory>(cpu: &Cpu, memory: &mut M) -> DataWithCycles {
             let (data, page_boundary_cross) =
                 Self::read_data_check_cross_page_boundary(cpu, memory);
+            println!("lda x indexed reads 0x{:X}", data);
             DataWithCycles {
                 data,
                 cycles: 4u8.wrapping_add(page_boundary_cross as u8),

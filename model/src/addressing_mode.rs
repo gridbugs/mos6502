@@ -68,6 +68,7 @@ impl AbsoluteXIndexed {
     }
     pub fn read_data_check_cross_page_boundary<M: Memory>(cpu: &Cpu, memory: &mut M) -> (u8, bool) {
         let (address, cross_page_boundary) = Self::address_check_cross_page_boundary(cpu, memory);
+        println!("reading from 0x{:X}", address);
         (memory.read_u8(address), cross_page_boundary)
     }
 }
