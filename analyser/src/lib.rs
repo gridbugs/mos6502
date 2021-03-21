@@ -201,7 +201,7 @@ fn trace_function_definition<M: MemoryReadOnly>(
             }
         }
     }
-    steps.sort_by_key(|s| s.address());
+
     FunctionTrace { steps }
 }
 

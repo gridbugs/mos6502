@@ -7,7 +7,6 @@ use nes_render_output::NoRenderOutput;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fs::File;
-use std::io::Write;
 
 struct Args {
     rom_path: String,
@@ -160,72 +159,104 @@ impl fmt::Display for TraceRun {
     }
 }
 
+struct State {
+    gif_renderer: GifRenderer<File>,
+    frame: GifFrame,
+    nes: DynamicNes,
+    trace_run: TraceRun,
+}
+
+impl State {
+    fn wait(&mut self, n: u64) {
+        for _ in 0..n {
+            self.frame.clear();
+            self.nes
+                .run_for_frame_general(&mut self.trace_run, &mut self.frame);
+            self.gif_renderer.add(&self.frame);
+        }
+    }
+}
+
 fn main() {
     use meap::Parser;
     let args = Args::parser().with_help_default().parse_env_or_exit();
     let ines = ines_from_file(args.rom_path.as_str());
     let mut nes = DynamicNes::from_ines(&ines).unwrap();
     let mut trace_run = TraceRun::new();
-    start_game(&mut nes, 0, &mut trace_run);
-    let mut renderer = GifRenderer::new(File::create(args.gif_path.as_str()).unwrap());
-    let mut frame = GifFrame::new();
-    for _ in 0..5000 {
-        frame.clear();
-        nes.run_for_frame_general(&mut trace_run, &mut frame);
-        renderer.add(&frame);
-    }
-    println!("{}", trace_run);
+    start_game(&mut nes, 2, &mut trace_run);
+    let gif_renderer = GifRenderer::new(File::create(args.gif_path.as_str()).unwrap());
+    let frame = GifFrame::new();
     let analysis = nes.analyse();
     {
-        /*
-        let (&likely_idle_address, _) = trace_run
-            .nmi_address_histogram
-            .counts
-            .iter()
-            .max_by_key(|(_address, count)| *count)
-            .unwrap();
-        let functions_containing_idle_address = analysis
-            .functions_containing_address(likely_idle_address)
-            .collect::<Vec<_>>();
-        println!("Functions containing idle address:",);
-        for address in &functions_containing_idle_address {
-            println!("0x{:X}", address);
-        }
-        let mut called_by_idle = File::create("/tmp/called-by-idle.dot").unwrap();
-        write!(
-            &mut called_by_idle,
-            "{}",
-            analysis
-                .call_graph()
-                .by_caller()
-                .descendants_of(functions_containing_idle_address[0])
-                .dot_string()
-        )
-        .unwrap(); */
-    }
-    {
-        let mut file = File::create("/tmp/physics.dot").unwrap();
-        write!(
-            &mut file,
-            "{}",
-            analysis
-                .call_graph()
-                .by_caller()
-                .descendants_of(0x9D17)
-                .dot_string()
-        )
-        .unwrap();
-    }
-    {
+        use std::io::Write;
         let mut file = File::create("/tmp/functions.txt").unwrap();
         for (address, trace) in analysis.function_traces() {
             write!(&mut file, "0x{:X}:\n{}\n", address, trace).unwrap();
         }
     }
-    {
-        for i in 0..256 {
-            let byte = nes.read_u8_read_only(0x8A9C + i);
-            println!("{:X}", byte);
-        }
-    }
+    let mut state = State {
+        gif_renderer,
+        frame,
+        nes,
+        trace_run,
+    };
+    state.wait(120);
+    state.nes.controller1_mut().set_a();
+    state.wait(10);
+    state.nes.controller1_mut().clear_a();
+    state.wait(10);
+    state.nes.controller1_mut().set_a();
+    state.wait(10);
+    state.nes.controller1_mut().clear_a();
+    state.wait(10);
+    state.nes.controller1_mut().set_left();
+    state.wait(40);
+    state.nes.controller1_mut().clear_left();
+    state.wait(10);
+    state.nes.controller1_mut().set_down();
+    state.wait(100);
+    state.nes.controller1_mut().clear_down();
+    state.wait(10);
+    state.nes.controller1_mut().set_left();
+    state.wait(10);
+    state.nes.controller1_mut().clear_left();
+    state.wait(10);
+    state.nes.controller1_mut().set_a();
+    state.wait(10);
+    state.nes.controller1_mut().clear_a();
+    state.wait(10);
+    state.nes.controller1_mut().set_a();
+    state.wait(10);
+    state.nes.controller1_mut().clear_a();
+    state.wait(10);
+    state.nes.controller1_mut().set_down();
+    state.wait(100);
+    state.nes.controller1_mut().clear_down();
+    state.wait(10);
+    state.nes.controller1_mut().set_b();
+    state.wait(10);
+    state.nes.controller1_mut().clear_b();
+    state.wait(10);
+    state.nes.controller1_mut().set_b();
+    state.wait(10);
+    state.nes.controller1_mut().clear_b();
+    state.wait(10);
+    state.nes.controller1_mut().set_right();
+    state.wait(30);
+    state.nes.controller1_mut().clear_right();
+    state.wait(10);
+    state.nes.controller1_mut().set_down();
+    state.wait(100);
+    state.nes.controller1_mut().clear_down();
+    state.nes.controller1_mut().set_b();
+    state.wait(10);
+    state.nes.controller1_mut().clear_b();
+    state.wait(10);
+    state.nes.controller1_mut().set_right();
+    state.wait(10);
+    state.nes.controller1_mut().clear_right();
+    state.wait(10);
+    state.nes.controller1_mut().set_down();
+    state.wait(100);
+    state.nes.controller1_mut().clear_down();
 }

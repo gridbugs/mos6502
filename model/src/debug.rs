@@ -430,7 +430,7 @@ impl fmt::Display for InstructionWithOperand {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{:04X}  {:?}({:?}) ",
+            "0x{:04X}  {:?}({:?}) ",
             self.address, self.instruction.instruction_type, self.instruction.addressing_mode
         )?;
         match self.operand.as_slice() {
