@@ -1,8 +1,13 @@
 [package]
 name = "nes-tetris-hard-drop-patcher"
+description = "Tool for modifying the NES Tetris rom to support hard drop"
 version = "0.1.0"
 authors = ["Stephen Sherratt <stephen@sherra.tt>"]
 edition = "2018"
+license = "MIT"
+readme = "README.md"
+homepage = "https://gitlab.com/stevebob/mos6502/-/tree/master/tetris-hard-drop-patcher"
+repository = "https://gitlab.com/stevebob/mos6502.git"
 
 [dependencies]
 env_logger = "0.8"
