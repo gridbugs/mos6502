@@ -1,7 +1,7 @@
 [package]
 name = "nes-tetris-hard-drop-patcher"
 description = "Tool for modifying the NES Tetris rom to support hard drop"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Stephen Sherratt <stephen@sherra.tt>"]
 edition = "2018"
 license = "MIT"
