@@ -1,5 +1,5 @@
 [package]
-name = "tetris-hard-drop-patcher"
+name = "nes-tetris-hard-drop-patcher"
 version = "0.1.0"
 authors = ["Stephen Sherratt <stephen@sherra.tt>"]
 edition = "2018"
@@ -7,6 +7,6 @@ edition = "2018"
 [dependencies]
 env_logger = "0.8"
 log = "0.4"
-ines = { version = "0.1", path = "../ines" }
-mos6502_model = { path = "../model" }
-mos6502_assembler = { version = "0.1", path = "../assembler" }
+ines = { version = "0.2", path = "../ines" }
+mos6502_model = { version = "0.2", path = "../model" }
+mos6502_assembler = { version = "0.2", path = "../assembler" }

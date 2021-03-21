@@ -210,7 +210,7 @@ checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
 name = "conway-nes"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "env_logger",
  "ines",
@@ -746,7 +746,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
 name = "ines"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "log",
 ]
@@ -960,14 +960,14 @@ dependencies = [
 
 [[package]]
 name = "mos6502_assembler"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "mos6502_model",
 ]
 
 [[package]]
 name = "mos6502_model"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "log",
  "serde",
@@ -1031,6 +1031,17 @@ name = "ndk-sys"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c44922cb3dbb1c70b5e5f443d63b64363a898564d739ba5198e3a9138442868d"
+
+[[package]]
+name = "nes-tetris-hard-drop-patcher"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "ines",
+ "log",
+ "mos6502_assembler",
+ "mos6502_model",
+]
 
 [[package]]
 name = "nes_emulator"
@@ -1540,17 +1551,6 @@ dependencies = [
  "mos6502_model",
  "nes_emulator_core",
  "nes_render_output",
-]
-
-[[package]]
-name = "tetris-hard-drop-patcher"
-version = "0.1.0"
-dependencies = [
- "env_logger",
- "ines",
- "log",
- "mos6502_assembler",
- "mos6502_model",
 ]
 
 [[package]]

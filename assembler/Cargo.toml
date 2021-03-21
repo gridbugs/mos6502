@@ -1,7 +1,7 @@
 [package]
 name = "mos6502_assembler"
 description = "DSL for MOS6502 assembly"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Stephen Sherratt <stephen@sherra.tt>"]
 license = "MIT"
 readme = "README.md"
@@ -12,4 +12,4 @@ documentation = "https://docs.rs/mos6502_assembler"
 
 
 [dependencies]
-mos6502_model = { version = "0.1", path = "../model" }
+mos6502_model = { version = "0.2", path = "../model" }

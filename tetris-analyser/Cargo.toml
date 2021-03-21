@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 meap = "0.4"
-ines = { version = "0.1", path = "../ines" }
+ines = { path = "../ines" }
 nes_emulator_core = { path = "../nes-emulator-core" }
 nes_render_output = { path = "../nes-render-output" }
 gif_renderer = { path = "../gif-renderer" }
