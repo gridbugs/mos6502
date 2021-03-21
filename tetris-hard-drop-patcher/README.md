@@ -10,3 +10,7 @@ $ fceux tetris-hard-drop.nes     # fceux is a NES emulator
 
 ```
 ![demo](/tetris-hard-drop-patcher/demo.gif)
+
+## IPS Patch
+
+Download the IPS patch that applies this change [here](/tetris-hard-drop-patcher/tetris-hard-drop.ips).
