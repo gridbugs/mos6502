@@ -1039,6 +1039,7 @@ dependencies = [
  "env_logger",
  "ines",
  "log",
+ "meap",
  "mos6502_assembler",
  "mos6502_model",
 ]

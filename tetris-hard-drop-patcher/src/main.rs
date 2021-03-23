@@ -101,21 +101,56 @@ fn program_controls(b: &mut Block, label: &str, original_function_address: Addre
     b.inst(Jsr(Absolute), "compute-hard-drop-distance");
 
     // The distance will now be in the accumulator
+
+    // Copy the distance into X - it will later be used to compute the score
+    b.inst(Tax, ());
+
+    // Add the distance to the Y coordinate of the piece
     b.inst(Clc, ());
     b.inst(Adc(ZeroPage), ZP_PIECE_COORD_Y);
     b.inst(Sta(ZeroPage), ZP_PIECE_COORD_Y);
 
+    // Update timers so there is no delay
     b.inst(Lda(Immediate), 0x00);
     b.inst(Sta(ZeroPage), 0x4E);
     b.inst(Lda(ZeroPage), 0xAF);
     b.inst(Sta(ZeroPage), 0x45);
+
+    // The score for hard dropping is the number of spaces the piece moved
+    // before landing. The code for updating the score expects 0x4F to be set to
+    // a decimal-looking value that is then added to the score.
+    b.inst(Lda(Immediate), 1);
+    b.label("score-loop-start");
+
+    b.inst(Clc, ());
+    b.inst(Adc(Immediate), 1);
+
+    b.inst(Cmp(Immediate), 0x0A);
+    b.inst(Bne, LabelRelativeOffset("skip-10"));
+    b.inst(Lda(Immediate), 0x10);
+    b.label("skip-10");
+
+    b.inst(Cmp(Immediate), 0x1A);
+    b.inst(Bne, LabelRelativeOffset("skip-20"));
+    b.inst(Lda(Immediate), 0x20);
+    b.label("skip-20");
+
+    b.inst(Dex, ());
+    b.inst(Bne, LabelRelativeOffset("score-loop-start"));
+
+    b.inst(Sta(ZeroPage), 0x4F);
 
     b.label("controller-end");
 
     b.inst(Rts, ());
 }
 
-fn program_oam_dma_page_update(b: &mut Block, label: &str, original_function_address: Address) {
+fn program_oam_dma_page_update(
+    b: &mut Block,
+    label: &str,
+    original_function_address: Address,
+    args: &Args,
+) {
     use mos6502_model::addressing_mode::*;
     use mos6502_model::assembler_instruction::*;
 
@@ -123,13 +158,15 @@ fn program_oam_dma_page_update(b: &mut Block, label: &str, original_function_add
 
     b.inst(Jsr(Absolute), original_function_address);
 
-    b.inst(Jsr(Absolute), "compute-hard-drop-distance");
+    if !args.hide_ghost_piece {
+        b.inst(Jsr(Absolute), "compute-hard-drop-distance");
 
-    // The distance will now be in the accumulator
-    b.inst(Beq, LabelRelativeOffset("after-render-hint"));
-    b.inst(Sta(ZeroPage), 0x28);
-    b.inst(Jsr(Absolute), "render-hint");
-    b.label("after-render-hint");
+        // The distance will now be in the accumulator
+        b.inst(Beq, LabelRelativeOffset("after-render-hint"));
+        b.inst(Sta(ZeroPage), 0x28);
+        b.inst(Jsr(Absolute), "render-hint");
+        b.label("after-render-hint");
+    }
 
     b.inst(Rts, ());
 
@@ -248,7 +285,7 @@ fn add_hint_chr(ines: &mut Ines) {
     chr_slice[7] = 0b00000000;
 }
 
-fn modify_rom(ines: &mut Ines) {
+fn modify_rom(ines: &mut Ines, args: &Args) {
     let mut block = Block::new();
     const SIZE: usize = 512;
     const BASE: Address = 0xD6E0;
@@ -259,6 +296,7 @@ fn modify_rom(ines: &mut Ines) {
         &mut block,
         "oam-dma-page-update",
         EXISTING_DMA_PAGE_UPDATE_FUNCTION,
+        args,
     );
     program_controls(&mut block, "controls", EXISTING_CONTROL_FUNCTION);
     let mut code_buffer = Vec::new();
@@ -341,9 +379,29 @@ fn modify_rom(ines: &mut Ines) {
     add_hint_chr(ines);
 }
 
+struct Args {
+    hide_ghost_piece: bool,
+}
+
+impl Args {
+    fn parser() -> impl meap::Parser<Item = Self> {
+        meap::let_map! {
+            let {
+                hide_ghost_piece = flag('g').name("hide-ghost-piece").desc("hide the ghost piece");
+            } in {
+                Self {
+                    hide_ghost_piece,
+                }
+            }
+        }
+    }
+}
+
 fn main() {
     use std::io::{self, Read, Write};
     env_logger::init();
+    use meap::Parser;
+    let args = Args::parser().with_help_default().parse_env_or_exit();
     let mut buffer = Vec::new();
     let stdin = io::stdin();
     let mut handle = stdin.lock();
@@ -351,7 +409,7 @@ fn main() {
         .read_to_end(&mut buffer)
         .expect("Failed to read rom from stdin");
     let mut ines = Ines::parse(&buffer).unwrap();
-    modify_rom(&mut ines);
+    modify_rom(&mut ines, &args);
     let mut encoded = Vec::new();
     ines.encode(&mut encoded);
     std::io::stdout()
