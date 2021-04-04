@@ -33,7 +33,6 @@ Run the emulator on a Legend of Zelda ROM, specifying a file to store the state.
 
 ```
 cargo run -- --rom-file /path/to/zelda-rom.nes --save-state-file /tmp/zelda.sav
-
 ```
 
 The game starts with a splash screen:
