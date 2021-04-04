@@ -38,7 +38,7 @@ cargo run -- --rom-file /path/to/zelda-rom.nes --save-state-file /tmp/zelda.sav
 
 The game starts with a splash screen:
 
-![Zelda Splash](images/zelda-spash.png)
+![Zelda Splash](images/zelda-splash.png)
 
 After about 15 seconds the splash screen will fade out to black, and shortly thereafter
 the scrolling text will appear. Before the text appears, press `s` to record a save state,
