@@ -8,12 +8,10 @@ use mos6502_model::machine::{Address, Cpu, Memory, MemoryReadOnly};
 use nes_name_table_debug::NameTableFrame;
 use nes_render_output::RenderOutput;
 use serde::{Deserialize, Serialize};
-use serde_big_array::big_array;
+use serde_big_array::BigArray;
 use std::io::{self, Write};
 
 const RAM_BYTES: usize = 0x800;
-
-big_array! { BigArray; }
 
 #[derive(Clone, Serialize, Deserialize)]
 struct NesDevices<M: Mapper> {

@@ -10,9 +10,7 @@ use crate::ppu::{name_table_mirroring, NAME_TABLE_BYTES};
 use analyser::MemoryMap;
 use mos6502_model::{machine::MemoryReadOnly, Address};
 use serde::{Deserialize, Serialize};
-use serde_big_array::big_array;
-
-big_array! { BigArray; }
+use serde_big_array::BigArray;
 
 const PRG_ROM_BYTES: usize = 32 * 1024;
 const CHR_ROM_BYTES: usize = 8 * 1024;

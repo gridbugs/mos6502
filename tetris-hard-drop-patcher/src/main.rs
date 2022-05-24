@@ -329,7 +329,7 @@ fn modify_rom(ines: &mut Ines, args: &Args) {
         for &address in &addresses_of_calls_to_replace {
             let base = address as usize - 0x8000;
             assert!(&ines.prg_rom[base..(base + code_to_replace.len())] == &code_to_replace);
-            &mut ines.prg_rom[base..(base + code_to_replace.len())]
+            ines.prg_rom[base..(base + code_to_replace.len())]
                 .copy_from_slice(&code_to_replace_with);
             log::info!(
                 "Replacing call at 0x{:X} with {:X?}",
@@ -364,7 +364,7 @@ fn modify_rom(ines: &mut Ines, args: &Args) {
         for &address in &addresses_of_calls_to_replace {
             let base = address as usize - 0x8000;
             assert!(&ines.prg_rom[base..(base + code_to_replace.len())] == &code_to_replace);
-            &mut ines.prg_rom[base..(base + code_to_replace.len())]
+            ines.prg_rom[base..(base + code_to_replace.len())]
                 .copy_from_slice(&code_to_replace_with);
             log::info!(
                 "Replacing call at 0x{:X} with {:X?}",
