@@ -219,7 +219,7 @@ checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 name = "conway-nes"
 version = "0.1.1"
 dependencies = [
- "env_logger 0.8.3",
+ "env_logger",
  "ines",
  "mos6502_assembler",
  "mos6502_model",
@@ -385,19 +385,6 @@ name = "downcast-rs"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
-
-[[package]]
-name = "env_logger"
-version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17392a012ea30ef05a610aa97dfb49496e71c9f676b27879922ea5bdf60d9d3f"
-dependencies = [
- "atty",
- "humantime",
- "log",
- "regex",
- "termcolor",
-]
 
 [[package]]
 name = "env_logger"
@@ -834,7 +821,7 @@ checksum = "e1bcdd74c20ad5d95aacd60ef9ba40fdf77f767051040541df557b7a9b2a2121"
 name = "nes-tetris-hard-drop-patcher"
 version = "0.1.2"
 dependencies = [
- "env_logger 0.8.3",
+ "env_logger",
  "ines",
  "log",
  "meap",
@@ -847,7 +834,7 @@ name = "nes_emulator"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "env_logger 0.9.0",
+ "env_logger",
  "gif_renderer",
  "graphical_frontend",
  "ines",
@@ -1187,12 +1174,11 @@ dependencies = [
 
 [[package]]
 name = "serde-big-array"
-version = "0.3.2"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18b20e7752957bbe9661cff4e0bb04d183d0948cdab2ea58cdb9df36a61dfe62"
+checksum = "3323f09a748af288c3dc2474ea6803ee81f118321775bffa3ac8f7e65c5e90e7"
 dependencies = [
  "serde",
- "serde_derive",
 ]
 
 [[package]]

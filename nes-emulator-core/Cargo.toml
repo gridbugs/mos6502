@@ -16,5 +16,5 @@ analyser = { path = "../analyser" }
 nes_name_table_debug = { path = "../nes-name-table-debug" }
 nes_render_output = { path = "../nes-render-output" }
 serde = { version = "1.0", features = ["serde_derive"] }
-serde-big-array = "0.3"
+serde-big-array = "0.4"
 bincode = "1.1"
