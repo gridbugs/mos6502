@@ -24,7 +24,7 @@ pub trait AppTrait {
 
 pub struct Frontend {
     window: winit::window::Window,
-    pixels: pixels::Pixels<winit::window::Window>,
+    pixels: pixels::Pixels,
     event_loop: winit::event_loop::EventLoop<()>,
     colour_table: ColourTable,
     depths: [u8; nes_specs::SCREEN_TOTAL_PX as usize],
@@ -48,11 +48,12 @@ impl Frontend {
         let physical_width = physical_size.width.round() as u32;
         let physical_height = physical_size.height.round() as u32;
         let surface_texture = pixels::SurfaceTexture::new(physical_width, physical_height, &window);
-        let pixels = pixels::Pixels::new(
+        let pixels = pixels::PixelsBuilder::new(
             nes_specs::SCREEN_WIDTH_PX as u32,
             nes_specs::SCREEN_HEIGHT_PX as u32,
             surface_texture,
         )
+        .build()
         .unwrap();
         let colour_table = ColourTable::new();
         let depths = [depth::EMPTY; nes_specs::SCREEN_TOTAL_PX as usize];

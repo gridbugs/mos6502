@@ -5,8 +5,8 @@ authors = ["Stephen Sherratt <stephen@sherra.tt>"]
 edition = "2018"
 
 [dependencies]
-pixels = "0.2"
-winit = "0.24"
+pixels = "0.9"
+winit = "0.26"
 nes_specs = { path = "../nes-specs" }
 nes_palette = { path = "../nes-palette" }
 nes_render_output = { path = "../nes-render-output" }

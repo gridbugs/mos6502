@@ -36,7 +36,7 @@
             rust-analyzer
             cargo-watch
 
-            # Graphics and Audio Dependencies
+            # Graphics Dependencies
             xorg.libX11
             xorg.libXcursor
             xorg.libXrandr

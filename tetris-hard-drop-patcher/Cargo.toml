@@ -10,7 +10,7 @@ homepage = "https://gitlab.com/stevebob/mos6502/-/tree/master/tetris-hard-drop-p
 repository = "https://gitlab.com/stevebob/mos6502.git"
 
 [dependencies]
-meap = "0.4"
+meap = "0.5"
 env_logger = "0.8"
 log = "0.4"
 ines = { version = "0.2", path = "../ines" }

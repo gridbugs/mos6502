@@ -5,7 +5,7 @@ authors = ["Stephen Sherratt <stephen@sherra.tt>"]
 edition = "2018"
 
 [dependencies]
-meap = "0.4"
+meap = "0.5"
 ines = { path = "../ines" }
 nes_emulator_core = { path = "../nes-emulator-core" }
 nes_render_output = { path = "../nes-render-output" }
