@@ -6,8 +6,8 @@ authors = ["Stephen Sherratt <stephen@sherra.tt>"]
 edition = "2018"
 license = "MIT"
 readme = "README.md"
-homepage = "https://gitlab.com/stevebob/mos6502/-/tree/master/conway"
-repository = "https://gitlab.com/stevebob/mos6502.git"
+homepage = "https://gitlab.com/gridbugs/mos6502/-/tree/main/conway"
+repository = "https://gitlab.com/gridbugs/mos6502.git"
 
 [dependencies]
 env_logger = "0.9"

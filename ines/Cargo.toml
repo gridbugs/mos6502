@@ -6,8 +6,8 @@ authors = ["Stephen Sherratt <stephen@sherra.tt>"]
 license = "MIT"
 readme = "README.md"
 edition = "2018"
-homepage = "https://gitlab.com/stevebob/mos6502.git"
-repository = "https://gitlab.com/stevebob/mos6502.git"
+homepage = "https://gitlab.com/gridbugs/mos6502.git"
+repository = "https://gitlab.com/gridbugs/mos6502.git"
 documentation = "https://docs.rs/ines"
 
 [dependencies]
