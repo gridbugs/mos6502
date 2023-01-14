@@ -2,11 +2,11 @@
 name = "graphical_frontend"
 version = "0.1.0"
 authors = ["Stephen Sherratt <stephen@sherra.tt>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-pixels = "0.9"
-winit = "0.26"
+pixels = "0.11"
+winit = "0.27"
 nes_specs = { path = "../nes-specs" }
 nes_palette = { path = "../nes-palette" }
 nes_render_output = { path = "../nes-render-output" }

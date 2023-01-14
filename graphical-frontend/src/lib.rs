@@ -90,7 +90,7 @@ impl Frontend {
                 winit::event::Event::MainEventsCleared => {
                     let app_control_flow = app.tick(Pixels {
                         colour_table: &colour_table,
-                        frame: pixels.get_frame(),
+                        frame: pixels.get_frame_mut(),
                         depths: &mut depths,
                     });
                     if app_control_flow.is_none() {

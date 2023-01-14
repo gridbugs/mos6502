@@ -2,7 +2,7 @@
 name = "nes_palette"
 version = "0.1.0"
 authors = ["Stephen Sherratt <stephen@sherra.tt>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 rgb24 = "0.3"

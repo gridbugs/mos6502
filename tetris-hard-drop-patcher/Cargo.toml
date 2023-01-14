@@ -3,7 +3,7 @@ name = "nes-tetris-hard-drop-patcher"
 description = "Tool for modifying the NES Tetris rom to support hard drop"
 version = "0.1.2"
 authors = ["Stephen Sherratt <stephen@sherra.tt>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 readme = "README.md"
 homepage = "https://gitlab.com/gridbugs/mos6502/-/tree/main/tetris-hard-drop-patcher"
@@ -11,7 +11,7 @@ repository = "https://gitlab.com/gridbugs/mos6502.git"
 
 [dependencies]
 meap = "0.5"
-env_logger = "0.9"
+env_logger = "0.10"
 log = "0.4"
 ines = { version = "0.2", path = "../ines" }
 mos6502_model = { version = "0.2", path = "../model" }

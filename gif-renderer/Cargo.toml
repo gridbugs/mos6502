@@ -2,7 +2,7 @@
 name = "gif_renderer"
 version = "0.1.0"
 authors = ["Stephen Sherratt <stephen@sherra.tt>"]
-edition = "2018"
+edition = "2021"
 
 [features]
 background_pixel_ages = ["nes_headless_frame/background_pixel_ages"]
@@ -13,4 +13,4 @@ nes_specs = { path = "../nes-specs" }
 nes_palette = { path = "../nes-palette" }
 nes_name_table_debug = { path = "../nes-name-table-debug" }
 nes_render_output = { path = "../nes-render-output" }
-gif = "0.11"
+gif = "0.12"
