@@ -54,6 +54,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "apu-experiment"
+version = "0.1.0"
+dependencies = [
+ "ines",
+ "mos6502_assembler",
+ "mos6502_model",
+]
+
+[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"

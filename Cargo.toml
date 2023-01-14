@@ -4,6 +4,7 @@ resolver = "2"
 
 members = [
     "analyser",
+    "apu-experiment",
     "assembler",
     "gif-renderer",
     "graphical-frontend",

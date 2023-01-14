@@ -1,0 +1,9 @@
+[package]
+name = "apu-experiment"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mos6502_assembler = { version = "0.2", path = "../assembler" }
+mos6502_model = { version = "0.2", path = "../model" }
+ines = { version = "0.2", path = "../ines" }
