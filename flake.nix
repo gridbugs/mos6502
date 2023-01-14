@@ -37,6 +37,7 @@
             cargo-watch
 
             # Graphics Dependencies
+            fontconfig
             xorg.libX11
             xorg.libXcursor
             xorg.libXrandr
