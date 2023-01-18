@@ -110,7 +110,7 @@ fn program(b: &mut Block) {
 
     b.inst(Lda(Immediate), 1 << 7);
     b.inst(Bit(ZeroPage), 0);
-    b.inst(Beq, LabelRelativeOffset("end-of-audio"));
+    b.inst(Beq, LabelRelativeOffset("end-of-audio1"));
 
     // enable triangle channel
     b.inst(Lda(Immediate), 1 << 2);
@@ -122,7 +122,27 @@ fn program(b: &mut Block) {
     b.inst(Lda(Immediate), 0x1E << 3);
     b.inst(Sta(Absolute), Addr(0x400B));
 
-    b.label("end-of-audio");
+    b.label("end-of-audio1");
+
+    b.inst(Lda(Immediate), 1 << 6);
+    b.inst(Bit(ZeroPage), 0);
+    b.inst(Bne, LabelRelativeOffset("skip-jump-to-end-of-audio2"));
+    b.inst(Jmp(Absolute), "end-of-audio2");
+    b.label("skip-jump-to-end-of-audio2");
+    b.inst(Lda(Immediate), 1 << 4);
+    b.inst(Sta(Absolute), Addr(0x4015));
+
+    b.label("start-of-audio2");
+
+    for i in 0..678 {
+        let offset = (i as f64 * ::std::f64::consts::PI * 2_f64) / 678_f64;
+        let value = (((offset.sin() + 1_f64) / 2_f64) * 127_f64) as u8;
+        b.inst(Lda(Immediate), value);
+        b.inst(Sta(Absolute), Addr(0x4011));
+    }
+    b.inst(Jmp(Absolute), "start-of-audio2");
+
+    b.label("end-of-audio2");
 
     // fix scroll
 
