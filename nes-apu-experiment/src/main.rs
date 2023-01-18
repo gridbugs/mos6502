@@ -108,6 +108,22 @@ fn program(b: &mut Block) {
 
     // end of debugging tiles
 
+    b.inst(Lda(Immediate), 1 << 7);
+    b.inst(Bit(ZeroPage), 0);
+    b.inst(Beq, LabelRelativeOffset("end-of-audio"));
+
+    // enable triangle channel
+    b.inst(Lda(Immediate), 1 << 2);
+    b.inst(Sta(Absolute), Addr(0x4015));
+    b.inst(Lda(Immediate), 0x7F);
+    b.inst(Sta(Absolute), Addr(0x4008));
+    b.inst(Lda(Immediate), 0xFF);
+    b.inst(Sta(Absolute), Addr(0x400A));
+    b.inst(Lda(Immediate), 0x1E << 3);
+    b.inst(Sta(Absolute), Addr(0x400B));
+
+    b.label("end-of-audio");
+
     // fix scroll
 
     b.inst(Lda(Immediate), 0);

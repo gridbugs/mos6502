@@ -4,7 +4,6 @@ resolver = "2"
 
 members = [
     "analyser",
-    "apu-experiment",
     "assembler",
     "gif-renderer",
     "graphical-frontend",
@@ -18,6 +17,7 @@ members = [
     "nes-render-output",
     "nes-palette",
     "nes-samples",
+    "nes-apu-experiment",
     "samples",
     "butterfly",
     "conway",

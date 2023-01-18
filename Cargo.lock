@@ -54,15 +54,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "apu-experiment"
-version = "0.1.0"
-dependencies = [
- "ines",
- "mos6502_assembler",
- "mos6502_model",
-]
-
-[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -986,6 +977,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3cf2aae958bd232cac5069850591667ad422d263686d75b52a065f9badeee5a3"
 dependencies = [
  "jni-sys",
+]
+
+[[package]]
+name = "nes-apu-experiment"
+version = "0.1.0"
+dependencies = [
+ "ines",
+ "mos6502_assembler",
+ "mos6502_model",
 ]
 
 [[package]]
