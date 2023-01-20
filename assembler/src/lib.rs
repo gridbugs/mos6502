@@ -137,6 +137,9 @@ impl Block {
     pub fn set_offset(&mut self, offset: Address) {
         self.cursor_offset = offset;
     }
+    pub fn offset(&self) -> Address {
+        self.cursor_offset
+    }
     pub fn literal_byte(&mut self, byte: u8) {
         self.program.push(DataAtOffset {
             data: Data::LiteralByte(byte),
